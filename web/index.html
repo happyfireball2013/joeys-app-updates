@@ -18,6 +18,11 @@ img{max-width:100%}
 .ai-src{margin:0 0 2px;font:500 .68rem/1.2 "DM Mono",monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
 .ai-wait{margin:8px 4px 0;font-size:.85rem;color:var(--ink-2)}
 .ai-why{margin:0 0 6px;font-size:.8rem;color:var(--ink-2)}
+#ptr{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top,0px));z-index:30;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--ink-2);border:1px solid var(--line);box-shadow:0 4px 14px rgba(30,15,70,.18);opacity:0;transform:translate(-50%,-44px);pointer-events:none}
+#ptr svg{width:22px;height:22px}
+#ptr.ready{color:var(--accent)}
+#ptr.spin svg{animation:ptrSpin .8s linear infinite;color:var(--accent)}
+@keyframes ptrSpin{to{transform:rotate(360deg)}}
 #updNotice{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translate(-50%,-140%);z-index:60;display:flex;align-items:center;gap:10px;max-width:min(92vw,460px);padding:12px 16px;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgba(30,15,70,.22);border:1px solid var(--line);transition:transform .35s cubic-bezier(.2,.9,.3,1.2),opacity .3s}
 #updNotice.in{transform:translate(-50%,0)}
 #updNotice.out{transform:translate(-50%,-140%);opacity:0}
@@ -26,7 +31,7 @@ img{max-width:100%}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610152348;</script>
+<script>window.JOEY_WEB_VERSION = 202610160004;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4772,6 +4777,80 @@ function fbWrite(ref, data){
 }
 const fbSettingsOut = () => { const o = clone(S.settings); SYNC_LOCAL.forEach(k => delete o[k]); return o; };
 const fbThemesOut = () => { try { return clone(TH); } catch (e) { return null; } };
+
+/* Settings and themes merge piece by piece: each setting and each theme remembers when it was last changed,
+   so a change made on the phone is never wiped out by an older copy from the laptop (or the other way). */
+const stab = v => v === null || typeof v !== 'object' ? JSON.stringify(v) : Array.isArray(v) ? '[' + v.map(stab).join(',') + ']' : '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stab(v[k])).join(',') + '}';
+const MG = {
+  settings:{
+    pieces(){ const o = {}; Object.entries(fbSettingsOut()).forEach(([k, v]) => { if (v !== undefined) o[k] = v; }); return o; },
+    apply(p){ const keep = {}; SYNC_LOCAL.forEach(k => { keep[k] = S.settings[k]; }); S.settings = normSettings(Object.assign(clone(p), keep)); _fbSaveSettingsLocal(); applySettings(); scheduleRender(); }
+  },
+  themes:{
+    pieces(){ const o = {app:TH.app || ''}; Object.entries(TH.themes || {}).forEach(([k, v]) => { o['themes~' + k] = v; }); Object.entries(TH.pages || {}).forEach(([k, v]) => { o['pages~' + k] = v; }); return o; },
+    // stored in the database in the normal theme shape, so older copies of the app can still read it
+    flat(d){ const o = {}; Object.entries(d).forEach(([k, v]) => { if ((k === 'themes' || k === 'pages') && v && typeof v === 'object') Object.entries(v).forEach(([i, x]) => { o[k + '~' + i] = x; }); else o[k] = v; }); return o; },
+    nest(p){ const n = thDefaults(); Object.entries(p).forEach(([k, v]) => { const i = k.indexOf('~'); if (i < 0) n[k] = v; else { (n[k.slice(0, i)] = n[k.slice(0, i)] || {})[k.slice(i + 1)] = v; } }); return n; },
+    apply(p){
+      TH = this.nest(p); lsSet('jma:themes', JSON.stringify(TH)); thApplied = ''; thLoadImages(); fbImgLater(); scheduleRender(); }
+  }
+};
+function mgState(kind){
+  let s = null; try { s = JSON.parse(localStorage.getItem('jma:fbmg:' + kind) || 'null'); } catch (e) {}
+  if (!s || typeof s !== 'object') { s = {h:{}, t:{}}; Object.entries(MG[kind].pieces()).forEach(([k, v]) => { s.h[k] = stab(v); }); mgKeep(kind, s); }
+  return s;
+}
+function mgKeep(kind, s){ try { localStorage.setItem('jma:fbmg:' + kind, JSON.stringify(s)); } catch (e) {} }
+// note which pieces changed on this device, and when
+function mgStamp(kind){
+  const s = mgState(kind), cur = MG[kind].pieces(), now = Date.now(); let changed = false;
+  Object.entries(cur).forEach(([k, v]) => { const h = stab(v); if (s.h[k] !== h) { s.h[k] = h; s.t[k] = now; changed = true; } });
+  Object.keys(s.h).forEach(k => { if (!(k in cur) && s.h[k] !== null) { s.h[k] = null; s.t[k] = now; changed = true; } });   // removed here
+  if (changed) mgKeep(kind, s);
+  return changed;
+}
+function mgDocOut(kind){ const s = mgState(kind), p = clone(MG[kind].pieces()), o = MG[kind].nest ? MG[kind].nest(p) : p; o._t = Object.assign({}, s.t); return o; }
+function mgPush(kind){ if (fbOn() && FBX.refs[kind]) { FBX.mgPushedAt = Date.now(); fbWrite(FBX.refs[kind], mgDocOut(kind)); } }
+// combine what the database has with what's here: the newer change wins for each piece
+function mgMerge(kind, data){
+  if (!data || typeof data !== 'object') { mgPush(kind); return; }
+  mgStamp(kind);
+  const s = mgState(kind), rt = (data._t && typeof data._t === 'object') ? data._t : {};
+  let remote = Object.assign({}, data); delete remote._t;
+  if (MG[kind].flat) remote = MG[kind].flat(remote);
+  const cur = MG[kind].pieces(), out = {};
+  let took = false, mine = false;
+  const keys = new Set([...Object.keys(cur), ...Object.keys(remote), ...Object.keys(rt), ...Object.keys(s.t)]);
+  keys.forEach(k => {
+    const lt = s.t[k] || 0, r = rt[k] || 0, inR = k in remote, inL = k in cur;
+    const rh = inR ? stab(remote[k]) : null, lh = inL ? stab(cur[k]) : null;
+    if (rh === lh) { if (inL) out[k] = cur[k]; if (r > lt) s.t[k] = r; return; }
+    if (r > lt || (r === lt && r > 0)) {          // the database has the newer change
+      if (inR) out[k] = remote[k]; s.h[k] = rh; s.t[k] = r; took = true;
+    } else if (lt > r) {                           // this device has the newer change
+      if (inL) out[k] = cur[k]; mine = true;
+    } else {                                       // neither has a time yet (from before this update)
+      if (inR) { out[k] = remote[k]; s.h[k] = rh; took = true; } else if (inL) { out[k] = cur[k]; mine = true; }
+    }
+  });
+  mgKeep(kind, s);
+  if (took) MG[kind].apply(out);
+  if (mine) mgPush(kind);
+}
+// a full check with the database: on opening the app, on pull-to-refresh, and when you come back to the app
+async function fbRefresh(full){
+  if (!fbOn()) return false;
+  try {
+    for (const kind of ['settings', 'themes']) { const d = await FB.getDoc(FBX.refs[kind]); mgMerge(kind, d.exists() ? d.data() : null); }
+    if (full) for (const c of COLLS) {
+      const qs = await FB.getDocs(FBX.refs[c]); const o = {}; qs.docs.forEach(d => { o[d.id] = clone(d.data()); });
+      S[c] = o; lsSave();
+    }
+    FBI.tries = 0; fbImgLater(); scheduleRender();
+    return true;
+  } catch (e) { return false; }
+}
+
 function fbStart(){
   if (!fbConfigured() || !window.FB) return;
   try {
@@ -4798,10 +4877,6 @@ async function fbAttach(u){
   if (!lsGet(mergedKey)) {
     // First sign-in on this device: add anything made here that the database doesn't have yet.
     try {
-      const sSnap = await FB.getDoc(R.settings);
-      if (!sSnap.exists()) fbWrite(R.settings, fbSettingsOut());
-      const tSnap = await FB.getDoc(R.themes);
-      if (!tSnap.exists() && Object.keys(TH.themes || {}).length) fbWrite(R.themes, fbThemesOut());
       for (const c of COLLS) {
         const qs = await FB.getDocs(R[c]);
         const have = new Set(qs.docs.map(d => d.id));
@@ -4811,32 +4886,26 @@ async function fbAttach(u){
     } catch (e) { /* offline: tries again next time */ }
   }
   FBX.user = u;
-  FBX.unsubs.push(FB.onSnapshot(R.settings, s => {
-    if (!s.exists() || FBX.setDirty) return;
-    const keep = {}; SYNC_LOCAL.forEach(k => { keep[k] = S.settings[k]; });
-    S.settings = normSettings(Object.assign(clone(s.data()), keep));
-    lsSave(); applySettings(); scheduleRender();
-  }, fbSnapErr));
-  FBX.unsubs.push(FB.onSnapshot(R.themes, s => {
-    if (!s.exists() || FBX.thTimer) return;
-    const d = clone(s.data()); if (!d || typeof d !== 'object') return;
-    TH = Object.assign(thDefaults(), d); lsSet('jma:themes', JSON.stringify(TH)); thApplied = ''; thLoadImages(); fbImgLater();
-  }, fbSnapErr));
+  FBX.unsubs.push(FB.onSnapshot(R.settings, s => { if (!s.metadata.hasPendingWrites) mgMerge('settings', s.exists() ? clone(s.data()) : null); }, fbSnapErr));
+  FBX.unsubs.push(FB.onSnapshot(R.themes, s => { if (!s.metadata.hasPendingWrites) mgMerge('themes', s.exists() ? clone(s.data()) : null); }, fbSnapErr));
   COLLS.forEach(c => FBX.unsubs.push(FB.onSnapshot(R[c], qs => {
     const o = {}; qs.docs.forEach(d => { o[d.id] = clone(d.data()); });
     S[c] = o; lsSave(); scheduleRender();
   }, fbSnapErr)));
   updateSaved(); scheduleRender(); fbImgLater();
+  setTimeout(() => fbRefresh(true), 1200);   // every time the app opens: a full check with the database
 }
 function fbSnapErr(e){ if (e && e.code === 'permission-denied') { FBX.err = 'The database refused to share your data. Check the Rules step.'; scheduleRender(); } }
 
 // hook the app's save functions
 const _fbSaveSettings = saveSettings;
+let _fbQuiet = false;
+function _fbSaveSettingsLocal(){ _fbQuiet = true; try { saveSettings(); } finally { _fbQuiet = false; } }
 saveSettings = function(){
   _fbSaveSettings();
-  if (!fbOn()) return;
-  FBX.setDirty = true; clearTimeout(FBX.setTimer);
-  FBX.setTimer = setTimeout(() => { FBX.setTimer = null; fbWrite(FBX.refs.settings, fbSettingsOut()); setTimeout(() => { if (!FBX.setTimer) FBX.setDirty = false; }, 1500); }, 600);
+  if (_fbQuiet || !mgStamp('settings') || !fbOn()) return;   // only real changes to synced settings go up
+  clearTimeout(FBX.setTimer);
+  FBX.setTimer = setTimeout(() => { FBX.setTimer = null; mgPush('settings'); }, 600);
   updateSaved();
 };
 const _fbPut = putItem;
@@ -4844,7 +4913,17 @@ putItem = function(coll, id, obj){ _fbPut(coll, id, obj); if (fbOn() && FBX.refs
 const _fbDel = delItem;
 delItem = function(coll, id){ _fbDel(coll, id); if (fbOn() && FBX.refs[coll]) fbWrite(FB.doc(FBX.refs[coll], id), null); };
 const _fbThSave = thSave;
-thSave = function(){ _fbThSave(); if (!fbOn()) return; fbImgLater(); clearTimeout(FBX.thTimer); FBX.thTimer = setTimeout(() => { FBX.thTimer = null; const d = fbThemesOut(); if (d) fbWrite(FBX.refs.themes, d); }, 800); };
+thSave = function(){ _fbThSave(); if (!mgStamp('themes') || !fbOn()) return; fbImgLater(); clearTimeout(FBX.thTimer); FBX.thTimer = setTimeout(() => { FBX.thTimer = null; mgPush('themes'); }, 800); };
+// changes waiting to go up are sent right away if the app is closed or reloaded
+function fbFlush(){
+  if (FBX.setTimer) { clearTimeout(FBX.setTimer); FBX.setTimer = null; mgPush('settings'); }
+  if (FBX.thTimer) { clearTimeout(FBX.thTimer); FBX.thTimer = null; mgPush('themes'); }
+}
+window.addEventListener('pagehide', fbFlush);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) fbFlush();
+  else if (fbOn() && Date.now() - (FBX.refreshedAt || 0) > 20000) { FBX.refreshedAt = Date.now(); fbRefresh(false); }
+});
 const _fbSaveState = saveState;
 saveState = function(){
   if (!fbOn()) return _fbSaveState();
@@ -4964,6 +5043,9 @@ async function fbImgSync(){
   finally { FBI.busy = false; if (FBI.again) { FBI.again = false; fbImgLater(); } else if (pending) { FBI.tries = (FBI.tries || 0) + 1; if (FBI.tries < 30) setTimeout(fbImgLater, 8000); } else FBI.tries = 0; }
 }
 
+
+// start tracking changes from this point
+try { mgState("settings"); mgState("themes"); } catch (e) {}
 /* ---------- computer app: AI bar through Google's Gemini (free API key) ---------- */
 // The key is saved with your settings, so it syncs: add it once and every computer can use it.
 const GEM = {models:['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'], lastErr:'', model:''};
@@ -5191,6 +5273,81 @@ if (updOn()) {
   A['upd-now'] = () => { updMaybeSwitch(true, true); };
 }
 
+/* ---------- pull down at the top of a page to refresh (like Snapchat) ---------- */
+// The page stretches with more and more resistance the farther you pull. Let go past the line and it
+// sends any waiting changes, reloads, and does a full sync with your other devices.
+const PTR = {y0:0, x0:0, on:false, dead:false, pull:0, busy:false, MAX:150, K:230, LINE:72};
+const ptrEl = () => {
+  let el = document.getElementById('ptr');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'ptr'; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>';
+    document.body.appendChild(el);
+  }
+  return el;
+};
+const ptrRubber = d => PTR.MAX * (1 - Math.exp(-d / PTR.K));   // slower and slower as you pull
+function ptrShow(p, spring){
+  const m = $('#main'), el = ptrEl(), f = Math.min(1, p / PTR.LINE);
+  [m, el].forEach(x => { x.style.transition = spring ? 'transform .32s cubic-bezier(.2,.9,.3,1.15), opacity .2s' : 'none'; });
+  m.style.transform = p ? 'translateY(' + p + 'px)' : '';
+  el.style.opacity = p ? String(Math.min(1, f * 1.3)) : '0';
+  el.style.transform = 'translate(-50%,' + (p * .7 - 36) + 'px) rotate(' + (p * 2.6) + 'deg) scale(' + (.6 + .4 * f) + ')';
+  el.classList.toggle('ready', p >= PTR.LINE);
+}
+async function ptrRefresh(){
+  PTR.busy = true; const el = ptrEl(); el.classList.add('spin'); ptrShow(56, true);
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+  const t0 = Date.now();
+  try {
+    if (typeof updOn === 'function' && updOn() && UPD.ready) { updMaybeSwitch(true, true); return; }   // a new version is waiting: open it
+    if (typeof fbFlush === 'function') fbFlush();
+    // give waiting changes up to 4 seconds to reach the database before reloading
+    while (typeof FBX !== 'undefined' && FBX.pending > 0 && navigator.onLine !== false && Date.now() - t0 < 4000) await new Promise(r => setTimeout(r, 150));
+    try { if (typeof S !== 'undefined') localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+    const wait = 650 - (Date.now() - t0); if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    try { localStorage.setItem('jma:ptr', String(Date.now())); } catch (e) {}
+    location.reload();
+  } catch (e) { PTR.busy = false; el.classList.remove('spin'); ptrShow(0, true); }
+}
+if (!window.claude && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+  const blocked = () => PTR.busy || !$('#sheet').hidden || (document.getElementById('buddyBubble') && !document.getElementById('buddyBubble').hidden && document.getElementById('buddyBubble').contains(document.activeElement));
+  document.addEventListener('touchstart', e => {
+    const m = $('#main');
+    PTR.on = false; PTR.dead = true; PTR.pull = 0;
+    if (!m || e.touches.length !== 1 || !m.contains(e.target) || m.scrollTop > 0 || blocked()) return;
+    PTR.dead = false; PTR.y0 = e.touches[0].clientY; PTR.x0 = e.touches[0].clientX;
+  }, {passive:true});
+  document.addEventListener('touchmove', e => {
+    if (PTR.dead) return;
+    const m = $('#main'), dy = e.touches[0].clientY - PTR.y0, dx = e.touches[0].clientX - PTR.x0;
+    if (!PTR.on) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { PTR.dead = true; return; }   // sideways swipe
+      if (dy < -2 || m.scrollTop > 0) { PTR.dead = true; return; }                         // scrolling down the page
+      if (dy < 6) return;
+      PTR.on = true; PTR.y0 += 6;
+    }
+    const d = e.touches[0].clientY - PTR.y0;
+    if (d <= 0) { PTR.pull = 0; ptrShow(0); return; }
+    if (e.cancelable) e.preventDefault();
+    PTR.pull = ptrRubber(d); ptrShow(PTR.pull);
+  }, {passive:false});
+  const end = () => {
+    if (PTR.dead || !PTR.on) { PTR.on = false; return; }
+    PTR.on = false; PTR.dead = true;
+    if (PTR.pull >= PTR.LINE) ptrRefresh(); else ptrShow(0, true);
+  };
+  document.addEventListener('touchend', end, {passive:true});
+  document.addEventListener('touchcancel', end, {passive:true});
+  // after a pull-to-refresh: a small "Synced" note once everything has caught up
+  let was = 0; try { was = Number(localStorage.getItem('jma:ptr') || 0); localStorage.removeItem('jma:ptr'); } catch (e) {}
+  if (was && Date.now() - was < 15000) setTimeout(async () => {
+    for (let i = 0; i < 16 && typeof fbOn === 'function' && fbConfigured() && !fbOn(); i++) await new Promise(r => setTimeout(r, 500));   // sign-in takes a moment after a reload
+    const on = typeof fbOn === 'function' && fbOn();
+    if (!on) { toast(typeof fbConfigured === 'function' && fbConfigured() && !(typeof FBX !== 'undefined' && FBX.user) ? 'Refreshed. Sign in under Settings → Sync to match your other devices.' : 'Refreshed.'); return; }
+    fbRefresh(true).then(ok => toast(ok ? 'Refreshed and synced with your other devices.' : 'Refreshed. Sync will catch up when you’re online.'));
+  }, 2600);
+}
 /* ---------- boot ---------- */
 const saved = lsLoad();
 if (saved) {
