@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161757;</script>
+<script>window.JOEY_WEB_VERSION = 202610161901;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -779,6 +779,14 @@ button.wx-day:active{background:var(--surface-2)}
 .hue-sl{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;background:linear-gradient(90deg,hsl(0 75% 55%) 0%,hsl(60 75% 55%) 15%,hsl(120 75% 55%) 30%,hsl(180 75% 55%) 45%,hsl(240 75% 55%) 60%,hsl(300 75% 55%) 75%,hsl(359 75% 55%) 90%,#8a8a8a 92%,#8a8a8a 100%)}
 .hue-sl::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35);box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .hue-sl::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35)}
+
+.th-ncolors{display:grid;gap:6px;margin-top:6px;padding:12px;border-radius:var(--r-sm);background:var(--surface-2)}
+.th-ncolors small{color:var(--ink-2);font-size:.8rem}
+.th-nc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin:4px 0}
+.th-nc{display:grid;justify-items:center;gap:3px;padding:8px 4px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:.78rem;font-weight:600;cursor:pointer}
+.th-nc input{width:40px;height:32px;border:1px solid var(--line);border-radius:9px;padding:2px;background:var(--surface)}
+.th-nc em{font-style:normal;font-size:.68rem;color:var(--ink-2);min-height:.9em}
+.th-nc:not(.set) input{opacity:.55}
 </style>
 </head>
 <body>
@@ -3424,8 +3432,27 @@ function noteBgApply(){
     sh.style.setProperty('--nbg', 'url("' + u + '")');
     sh.style.setProperty('--nbgveil', 'color-mix(in srgb,var(--surface) ' + fade + '%,transparent)');
   } else { sh.style.removeProperty('--nbg'); sh.style.removeProperty('--nbgveil'); }
+  // the open note's own color, separate from the note cards: one per note color (or one for every note)
+  const nc = t && t.nColors ? (t.nColors[col] || t.nColors.all || '') : '';
+  ['--surface', '--surface-2', '--line', '--ink', '--ink-2'].forEach(v => sh.style.removeProperty(v));
+  sh.classList.toggle('has-ncol', !!nc);
+  if (nc) {
+    const ink = fgLum(nc) < 0.28 ? '#F2EEFA' : '#1A1428';
+    sh.style.setProperty('--surface', nc);
+    sh.style.setProperty('--surface-2', 'color-mix(in srgb,' + nc + ' 86%,' + ink + ')');
+    sh.style.setProperty('--line', 'color-mix(in srgb,' + nc + ' 78%,' + ink + ')');
+    sh.style.setProperty('--ink', ink);
+    sh.style.setProperty('--ink-2', 'color-mix(in srgb,' + ink + ' 65%,' + nc + ')');
+  }
 }
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#noteForm')) setTimeout(noteBgApply, 0); });
+// theme editor: colors for open notes
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('th-ncol') || !TH.themes[thOpen]) return;
+  const th = TH.themes[thOpen]; th.nColors = Object.assign({}, th.nColors, {[el.dataset.k]:el.value});
+  const sw = el.closest('.th-nc'); if (sw) sw.classList.add('set');
+});
+document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('th-ncol') && TH.themes[thOpen]) { thSave(); thRefreshEditor(); } });
 function saveNoteFromSheet(){
   const f = $('#noteForm'); if (!f) return;
   const id = f.dataset.id || uid(), old = S.notes[id];
@@ -3667,6 +3694,7 @@ const A = {
   'set': t => { if (t.dataset.k === 'accent') S.settings.cAccent = ''; setSetting(t.dataset.k, t.dataset.v); },
   'hues-reset': () => { S.settings.hues = {}; saveSettings(); applySettings(); render(); toast('Colors are back to the originals.'); },
   'fg-auto': () => { Object.assign(S.settings, {cBg:'', cCard:'', cInk:'', cAccent:''}); saveSettings(); applySettings(); render(); toast('Back to the automatic colors.'); },
+  'th-ncol-reset': () => { const th = TH.themes[thOpen]; if (!th) return; delete th.nColors; thSave(); thRefreshEditor(); },
   'th-fg-auto': () => { const th = TH.themes[thOpen]; if (!th) return; delete th.card; delete th.ink; thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'set-toggle': t => setSetting(t.dataset.k, !S.settings[t.dataset.k]),
   'menu-toggle': t => {
@@ -4319,6 +4347,11 @@ function thEditorHTML(id){
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
+      (g.name === 'Open note background' ? '<div class="th-ncolors"><b>Open note colors</b><small>The color a note opens in, picked separately from your note cards. Anything left on Auto uses “Every note”, or the theme.</small><div class="th-nc-grid">' +
+        [['all', 'Every note']].concat(TH_NOTE_COLORS.map(([c, n]) => [c, n.charAt(0).toUpperCase() + n.slice(1)])).map(([k, n]) => {
+          const v = t.nColors && t.nColors[k];
+          return '<label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.7, 0.9) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + esc(n) + '</span><em>' + (v ? '' : 'Auto') + '</em></label>';
+        }).join('') + '</div>' + (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set all back to Auto</button>' : '') + '</div>' : '') +
       (g.name === 'Notes' && runnersUsed ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') + '</div></div>').join('') +
     '<p class="hint">Pictures sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
     '<div class="sh-actions"><button type="button" class="btn danger" data-action="th-del" data-id="' + id + '">Delete theme</button><span class="grow"></span><button type="button" class="btn accent" data-action="sheet-close">Done</button></div>';

@@ -1,5 +1,5 @@
 {
- "web": 202610161757,
+ "web": 202610161901,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Resize theme pictures, save notes without a title, and slide each note color to your own shade in Settings."
+ "notes": "Pick the color each note opens in, separately from your note cards (theme editor, Open note colors)."
 }
