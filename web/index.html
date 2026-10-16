@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161256;</script>
+<script>window.JOEY_WEB_VERSION = 202610161258;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -762,6 +762,9 @@ button.wx-day:active{background:var(--surface-2)}
 .cal-side{position:absolute;top:0;left:0;width:100%;pointer-events:none}
 .cal-prev{transform:translateX(calc(-100% - 28px))}
 .cal-next{transform:translateX(calc(100% + 28px))}
+
+.bb-nano{display:block;margin-top:8px;padding:6px 9px;border-radius:10px;font-size:.72rem;line-height:1.35;color:var(--ink-2);background:color-mix(in srgb,var(--ink) 6%,transparent)}
+#buddyPeek .bp-nano{font-size:.68rem;color:var(--ink-2);opacity:.85}
 </style>
 </head>
 <body>
@@ -4069,7 +4072,7 @@ function buddyBodyHTML(){
   if (ai.busy) return '<p class="bb-typing" aria-label="Thinking"><i></i><i></i><i></i></p>';
   if (ai.err) return '<p>' + esc(ai.err) + '</p>';
   if (ai.reply) return '<p>' + esc(ai.reply) + '</p>' + (ai.lines && ai.lines.length ? '<ul>' + ai.lines.map(l => '<li>' + esc(l.text) + (l.sub ? ' · <span>' + esc(l.sub) + '</span>' : '') + '</li>').join('') + '</ul>' : '') +
-    (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '');
+    (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '') + buddyNanoNote();
   return '<p>Hi! What can I do for you?</p>';
 }
 // a GIF buddy shows its first frame and only plays while you're talking to it
@@ -4114,12 +4117,18 @@ function buddyPeek(kind){
   if (kind === 'thinking') { p.innerHTML = '<span class="bb-typing" aria-label="Working on it"><i></i><i></i><i></i></span>'; p.className = 'thinking'; }
   else {
     const first = ai.lines && ai.lines[0] ? ai.lines[0].text : '';
-    p.innerHTML = '<span class="bp-t">' + esc(ai.err || ai.reply || 'Done!') + '</span>' + (first && !ai.err ? '<small>' + esc(first) + (ai.lines.length > 1 ? ' +' + (ai.lines.length - 1) + ' more' : '') + '</small>' : '');
+    p.innerHTML = '<span class="bp-t">' + esc(ai.err || ai.reply || 'Done!') + '</span>' + (first && !ai.err ? '<small>' + esc(first) + (ai.lines.length > 1 ? ' +' + (ai.lines.length - 1) + ' more' : '') + '</small>' : '') +
+      (!ai.err && ai.engine === 'Gemini Nano' ? '<small class="bp-nano">Answered by Gemini Nano (offline)</small>' : '');
     p.className = ai.err ? 'done err' : 'done';
     try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
     buddyPeekTimer = setTimeout(() => { p.hidden = true; }, 9000);
   }
   p.hidden = false;
+}
+// a small note whenever the phone's offline AI answered instead of Gemini
+function buddyNanoNote(){
+  if (ai.engine !== 'Gemini Nano') return '';
+  return '<small class="bb-nano">Answered by Gemini Nano, your phone’s offline AI' + (ai.engineWhy ? ', because ' + esc(ai.engineWhy) : '') + '. It can be less accurate, so double-check anything important.</small>';
 }
 function buddyRefresh(){
   const b = $('#buddyBubble'), m = $('#thMascot');
@@ -4976,7 +4985,7 @@ window.__joeyAsk = async function(){
         Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
         try { await aiRun(String(a.text || '')); } catch (e) {}
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
-        const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy.charAt(0).toLowerCase() + ai.engineWhy.slice(1) : '') : ai.engine ? 'Answered by ' + ai.engine : '';
+        const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
         const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
         await JW.askDone({id:a.id, reply:ai.err ? '' : (ai.reply || 'Done!'), detail:ai.err ? '' : detail, err:ai.err || ''}).catch(() => {});
         syncWidgets(true);
@@ -5570,6 +5579,7 @@ if (NATIVE && !window.claude) {
   const nanoRun = aiRun;
   const phoneGem = () => !!gemKey() && S.settings.phoneAi !== 'nano';
   aiRun = async function(text){
+    if (!ai.busy) { ai.engine = ''; ai.engineWhy = ''; }
     if (phoneGem() && navigator.onLine !== false) return gemRun(text, typeof nanoReady === 'function' && nanoReady() ? nanoRun : null);
     return nanoRun(text);
   };
