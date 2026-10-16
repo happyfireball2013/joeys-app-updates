@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160158;</script>
+<script>window.JOEY_WEB_VERSION = 202610161139;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -750,6 +750,18 @@ button.wx-day:active{background:var(--surface-2)}
 #buddyPeek .bp-t{font-size:.9rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 #buddyPeek small{font-size:.75rem;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #buddyPeek.err .bp-t{color:var(--danger)}
+
+.dot.bday{width:auto;height:auto;background:none!important;color:#E0508F;display:inline-grid;place-items:center}
+.dot.bday .ic{width:9px;height:9px;stroke-width:2.4}
+.bd-ic{display:grid;place-items:center;color:#E0508F}
+.bd-ic .ic{width:22px;height:22px}
+.bd-date{display:grid;grid-template-columns:2fr 1fr 1.3fr;gap:8px}
+
+.cal-grid{touch-action:pan-y}
+.cal-in-r{animation:calInR .24s ease-out}
+.cal-in-l{animation:calInL .24s ease-out}
+@keyframes calInR{from{transform:translateX(40px);opacity:.3}}
+@keyframes calInL{from{transform:translateX(-40px);opacity:.3}}
 </style>
 </head>
 <body>
@@ -786,6 +798,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const DAY = 864e5;
 
 const IC = {
+  cake:'<path d="M4 20.5h16M5.5 20.5v-6.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6.5M5.5 15.5c1.6 1.1 3.2 1.1 4.8 0s3.2-1.1 4.8 0 2.4 1.1 3.4.4M12 12V8.5M12 4.2c.9.9 1.2 1.7.6 2.5-.3.4-.9.4-1.2 0-.6-.8-.3-1.6.6-2.5z"/>',
   home:'<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
   calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   bell:'<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
@@ -961,8 +974,8 @@ function normSettings(s){
 }
 
 /* ---------- state + storage ---------- */
-const S = {settings:defaultSettings(), notes:{}, reminders:{}, events:{}, alarms:{}, songs:{}, lifelog:{}};
-const COLLS = ['notes','reminders','events','alarms','songs','lifelog'];
+const S = {settings:defaultSettings(), notes:{}, reminders:{}, events:{}, alarms:{}, songs:{}, lifelog:{}, birthdays:{}};
+const COLLS = ['notes','reminders','events','alarms','songs','lifelog','birthdays'];
 let mode = 'local';           // 'local' = this browser only, 'cloud' = synced to the viewer's account
 let db = null, dl = null, refs = {}, hadLocal = false, settingsDirty = false, settingsTimer = null, syncWarned = false, pendingWrites = 0, userNavigated = false;
 const LS_KEY = 'daykit:v1';
@@ -1289,7 +1302,8 @@ function pushAlert(a){
 function dropAlert(id){ alerts = alerts.filter(x => x.id !== id); if (!alerts.length) clearInterval(ringTimer); renderAlerts(); }
 function renderAlerts(){
   $('#alerts').innerHTML = alerts.map(a => {
-    const btns = a.kind === 'timer'
+    const btns = a.kind === 'birthday' ? '<button class="btn sm solid" data-action="alert-dismiss" data-id="' + esc(a.id) + '">Nice</button>'
+      : a.kind === 'timer'
       ? '<button class="btn sm solid" data-action="alert-dismiss" data-id="timer">Stop</button><button class="btn sm" data-action="alert-restart">Restart</button>'
       : '<button class="btn sm solid" data-action="alert-done" data-id="' + esc(a.id) + '" data-rid="' + esc(a.rid) + '">Done</button><button class="btn sm" data-action="alert-snooze" data-id="' + esc(a.id) + '" data-rid="' + esc(a.rid) + '">Snooze ' + S.settings.snooze + ' min</button><button class="btn sm" data-action="alert-dismiss" data-id="' + esc(a.id) + '">Dismiss</button>';
     return '<div class="alert"><b>' + esc(a.title) + '</b><small>' + esc(a.sub) + '</small><div class="row-btns">' + btns + '</div></div>';
@@ -1297,6 +1311,13 @@ function renderAlerts(){
 }
 function checkReminders(){
   const now = Date.now();
+  // birthdays: a heads-up that morning (at the usual reminder time)
+  const td = todayStr();
+  bdaysOn(td).forEach(([id, b]) => {
+    const [h, m] = String(S.settings.remTime || '09:00').split(':').map(Number), due = new Date(); due.setHours(h, m, 0, 0);
+    const key = 'bd:' + id + '@' + td;
+    if (due.getTime() <= now && now - due.getTime() < 10 * 6e4 && !fired.has(key)) { fired.add(key); pushAlert({id:key, rid:'', kind:'birthday', title:'🎂 ' + bdayTitle(b), sub:bdayAge(b, td) > 0 ? 'Turns ' + bdayAge(b, td) + ' today' : 'Today'}); }
+  });
   Object.entries(S.reminders).forEach(([id, r]) => {
     if (r.done || !r.date) return;
     const due = remDue(r), key = id + '@' + due;
@@ -1476,6 +1497,7 @@ function upcomingItems(n){
     items.push({kind:'event', id, title:e.title, date:e.date, time:e.start, ts:startTs});
   });
   openRems().forEach(([id, r]) => { if (r.date) items.push({kind:'rem', id, title:r.text, date:r.date, time:r.time, ts:remDue(r), late:remStatus(r) === 'overdue'}); });
+  Object.entries(S.birthdays || {}).forEach(([id, b]) => { if (!b || !b.month) return; const ds = bdayNext(b, t); if (ds > addDays(t, 30)) return; const a = bdayAge(b, ds); items.push({kind:'bday', id, title:bdayTitle(b) + (a > 0 ? ' (' + a + ')' : ''), date:ds, time:'', ts:parseYmd(ds).getTime()}); });
   return items.sort((a, b) => a.ts - b.ts).slice(0, n);
 }
 function shortWhen(date, time){
@@ -1487,7 +1509,7 @@ function upcomingHTML(){
   const n = S.settings.homeUpcoming; if (!n) return '';
   const list = upcomingItems(n);
   return '<div class="hero-up"><div class="hu-label">Coming up</div>' +
-    (list.length ? list.map(it => '<button class="hu" data-action="' + (it.kind === 'rem' ? 'edit-rem' : 'edit-event') + '" data-id="' + it.id + '">' + icon(it.kind === 'rem' ? 'bell' : 'calendar') +
+    (list.length ? list.map(it => '<button class="hu" data-action="' + (it.kind === 'rem' ? 'edit-rem' : it.kind === 'bday' ? 'edit-bday' : 'edit-event') + '" data-id="' + it.id + '">' + icon(it.kind === 'rem' ? 'bell' : it.kind === 'bday' ? 'cake' : 'calendar') +
         '<span class="hu-t">' + esc(it.title) + '</span><span class="hu-when">' + (it.late ? '<span class="hu-late">Late</span>' : '') + esc(shortWhen(it.date, it.time)) + '</span></button>').join('')
       : '<div class="hu-empty">Nothing coming up. New reminders and events show here.</div>') + '</div>';
 }
@@ -2703,7 +2725,8 @@ function aiContext(){
     '- "Remind me" or "reminder" means add_reminder. Appointments, classes, meetings, games and plans at a set time are add_event. Things to write down or remember as information are add_note.',
     '- Reminder text and event titles are short, start with a capital letter, and leave out the date and time words.',
     '- A reminder with a day but no time gets time "". An event with no time is all day, so start and end are "". An event with a start but no end gets end "".',
-    '- repeat is one of none, daily, weekdays, weekly, monthly, yearly. Birthdays and anniversaries are add_reminder with repeat yearly, no time, and text like "Blake\u2019s birthday".',
+    '- repeat is one of none, daily, weekdays, weekly, monthly, yearly. Anniversaries are add_reminder with repeat yearly and no time.',
+    '- Birthdays are add_birthday with the person\u2019s name, month and day, plus year only if the birth year is given.',
     '- How a day went, a mood, or a memory to keep for a day goes in the lifelog action (mood is happy, okay or sad, or "" to leave it). Questions about the weather are answered in reply from the forecast.',
     '- "Wake me up" or "set an alarm" means add_alarm. days lists weekdays as numbers, 0 = Sunday to 6 = Saturday; [] means it rings once. A one-time alarm for a named day also gets that date.',
     '- To change, finish or delete something, use its [id] from the lists below, and only touch items the request clearly means.',
@@ -2715,6 +2738,7 @@ function aiContext(){
     'Events from ' + from + ' to ' + to + ':', evs.join('\n') || '(none)',
     'Notes:', notes.join('\n') || '(none)',
     'Alarms:', alarmsTxt.join('\n') || '(none)',
+    'Birthdays:', Object.entries(S.birthdays || {}).map(([id, b]) => '[' + id + '] ' + clip(b.name, 40) + ' | ' + MONTH_NAMES[b.month - 1] + ' ' + b.day + (b.year ? ' | born ' + b.year : '') + ' | next ' + bdayNext(b, t)).join('\n') || '(none)',
     'Weather forecast (' + (S.settings.wxName || 'local') + '):', wxAiLines().join('\n') || '(not available)',
     '',
     'Action types:',
@@ -2728,7 +2752,8 @@ function aiContext(){
     '{"type":"complete_reminder","id":""}',
     '{"type":"update_reminder","id":""} plus only the fields that change among text, date, time, repeat',
     '{"type":"update_event","id":""} plus only the fields that change among title, date, start, end, note',
-    '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note or alarm',
+    '{"type":"add_birthday","name":"Blake","month":10,"day":11,"year":""}',
+    '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday',
     '',
     'Reply with only one JSON object: {"actions":[...],"reply":"..."}',
     'Example for "remind me tuesday at 3 to take out the dishes": {"actions":[{"type":"add_reminder","text":"Take out the dishes","date":"<the coming Tuesday>","time":"15:00","repeat":"none"}],"reply":"Got it. I’ll remind you Tuesday at 3:00 PM to take out the dishes."}'
@@ -2820,9 +2845,16 @@ function applyAiActions(out){
         if (!on) clearSnooze(id0);
         lines.push({icon:'alarm', text:(on ? 'Turned on: ' : 'Turned off: ') + fmtHM(al.time), sub:al.label || repeatText(al), action:'al-edit', id:id0});
       } else if (type === 'delete') {
-        const coll = {reminder:'reminders', event:'events', note:'notes', alarm:'alarms'}[a.kind]; if (!coll || !S[coll][id0]) return;
+        const coll = {reminder:'reminders', event:'events', note:'notes', alarm:'alarms', birthday:'birthdays'}[a.kind]; if (!coll || !S[coll][id0]) return;
         const item = S[coll][id0]; remember(coll, id0); delItem(coll, id0);
-        lines.push({icon:'trash', text:'Deleted: ' + (item.text || item.title || item.label || (item.time ? 'Alarm ' + fmtHM(item.time) : 'Untitled')), sub:''});
+        lines.push({icon:'trash', text:'Deleted: ' + (coll === 'birthdays' ? bdayTitle(item) : item.text || item.title || item.label || (item.time ? 'Alarm ' + fmtHM(item.time) : 'Untitled')), sub:''});
+      } else if (type === 'add_birthday') {
+        const name = str(a.name, 60); const month = Math.round(Number(a.month)), day = Math.round(Number(a.day)); if (!name || !(month >= 1 && month <= 12) || !(day >= 1 && day <= new Date(2024, month, 0).getDate())) return;
+        const yv = String(a.year || '').trim(), year = /^\d{4}$/.test(yv) && +yv >= 1900 && +yv <= new Date().getFullYear() ? yv : '';
+        const id = 'b' + uid(); remember('birthdays', id);
+        const b = {name, month, day, year, created:Date.now()}; putItem('birthdays', id, b);
+        const nx = bdayNext(b, todayStr());
+        lines.push({icon:'cake', text:'Birthday: ' + bdayTitle(b), sub:MONTH_NAMES[month - 1] + ' ' + day + (bdayAge(b, nx) > 0 ? ' · turns ' + bdayAge(b, nx) : ''), action:'edit-bday', id});
       }
     } catch (e) {}
   });
@@ -2895,6 +2927,19 @@ function homeHTML(){
       (ui.editHome ? '<button class="add-widget" data-action="add-widget">' + icon('plus') + 'Add a widget</button>' : '') : '');
 }
 
+/* ---------- birthdays: one per person, on the calendar every year ---------- */
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function bdayDateIn(b, year){
+  let m = Number(b.month), d = Number(b.day);
+  if (m === 2 && d === 29 && !((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0)) d = 28;
+  return year + '-' + pad(m) + '-' + pad(d);
+}
+function bdaysOn(ds){ const y = +ds.slice(0, 4); return Object.entries(S.birthdays || {}).filter(([, b]) => b && b.month && bdayDateIn(b, y) === ds).sort((a, b) => String(a[1].name).localeCompare(String(b[1].name))); }
+function bdayNext(b, from){ const y = +from.slice(0, 4); let ds = bdayDateIn(b, y); if (ds < from) ds = bdayDateIn(b, y + 1); return ds; }
+function bdayAge(b, ds){ const yr = Number(b.year); return yr > 1800 ? +ds.slice(0, 4) - yr : 0; }
+const bdayTitle = b => (String(b.name || '').trim() || 'Someone') + '’s birthday';
+function bdaySub(b, ds){ const a = bdayAge(b, ds); return a > 0 ? 'Turns ' + a : 'Birthday'; }
+
 function calendarHTML(){
   const s = S.settings, m = ui.calMonth, y = m.getFullYear(), mo = m.getMonth();
   const wsd = s.weekStartMon ? 1 : 0;
@@ -2910,14 +2955,16 @@ function calendarHTML(){
   for (let i = 0; i < cellsN; i++) {
     const d = new Date(y, mo, 1 - off + i), ds = ymd(d), out = d.getMonth() !== mo;
     const evs = evByDay[ds] || [], rc = remByDay[ds] || 0;
-    const dots = evs.slice(0, 3).map(e => '<i class="dot" style="background:' + hueOf(e.color) + '"></i>').join('') + (rc ? '<i class="dot ring"></i>' : '');
-    const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (evs.length ? ', ' + evs.length + (evs.length > 1 ? ' events' : ' event') : '') + (rc ? ', ' + rc + (rc > 1 ? ' reminders' : ' reminder') : '');
+    const bd = bdaysOn(ds).length;
+    const dots = (bd ? '<i class="dot bday" aria-hidden="true">' + icon('cake') + '</i>' : '') + evs.slice(0, bd ? 2 : 3).map(e => '<i class="dot" style="background:' + hueOf(e.color) + '"></i>').join('') + (rc ? '<i class="dot ring"></i>' : '');
+    const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (bd ? ', ' + bd + (bd > 1 ? ' birthdays' : ' birthday') : '') + (evs.length ? ', ' + evs.length + (evs.length > 1 ? ' events' : ' event') : '') + (rc ? ', ' + rc + (rc > 1 ? ' reminders' : ' reminder') : '');
     cells += '<button class="day' + (out ? ' out' : '') + (ds === t ? ' today' : '') + (ds === ui.calSel ? ' sel' : '') + '" data-action="cal-sel" data-date="' + ds + '" aria-label="' + esc(label) + '" aria-pressed="' + (ds === ui.calSel) + '">' + llCellInner(ds, d.getDate()) + '<span class="dots">' + dots + '</span></button>';
   }
   const sel = ui.calSel, evs = eventsOn(sel);
   const rems = s.calReminders ? Object.entries(S.reminders).filter(e => e[1].date === sel).sort(remSort) : [];
   const onThisMonth = y === new Date().getFullYear() && mo === new Date().getMonth();
-  let agenda = evs.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + (e.start ? fmtHM(e.start) + (e.end ? '<br><span class="muted">' + fmtHM(e.end) + '</span>' : '') : 'All day') + '</span><span class="ev-main"><b>' + esc(e.title) + '</b>' + (e.note ? '<span class="muted">' + esc(e.note) + '</span>' : '') + '</span></button>').join('');
+  let agenda = bdaysOn(sel).map(([id, b]) => '<button class="ev bd-row" data-action="edit-bday" data-id="' + id + '"><span class="ev-bar" style="background:' + HUES.berry + '"></span><span class="ev-time bd-ic">' + icon('cake') + '</span><span class="ev-main"><b>' + esc(bdayTitle(b)) + '</b><span class="muted">' + esc(bdaySub(b, sel)) + '</span></span></button>').join('');
+  agenda += evs.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + (e.start ? fmtHM(e.start) + (e.end ? '<br><span class="muted">' + fmtHM(e.end) + '</span>' : '') : 'All day') + '</span><span class="ev-main"><b>' + esc(e.title) + '</b>' + (e.note ? '<span class="muted">' + esc(e.note) + '</span>' : '') + '</span></button>').join('');
   agenda += rems.map(([id, r]) => '<div class="rrow' + (r.done ? ' done' : '') + ' ' + remStatus(r) + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span><span class="rmeta">' + (r.time ? '<i class="due">' + fmtHM(r.time) + '</i>' : '<i>Reminder</i>') + '</span></button></div>').join('');
   return head((!onThisMonth || sel !== t) ? '<button class="link" data-action="cal-today">Back to today</button>' : esc(fmtDate(new Date())), 'Calendar',
       '<button class="ib accent" data-action="new-event" data-date="' + sel + '" aria-label="New event">' + icon('plus') + '</button>') +
@@ -2926,10 +2973,28 @@ function calendarHTML(){
     '<div class="sec-title"><span>' + esc(fmtDate(parseYmd(sel))) + '</span></div>' +
     (function(){ const w = S.settings.calWeather && wxForDate(sel); return w ? '<div class="agenda-wx">' + wxIcon(w.day ? w.day.icon : 1, false) + '<span><b>' + deg(w.day && w.day.temperature) + '</b> / ' + deg(w.night && w.night.temperature) + ' \u00b7 ' + esc((w.day && w.day.phrase) || '') + '</span></div>' : ''; })() +
     llAgendaHTML(sel) + (sel <= todayStr() ? '<div class="sec-title"><span>Plans</span></div>' : '') +
-    '<div class="card">' + (agenda || '<div class="empty"><b>Nothing planned</b>Add an event or a reminder for this day.</div>') + '</div>' +
-    '<div class="agenda-actions"><button class="btn sm" data-action="new-event" data-date="' + sel + '">' + icon('plus') + 'Event</button><button class="btn sm" data-action="new-rem" data-date="' + sel + '">' + icon('plus') + 'Reminder</button></div>';
+    '<div class="card">' + (agenda || '<div class="empty"><b>Nothing planned</b>Add an event, reminder or birthday for this day.</div>') + '</div>' +
+    '<div class="agenda-actions"><button class="btn sm" data-action="new-event" data-date="' + sel + '">' + icon('plus') + 'Event</button><button class="btn sm" data-action="new-rem" data-date="' + sel + '">' + icon('plus') + 'Reminder</button><button class="btn sm" data-action="new-bday" data-date="' + sel + '">' + icon('cake') + 'Birthday</button></div>' + bdayUpcomingHTML();
 }
 
+function bdayUpcomingHTML(){
+  const t = todayStr(), list = Object.entries(S.birthdays || {}).filter(([, b]) => b && b.month).map(([id, b]) => [id, b, bdayNext(b, t)]).sort((a, b) => a[2].localeCompare(b[2])).slice(0, 4);
+  if (!list.length) return '';
+  return '<div class="sec-title"><span>Birthdays coming up</span><span>' + Object.keys(S.birthdays).length + ' saved</span></div><div class="card">' +
+    list.map(([id, b, ds]) => '<button class="ev bd-row" data-action="edit-bday" data-id="' + id + '"><span class="ev-bar" style="background:' + HUES.berry + '"></span><span class="ev-time bd-ic">' + icon('cake') + '</span><span class="ev-main"><b>' + esc(bdayTitle(b)) + '</b><span class="muted">' + esc(shortWhen(ds, '') + (bdayAge(b, ds) > 0 ? ' · turns ' + bdayAge(b, ds) : '')) + '</span></span></button>').join('') + '</div>';
+}
+function bdaySheet(id, ds){
+  const d0 = parseYmd(ds || todayStr());
+  const b = id ? S.birthdays[id] : {name:'', month:d0.getMonth() + 1, day:d0.getDate(), year:''};
+  if (!b) return;
+  const mOpts = MONTH_NAMES.map((n, i) => '<option value="' + (i + 1) + '"' + (Number(b.month) === i + 1 ? ' selected' : '') + '>' + n + '</option>').join('');
+  let dOpts = ''; for (let i = 1; i <= 31; i++) dOpts += '<option value="' + i + '"' + (Number(b.day) === i ? ' selected' : '') + '>' + i + '</option>';
+  openSheet('<form id="bdayForm" data-id="' + (id || '') + '" autocomplete="off">' + sheetHead(id ? 'Birthday' : 'New birthday') +
+    '<label class="fld"><span>Whose birthday?</span><input class="in" id="bdName" required maxlength="60" value="' + esc(b.name || '') + '" placeholder="Name"></label>' +
+    '<div class="fld"><span>Birthday</span><div class="bd-date"><select class="in" id="bdMonth" aria-label="Month">' + mOpts + '</select><select class="in" id="bdDay" aria-label="Day">' + dOpts + '</select><input class="in" id="bdYear" inputmode="numeric" maxlength="4" placeholder="Year" aria-label="Birth year (optional)" value="' + esc(b.year || '') + '"></div></div>' +
+    '<p class="hint">The year is optional. Add it to see how old they’re turning. Birthdays show on the calendar every year, and you get a heads-up that morning.</p>' +
+    '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-bday" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">Save</button></div></form>', null, id ? null : 'bdName');
+}
 function remindersHTML(){
   const all = Object.entries(S.reminders);
   const groups = {overdue:[], today:[], upcoming:[], someday:[], done:[]};
@@ -3494,6 +3559,9 @@ const A = {
     ui.calSel = (cm.getFullYear() === t0.getFullYear() && cm.getMonth() === t0.getMonth()) ? todayStr() : ymd(new Date(cm.getFullYear(), cm.getMonth(), Math.min(sel.getDate(), lastDay)));
     render();
   },
+  'new-bday': t => bdaySheet('', t.dataset.date || ui.calSel),
+  'edit-bday': t => bdaySheet(t.dataset.id),
+  'del-bday': t => { if (!arm(t, 'Tap again to delete')) return; delItem('birthdays', t.dataset.id); closeSheet(true); toast('Birthday deleted'); render(); },
   'cal-today': () => { const d = new Date(); ui.calMonth = new Date(d.getFullYear(), d.getMonth(), 1); ui.calSel = todayStr(); render(); },
   'pick-color': t => { const g = t.dataset.group; $('#' + g).value = t.dataset.v; $$('[data-group="' + g + '"]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); },
   'toggle-pressed': t => t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true')),
@@ -3652,6 +3720,15 @@ document.addEventListener('click', e => {
 });
 
 const FORMS = {
+  bdayForm: f => {
+    const name = $('#bdName').value.trim(); if (!name) { $('#bdName').focus(); return; }
+    const month = Math.min(12, Math.max(1, Number($('#bdMonth').value))), maxD = new Date(2024, month, 0).getDate();
+    const day = Math.min(maxD, Math.max(1, Number($('#bdDay').value)));
+    const yv = String($('#bdYear').value || '').trim(), yn = Number(yv), year = /^\d{4}$/.test(yv) && yn >= 1900 && yn <= new Date().getFullYear() ? yv : '';
+    const id = f.dataset.id || 'b' + uid(), old = S.birthdays[id];
+    putItem('birthdays', id, {name, month, day, year, created:(old && old.created) || Date.now()});
+    closeSheet(true); toast(old ? 'Birthday saved' : 'Birthday added'); render();
+  },
   capForm: () => {
     const text = ui.capText.trim(); if (!text) { const el = $('#capInput'); if (el) el.focus(); return; }
     if (ui.capMode === 'note') {
@@ -4814,6 +4891,8 @@ function widgetData(){
   const focus = events.map(e => ({t:e.t, ts:e.ts, end:e.end, allDay:e.allDay, kind:'event'}))
     .concat(openRems().filter(([, r]) => r.date).map(([, r]) => { const ts = remDue(r), allDay = !r.time;
       return {t:r.text, ts, end:allDay ? parseYmd(r.date).getTime() + DAYMS - 1 : ts + 36e5, allDay, kind:isBday(r) ? 'bday' : 'rem'}; }))
+    .concat(Object.values(S.birthdays || {}).filter(b => b && b.month).map(b => { const ds = bdayNext(b, todayStr()), ts = parseYmd(ds).getTime(), ag = bdayAge(b, ds);
+      return {t:bdayTitle(b) + (ag > 0 ? ' (turns ' + ag + ')' : ''), ts, end:ts + DAYMS - 1, allDay:true, kind:'bday'}; }))
     .sort((a, b) => a.ts - b.ts).slice(0, 40);
   return {accent, wbg:widgetBg(accent), h24:!!s.hour24, upcoming:up, focus, events, reminders, notes, weather:wx,
     timer:{state:tm.state, endAt:tm.endAt, remaining:tm.remaining, label:tm.label}, sw:{running:sw.running, startAt:sw.startAt, acc:sw.acc},
@@ -4856,7 +4935,7 @@ async function syncWidgetHero(){
 }
 if (NATIVE && JW) {
   const _renderHero = render;
-  render = function(){ _renderHero(); if (!syncWidgetHero.t) syncWidgetHero.t = setTimeout(() => { syncWidgetHero.t = 0; syncWidgetHero(); }, 1500); };
+  render = function(){ _renderHero(); if (!syncWidgetHero.t) syncWidgetHero.t = setTimeout(() => { syncWidgetHero.t = 0; syncWidgetHero(); syncWidgetBuddy(); }, 1500); };
   const _settingsW = settingsHTML;
   settingsHTML = function(){ const h = _settingsW(), at = h.indexOf('<div class="sec-title" id="set-ai">'); return at < 0 ? h + hswSettingsHTML() : h.slice(0, at) + hswSettingsHTML() + h.slice(at); };
   if (!SET_SECTIONS.some(x => x[0] === 'set-hsw')) { const i = SET_SECTIONS.findIndex(x => x[0] === 'set-ai'); SET_SECTIONS.splice(i < 0 ? SET_SECTIONS.length : i, 0, ['set-hsw', 'Home screen']); }
@@ -4874,6 +4953,60 @@ if (NATIVE && JW) {
     }).catch(() => {});
   };
   document.addEventListener('visibilitychange', () => { if (document.hidden) syncWidgets(true); else window.__joeyLaunch(); });
+}
+
+/* asking the buddy from the weather widget: the popup hands the request over here, the app does the work
+   (even in the background), and the answer goes back to the popup or shows up as a notification */
+let askBusy = false;
+const askSleep = ms => new Promise(r => setTimeout(r, ms));
+window.__joeyAsk = async function(){
+  if (!JW || askBusy) return;
+  askBusy = true;
+  try {
+    for (let round = 0; round < 5; round++) {
+      let r = null; try { r = await JW.takeAsks(); } catch (e) { break; }
+      const asks = (r && r.asks) || []; if (!asks.length) break;
+      for (const a of asks) {
+        for (let i = 0; i < 120 && ai.busy; i++) await askSleep(500);
+        Object.assign(ai, {reply:'', lines:[], undo:[], err:''});
+        try { await aiRun(String(a.text || '')); } catch (e) {}
+        for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
+        const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).join('\n');
+        await JW.askDone({id:a.id, reply:ai.err ? '' : (ai.reply || 'Done!'), detail:ai.err ? '' : detail, err:ai.err || ''}).catch(() => {});
+        syncWidgets(true);
+      }
+    }
+  } finally { askBusy = false; }
+};
+A['buddy'] = () => { const m = $('#thMascot'); if (m && !m.hidden && typeof buddyOpen !== 'undefined' && !buddyOpen) buddyToggle(true); };
+if (NATIVE && JW) {
+  setTimeout(() => window.__joeyAsk(), 1500);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.__joeyAsk(); });
+}
+
+// the widget buddy wears the corner buddy from the menu's theme (first frame if it's a GIF)
+let jwBudKey = null; try { jwBudKey = localStorage.getItem('jma:jwBud'); } catch (e) {}
+let jwBudBusy = false;
+async function syncWidgetBuddy(){
+  if (!JW || jwBudBusy || Date.now() - (syncWidgetBuddy.failAt || 0) < 60000) return;
+  const t = thFor('home'), want = !!(t && t.img && t.img.mascot), url = want ? thImg(t, 'mascot') : '';
+  if (want && !url) return;
+  const key = want ? t.id + ':' + t.img.mascot : '';
+  if (key === jwBudKey) return;
+  jwBudBusy = true;
+  try {
+    let data = '';
+    if (url) {
+      const im = new Image(); im.src = url; await im.decode();
+      const k = Math.min(1, 256 / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      data = c.toDataURL('image/png').split(',')[1];
+    }
+    await JW.setBuddy({data});
+    jwBudKey = key; try { localStorage.setItem('jma:jwBud', key); } catch (e) {}
+  } catch (e) { syncWidgetBuddy.failAt = Date.now(); }
+  finally { jwBudBusy = false; }
 }
 /* ---------- Android app: Gemini Nano (Google's AI on the phone) runs the AI bar ---------- */
 const JAI = NATIVE ? capPlugin('JoeyAI') : null;
@@ -4921,7 +5054,7 @@ function nanoPrompt(text){
   const wx = (wxAiLines() || []).slice(0, 8);
   const ex = [
     ['remind me tuesday at 3 to take out the dishes', {actions:[{type:'add_reminder', text:'Take out the dishes', date:nextWd(2), time:'15:00', repeat:'none'}], reply:'Got it. I’ll remind you Tuesday at 3:00 PM to take out the dishes.'}],
-    ['blake’s birthday is october 11', {actions:[{type:'add_reminder', text:'Blake’s birthday', date:nextMD(10, 11), time:'', repeat:'yearly'}], reply:'Saved Blake’s birthday on October 11. It repeats every year.'}],
+    ['blake’s birthday is october 11', {actions:[{type:'add_birthday', name:'Blake', month:10, day:11, year:''}], reply:'Saved Blake’s birthday on October 11. It shows on your calendar every year.'}],
     ['dentist friday 10:30 to 11:30', {actions:[{type:'add_event', title:'Dentist', date:nextWd(5), start:'10:30', end:'11:30', note:''}], reply:'Added the dentist on Friday from 10:30 to 11:30 AM.'}],
     ['wake me up at 6:45 on weekdays', {actions:[{type:'add_alarm', time:'06:45', days:[1,2,3,4,5], date:'', label:''}], reply:'Alarm set for 6:45 AM on weekdays.'}],
     ['what can you do?', {actions:[], reply:'I can add reminders, events, notes, alarms and timers, log your day, and answer questions about your schedule, the weather or anything else.'}],
@@ -4932,13 +5065,14 @@ function nanoPrompt(text){
     'Now: ' + wd(t) + ' ' + t + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.',
     'Calendar: ' + days.join('; ') + '.',
     'Rules: dates are YYYY-MM-DD and must come from the calendar above (a weekday means its next date). Times are 24-hour HH:MM; a time without AM/PM means daytime (3 = 15:00, 9 = 09:00).',
-    '"Remind me" = add_reminder. Appointments, classes, meetings, plans = add_event. Information to write down = add_note. Birthdays and anniversaries = add_reminder with repeat yearly and no time. "Wake me up"/"alarm" = add_alarm (days: 0=Sun..6=Sat, [] = once). How a day went or a memory = lifelog (mood happy, okay, sad or ""). Questions about the schedule, notes or weather: answer in reply using the lists, no actions. Any other question or chat: answer briefly and helpfully in reply from your own knowledge, no actions. You are Gemini Nano, Google’s on-device AI, running inside Joey’s Multipurpose App on this phone. To change or delete, use the [id] from the lists. Unclear: no actions, ask one short question.',
+    '"Remind me" = add_reminder. Appointments, classes, meetings, plans = add_event. Information to write down = add_note. Birthdays = add_birthday (name, month, day, year only if given). Anniversaries = add_reminder with repeat yearly and no time. "Wake me up"/"alarm" = add_alarm (days: 0=Sun..6=Sat, [] = once). How a day went or a memory = lifelog (mood happy, okay, sad or ""). Questions about the schedule, notes or weather: answer in reply using the lists, no actions. Any other question or chat: answer briefly and helpfully in reply from your own knowledge, no actions. You are Gemini Nano, Google’s on-device AI, running inside Joey’s Multipurpose App on this phone. To change or delete, use the [id] from the lists. Unclear: no actions, ask one short question.',
     'Titles are short, capitalized, and leave out date and time words. repeat is none, daily, weekdays, weekly, monthly or yearly.',
-    'Action formats: {"type":"add_reminder","text":"","date":"","time":"","repeat":"none"} {"type":"add_event","title":"","date":"","start":"","end":"","note":""} {"type":"add_note","title":"","body":""} {"type":"start_timer","minutes":10,"label":""} {"type":"add_alarm","time":"07:00","days":[],"date":"","label":""} {"type":"set_alarm","id":"","enabled":false} {"type":"lifelog","date":"","mood":"","note":""} {"type":"complete_reminder","id":""} {"type":"update_reminder","id":"",...changed fields} {"type":"update_event","id":"",...changed fields} {"type":"delete","kind":"reminder|event|note|alarm","id":""}',
+    'Action formats: {"type":"add_reminder","text":"","date":"","time":"","repeat":"none"} {"type":"add_event","title":"","date":"","start":"","end":"","note":""} {"type":"add_note","title":"","body":""} {"type":"start_timer","minutes":10,"label":""} {"type":"add_alarm","time":"07:00","days":[],"date":"","label":""} {"type":"set_alarm","id":"","enabled":false} {"type":"lifelog","date":"","mood":"","note":""} {"type":"complete_reminder","id":""} {"type":"update_reminder","id":"",...changed fields} {"type":"update_event","id":"",...changed fields} {"type":"add_birthday","name":"","month":1,"day":1,"year":""} {"type":"delete","kind":"reminder|event|note|alarm|birthday","id":""}',
     'Reminders: ' + (rems.join('; ') || 'none'),
     'Events: ' + (evs.join('; ') || 'none'),
     'Notes: ' + (notes.join('; ') || 'none'),
     'Alarms: ' + (als.join('; ') || 'none'),
+    'Birthdays: ' + (Object.entries(S.birthdays || {}).slice(0, 30).map(([id, b]) => '[' + id + '] ' + clip(b.name, 30) + ' ' + b.month + '/' + b.day).join('; ') || 'none'),
     'Weather: ' + (wx.join('; ') || 'not available'),
     'Examples:',
     ex.map(([q, a]) => 'Request: ' + q + '\nJSON: ' + JSON.stringify(a)).join('\n'),
@@ -5681,6 +5815,55 @@ if (saved) {
 loadClocks();
 loadAlarmLocal();
 IDB.keys().then(ks => { (ks || []).forEach(k => { if (!/^(photo|th):/.test(String(k))) localSongs.add(String(k)); }); scheduleRender(); }).catch(() => {});
+/* swipe left or right on the calendar to change months (and sideways scroll on a laptop trackpad) */
+const CALSW = {on:false, dir:'', x:0, y:0, dx:0, wheel:0, wheelAt:0};
+function calShift(d){
+  A['cal-nav']({dataset:{d:String(d)}});
+  const g = $('#main .cal-grid'); if (!g || S.settings.calm) return;
+  g.classList.remove('cal-in-l', 'cal-in-r'); void g.offsetWidth; g.classList.add(d > 0 ? 'cal-in-r' : 'cal-in-l');
+}
+document.addEventListener('touchstart', e => {
+  const g = e.target.closest && e.target.closest('#main .cal-grid');
+  CALSW.on = !!g && e.touches.length === 1; CALSW.dir = ''; CALSW.dx = 0;
+  if (CALSW.on) { CALSW.x = e.touches[0].clientX; CALSW.y = e.touches[0].clientY; }
+}, {passive:true});
+document.addEventListener('touchmove', e => {
+  if (!CALSW.on) return;
+  const dx = e.touches[0].clientX - CALSW.x, dy = e.touches[0].clientY - CALSW.y;
+  if (!CALSW.dir) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) CALSW.dir = 'h'; else if (Math.abs(dy) > 10) { CALSW.on = false; return; } else return; }
+  if (e.cancelable) e.preventDefault();
+  CALSW.dx = dx;
+  const g = $('#main .cal-grid'); if (g) { g.style.transition = 'none'; g.style.transform = 'translateX(' + (dx * 0.6) + 'px)'; g.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / 600)); }
+}, {passive:false});
+const calSwEnd = () => {
+  if (!CALSW.on) return; CALSW.on = false;
+  const g = $('#main .cal-grid');
+  if (g) { g.style.transition = 'transform .2s ease, opacity .2s'; g.style.transform = ''; g.style.opacity = ''; }
+  if (CALSW.dir === 'h' && Math.abs(CALSW.dx) > 50) calShift(CALSW.dx < 0 ? 1 : -1);
+};
+document.addEventListener('touchend', calSwEnd, {passive:true});
+document.addEventListener('touchcancel', calSwEnd, {passive:true});
+document.addEventListener('wheel', e => {
+  if (!(e.target.closest && e.target.closest('#main .cal-grid')) || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  e.preventDefault();
+  if (Date.now() - CALSW.wheelAt < 450) return;
+  CALSW.wheel += e.deltaX;
+  if (Math.abs(CALSW.wheel) > 60) { calShift(CALSW.wheel > 0 ? 1 : -1); CALSW.wheel = 0; CALSW.wheelAt = Date.now(); }
+}, {passive:false});
+
+function bdayMigrate(){
+  Object.entries(S.reminders).forEach(([rid, r]) => {
+    if (!r || r.repeat !== 'yearly' || !r.date || !/birth\s*day|b-?day/i.test(r.text || '')) return;
+    const id = 'b_' + rid;
+    if (!S.birthdays[id]) {
+      const name = String(r.text).replace(/[’']s\s+(birth\s*day|b-?day).*/i, '').replace(/\b(birth\s*day|b-?day)\b/ig, '').replace(/\s{2,}/g, ' ').trim() || r.text;
+      const d = parseYmd(r.date);
+      putItem('birthdays', id, {name, month:d.getMonth() + 1, day:d.getDate(), year:'', created:r.created || Date.now(), fromReminder:rid});
+    }
+    delItem('reminders', rid);
+  });
+}
+setTimeout(bdayMigrate, 6000); setTimeout(bdayMigrate, 30000);
 setTimeout(() => llRefocusAll(), 3000); setTimeout(() => llRefocusAll(), 25000);
 const h0 = (location.hash || '').slice(1);
 ui.screen = SCREENS.includes(h0) ? h0 : startScreen();
