@@ -26,7 +26,7 @@ img{max-width:100%}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610152320;</script>
+<script>window.JOEY_WEB_VERSION = 202610152348;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -676,6 +676,25 @@ button.wx-day:active{background:var(--surface-2)}
 .wx-night div{display:grid;gap:2px}
 .wx-night span{font-size:.85rem;color:var(--ink-2)}
 .wx-where{margin:-4px 2px 10px;font-size:.8rem;color:var(--ink-2)}
+#thMascot{pointer-events:auto!important;cursor:pointer}
+#thMascot.talk img{animation:bbTalk .45s ease-in-out infinite alternate}
+@keyframes bbTalk{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(1.06,.94) rotate(2deg)}}
+#buddyBubble{position:fixed;right:14px;bottom:calc(172px + env(safe-area-inset-bottom,0px));z-index:65;width:min(330px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
+#buddyBubble::after{content:"";position:absolute;right:34px;bottom:-9px;width:18px;height:18px;background:var(--surface);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+@keyframes bbPop{from{transform:scale(.6) translateY(30px);opacity:0;transform-origin:85% 100%}to{transform:none;opacity:1}}
+#buddyBubble .bb-x{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
+#buddyBubble .bb-x .ic{width:16px;height:16px}
+#buddyBubble .bb-body{padding-right:22px;max-height:40vh;overflow:auto}
+#buddyBubble .bb-body p{margin:0 0 6px;font-size:.95rem;line-height:1.4}
+#buddyBubble .bb-body ul{margin:4px 0 6px;padding-left:18px;font-size:.85rem}
+#buddyBubble .bb-body li span{color:var(--ink-2)}
+#buddyBubble .bb-form{display:flex;gap:8px;margin-top:8px}
+#buddyBubble .bb-form .in{flex:1;min-width:0}
+#buddyBubble .ai-go{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--accent);color:var(--on-accent)}
+.bb-typing{display:flex;gap:5px;padding:6px 0}
+.bb-typing i{width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.4;animation:bbDot 1s infinite}
+.bb-typing i:nth-child(2){animation-delay:.15s}.bb-typing i:nth-child(3){animation-delay:.3s}
+@keyframes bbDot{0%,100%{opacity:.3;transform:none}50%{opacity:1;transform:translateY(-3px)}}
 </style>
 </head>
 <body>
@@ -3626,7 +3645,7 @@ const TH_PAGES = [['home','Menu'],['calendar','Calendar'],['reminders','Reminder
 const TH_NOTE_COLORS = [['none','plain'],['sun','yellow'],['leaf','green'],['sky','blue'],['berry','pink'],['grape','purple'],['ember','orange']];
 function thSlotGroups(){
   return [
-    {name:'Everywhere', slots:[['bg','Page background','Fills the space behind everything'],['mascot','Corner buddy','Hangs out in the bottom corner'],['empty','Empty-page picture','Shows when a page has nothing on it yet']]},
+    {name:'Everywhere', slots:[['bg','Page background','Fills the space behind everything'],['mascot','Corner buddy','Hangs out in the bottom corner. Tap it to talk to the AI. GIFs move!'],['empty','Empty-page picture','Shows when a page has nothing on it yet']]},
     {name:'Clock on the menu', slots:[['hero','Clock background','Behind the time, date and weather'],['buddy','Clock holder','Holds up the clock from underneath. A picture with a see-through background looks best.']]},
     {name:'Menu icons', slots:Object.keys(MENU).map(k => ['tile_' + k, MENU[k].label + ' icon', ''])},
     {name:'Notes', slots:[['run_all','Runner on every note','Runs along the bottom of each note']].concat(TH_NOTE_COLORS.map(([c, n]) => ['run_' + c, 'Runner on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
@@ -3745,7 +3764,7 @@ function thApply(screen){
   if (bgEl) { bgEl.style.backgroundImage = bgi ? 'url("' + bgi + '")' : ''; bgEl.style.opacity = String(1 - (t.bgFade == null ? 35 : t.bgFade) / 100); }
   if (bgi) R.classList.add('th-bgimg');
   const em = thImg(t, 'empty'); if (em) { R.classList.add('th-has-empty'); R.style.setProperty('--th-empty', 'url("' + em + '")'); }
-  if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; if (m) mas.innerHTML = '<img src="' + m + '" alt="">'; }
+  if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; if (m && mas.dataset.src !== m) { mas.dataset.src = m; mas.innerHTML = '<img src="' + m + '" alt="">'; } if (!m) { mas.dataset.src = ''; buddyClose(); } mas.setAttribute('role', 'button'); mas.setAttribute('aria-label', 'Talk to your buddy'); }
 }
 const TH_PAL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10" cy="7.3" r="1.3" fill="currentColor"/><circle cx="14.5" cy="7.3" r="1.3" fill="currentColor"/><circle cx="17" cy="11" r="1.3" fill="currentColor"/></svg>';
 function thDecorate(){
@@ -3802,7 +3821,48 @@ faceSVG = function(mood){
   return u ? '<img class="th-face" src="' + u + '" alt="">' : _thFace(mood);
 };
 const _thRender = render;
-render = function(){ thApply(ui.screen); _thRender(); thDecorate(); };
+render = function(){ thApply(ui.screen); _thRender(); thDecorate(); buddyRefresh(); };
+
+/* tap the corner buddy to talk to the AI: it answers in a speech bubble */
+let buddyOpen = false;
+function buddyBodyHTML(){
+  if (aiState !== 'ready') return '<p>I can’t talk yet. The AI assistant isn’t set up on this device. <button class="link" data-action="buddy-setup">Set it up</button></p>';
+  if (ai.busy) return '<p class="bb-typing" aria-label="Thinking"><i></i><i></i><i></i></p>';
+  if (ai.err) return '<p>' + esc(ai.err) + '</p>';
+  if (ai.reply) return '<p>' + esc(ai.reply) + '</p>' + (ai.lines && ai.lines.length ? '<ul>' + ai.lines.map(l => '<li>' + esc(l.text) + (l.sub ? ' · <span>' + esc(l.sub) + '</span>' : '') + '</li>').join('') + '</ul>' : '') +
+    (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '');
+  return '<p>Hi! What can I do for you?</p>';
+}
+function buddyRefresh(){
+  const b = $('#buddyBubble'), m = $('#thMascot');
+  if (m) { m.setAttribute('data-action', 'buddy-talk'); m.classList.toggle('talk', buddyOpen && ai.busy); }
+  if (!b) return;
+  if (!buddyOpen || !m || m.hidden) { b.hidden = true; return; }
+  const body = b.querySelector('.bb-body'); if (body) body.innerHTML = buddyBodyHTML();
+  const inp = $('#buddyInput'); if (inp) inp.disabled = ai.busy || aiState !== 'ready';
+}
+function buddyClose(){ buddyOpen = false; const b = $('#buddyBubble'); if (b) b.hidden = true; }
+function buddyToggle(){
+  let b = $('#buddyBubble');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'buddyBubble'; b.hidden = true; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Talk to your buddy');
+    b.innerHTML = '<button class="bb-x" data-action="buddy-close" aria-label="Close">' + icon('x') + '</button><div class="bb-body"></div>' +
+      '<form id="buddyForm" class="bb-form" autocomplete="off"><input class="in" id="buddyInput" placeholder="Say something…" enterkeyhint="send"><button class="ai-go" type="submit" aria-label="Send">' + icon('send') + '</button></form>';
+    document.body.appendChild(b);
+  }
+  buddyOpen = !buddyOpen;
+  if (buddyOpen) { Object.assign(ai, {reply:'', lines:[], undo:[], err:''}); b.hidden = false; buddyRefresh(); setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60); }
+  else b.hidden = true;
+}
+FORMS.buddyForm = () => {
+  const i = $('#buddyInput'), text = i ? i.value.trim() : ''; if (!text || ai.busy) return;
+  i.value = ''; aiRun(text); buddyRefresh();
+};
+Object.assign(A, {
+  'buddy-talk': () => buddyToggle(),
+  'buddy-close': () => buddyClose(),
+  'buddy-setup': () => { buddyClose(); go('settings'); setTimeout(() => jumpTo('set-ai'), 30); }
+});
 const _thApplySettings = applySettings;
 applySettings = function(){ _thApplySettings(); if (thFor(ui.screen)) { thApplied = ''; thApply(ui.screen); } };
 
@@ -3935,7 +3995,7 @@ const SS_SYN = [
 const SS_SEC = {
   'set-you':'you name greeting profile',
   'set-look':'look appearance theme dark light mode color colour accent highlight background text size font corners rounded calm motion',
-  'set-themes':'themes theme skin pictures images custom mascot clock holder runners faces kirby pikmin zelda ditto pokemon game',
+  'set-themes':'themes theme skin pictures images gif gifs animated custom mascot buddy clock holder runners faces kirby pikmin zelda ditto pokemon game',
   'set-menu':'menu tiles features order layout home screen',
   'set-widgets':'widgets counters checklists countdowns links menu screen',
   'set-ai':'ai assistant gemini nano chat ask bar',
@@ -5010,17 +5070,20 @@ function b64(buf){
   return btoa(s);
 }
 async function updCheck(force){
-  if (!updOn() || UPD.busy || navigator.onLine === false) return;
+  if (!updOn() || UPD.busy) return;
+  if (navigator.onLine === false) { UPD.status = 'offline'; scheduleRender(); return; }
   if (!force && Date.now() - UPD.checked < 3 * 36e5) return;
-  UPD.busy = true; UPD.checked = Date.now();
+  UPD.busy = true; UPD.checked = Date.now(); UPD.status = 'checking'; scheduleRender();
   try {
     const v = await fetch(UPD.base + 'version.json?t=' + Date.now(), {cache:'no-store'}).then(r => r.ok ? r.json() : null).catch(() => null);
-    if (!v || typeof v.web !== 'number') return;
+    if (!v || typeof v.web !== 'number') { UPD.status = 'error'; return; }
+    UPD.status = 'uptodate';
     let shell = 0;
     if (JUP) { const i = await JUP.info().catch(() => null); shell = i ? i.versionCode : 0; UPD.apk = v.apk && v.apk.code > shell ? v.apk : null; }
     if (DESK) { const i = await DESK.info().catch(() => null); shell = i ? i.shell : 0; UPD.exe = v.exe && v.exe.code > shell ? v.exe : null; }
     const need = JUP ? (v.needApk || 0) : (v.needExe || 0);
     if (v.web > (window.JOEY_WEB_VERSION || 0) && shell >= need && (!UPD.ready || UPD.ready.ver < v.web)) {
+      UPD.status = 'downloading'; scheduleRender();
       const files = [];
       for (const f of v.files || []) {
         const r = await fetch(UPD.base + 'web/' + f + '?v=' + v.web, {cache:'no-store'});
@@ -5036,15 +5099,18 @@ async function updCheck(force){
         await DESK.saveUpdate(v.web, files);
         UPD.ready = {ver:v.web, notes:v.notes || ''};
       }
+      UPD.status = 'ready';
       updMaybeSwitch(false);
-    }
+    } else if (UPD.ready) UPD.status = 'ready';
+    if (UPD.apk || UPD.exe) UPD.status = 'shell';
     scheduleRender();
-  } catch (e) { /* tries again later */ }
+  } catch (e) { UPD.status = 'error'; /* tries again later */ }
   finally { UPD.busy = false; }
 }
 // Switch when it won't interrupt you: when the app is in the background, or right away if nothing is open.
-function updMaybeSwitch(hidden){
+function updMaybeSwitch(hidden, now){
   const r = UPD.ready; if (!r) return;
+  if (now) hidden = true;
   const busy = !$('#sheet').hidden || ai.busy || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
   if (!hidden && busy) return;
   if (!hidden && document.visibilityState === 'visible' && Date.now() - (UPD.openedAt || 0) > 15000) return;   // mid-use: wait until you step away
@@ -5099,6 +5165,32 @@ if (updOn()) {
     updCheck(true);
   }, 4000);
 }
+
+// "App updates" at the top of Settings, to check by hand
+function updSettingsHTML(){
+  const st = UPD.status || '', when = UPD.checked ? new Date(UPD.checked).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}) : '';
+  const msg = {checking:'Checking for updates…', downloading:'Downloading the newest version…', uptodate:'You’re on the newest version.' + (when ? ' Checked at ' + when + '.' : ''),
+    ready:'A new version is downloaded and ready.', shell:JUP ? 'A new phone app version is ready to install.' : 'A new Windows app version is ready to install.',
+    offline:'You’re offline. Connect to the internet to check.', error:'Couldn’t check for updates right now. Try again in a bit.'}[st] || 'Updates download by themselves. You can also check now.';
+  const btn = st === 'ready' ? '<button class="btn sm accent" data-action="upd-now">Restart now</button>'
+    : st === 'shell' ? '<button class="btn sm accent" data-action="' + (JUP ? 'upd-apk' : 'upd-exe') + '">' + (UPD.installing ? 'Downloading…' : JUP ? 'Install' : 'Restart to update') + '</button>'
+    : '<button class="btn sm" data-action="upd-check"' + (st === 'checking' || st === 'downloading' ? ' disabled' : '') + '>Check for updates</button>';
+  return '<div class="sec-title" id="set-upd"><span>App updates</span><span>' + esc(UPD.verText || '') + '</span></div><div class="group">' +
+    '<div class="srow"><span class="lbl">' + esc(msg) + '</span>' + btn + '</div></div>';
+}
+if (updOn()) {
+  (JUP ? JUP.info().then(i => 'Version ' + (i.versionName || i.versionCode)) : DESK.info().then(i => 'Version 1.0.' + i.shell)).then(s => { UPD.verText = s; }).catch(() => {});
+  const _settingsU = settingsHTML;
+  settingsHTML = function(){
+    const h = _settingsU(), at = h.indexOf('<div class="sec-title" id="set-');
+    return at < 0 ? updSettingsHTML() + h : h.slice(0, at) + updSettingsHTML() + h.slice(at);
+  };
+  if (!SET_SECTIONS.some(x => x[0] === 'set-upd')) SET_SECTIONS.unshift(['set-upd', 'Updates']);
+  SS_SEC['set-upd'] = 'updates update check new version upgrade install restart latest';
+  A['upd-check'] = () => { updCheck(true); };
+  A['upd-now'] = () => { updMaybeSwitch(true, true); };
+}
+
 /* ---------- boot ---------- */
 const saved = lsLoad();
 if (saved) {

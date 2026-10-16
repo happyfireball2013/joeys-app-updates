@@ -1,5 +1,5 @@
 {
- "web": 202610152320,
+ "web": 202610152348,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 29,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Bigger Ditto icon with no background, and the bottom buttons float so pages aren't cut off."
+ "notes": "Check for updates is now at the top of Settings. Tap your corner buddy to talk to the AI. Buddies can be GIFs."
 }
