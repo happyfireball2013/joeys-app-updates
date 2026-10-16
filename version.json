@@ -1,5 +1,5 @@
 {
- "web": 202610160155,
+ "web": 202610160158,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "The settings search has an X to clear it."
+ "notes": "Close your buddy's bubble after asking and he keeps working, then tells you when he's done."
 }

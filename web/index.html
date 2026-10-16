@@ -18,7 +18,7 @@ img{max-width:100%}
 .ai-src{margin:0 0 2px;font:500 .68rem/1.2 "DM Mono",monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
 .ai-wait{margin:8px 4px 0;font-size:.85rem;color:var(--ink-2)}
 .ai-why{margin:0 0 6px;font-size:.8rem;color:var(--ink-2)}
-@media (min-width:760px){.is-desk{--bud:clamp(76px,calc((100vw - 560px) / 2 - 16px),152px)}.is-desk #thMascot{right:10px;bottom:0;width:var(--bud);height:var(--bud)}.is-desk #thMascot img{object-position:50% 100%;object-view-box:var(--trim,none);filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}.is-desk #buddyBubble{bottom:calc(var(--bud) + 4px);right:14px}.is-desk #buddyBubble::after{right:calc(var(--bud) / 2 - 13px)}}
+@media (min-width:760px){.is-desk{--bud:clamp(76px,calc((100vw - 560px) / 2 - 16px),152px)}.is-desk #thMascot{right:10px;bottom:0;width:var(--bud);height:var(--bud)}.is-desk #thMascot img{object-position:50% 100%;object-view-box:var(--trim,none);filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}.is-desk #buddyBubble{bottom:calc(var(--bud) + 4px);right:14px}.is-desk #buddyBubble::after{right:calc(var(--bud) / 2 - 13px)}.is-desk #buddyPeek{bottom:calc(var(--bud) + 4px)}}
 html.desk-bar .app{margin-top:36px;height:calc(100% - 36px)}
 #deskBar{position:fixed;top:0;left:0;right:0;height:36px;z-index:80;-webkit-app-region:drag;app-region:drag;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:.78rem;font-weight:600;color:var(--bar-ink,#1A1428);background:color-mix(in srgb,var(--bg) 40%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);user-select:none}
 #deskBar img{width:18px;height:18px;object-fit:contain}
@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160155;</script>
+<script>window.JOEY_WEB_VERSION = 202610160158;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -742,6 +742,14 @@ button.wx-day:active{background:var(--surface-2)}
 .ss-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--ink-2);background:color-mix(in srgb,var(--ink) 8%,transparent)}
 .ss-x .ic{position:static;transform:none;width:16px;height:16px}
 .ss-x[hidden]{display:none}
+
+/* the buddy's little "working on it" / "done" note while his bubble is closed */
+#buddyPeek{position:fixed;right:14px;bottom:calc(168px + env(safe-area-inset-bottom,0px));z-index:30;max-width:min(260px,calc(100vw - 28px));padding:10px 14px;border-radius:16px 16px 4px 16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 6px 20px rgba(30,15,70,.2);text-align:left;display:grid;gap:2px;animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
+#buddyPeek[hidden]{display:none}
+#buddyPeek.thinking{padding:8px 12px}
+#buddyPeek .bp-t{font-size:.9rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#buddyPeek small{font-size:.75rem;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#buddyPeek.err .bp-t{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -4009,8 +4017,33 @@ function buddyFrame(){
   const want = buddyOpen ? m.dataset.src : m.dataset.still;
   if (img.getAttribute('src') !== want) img.setAttribute('src', want);
 }
+/* the buddy keeps working when you close his bubble, then pops up a little note when he's done */
+let buddyPending = false, buddyPeekTimer = 0;
+function buddyPeek(kind){
+  let p = $('#buddyPeek');
+  if (!kind) { if (p) p.hidden = true; clearTimeout(buddyPeekTimer); return; }
+  const m = $('#thMascot');
+  if (!m || m.hidden) {   // no buddy on this page: a plain message instead
+    if (kind === 'done') toast(ai.err ? ai.err : (ai.reply || 'Done.'));
+    return;
+  }
+  if (!p) { p = document.createElement('button'); p.id = 'buddyPeek'; p.type = 'button'; p.setAttribute('data-action', 'buddy-peek'); document.body.appendChild(p); }
+  clearTimeout(buddyPeekTimer);
+  if (kind === 'thinking') { p.innerHTML = '<span class="bb-typing" aria-label="Working on it"><i></i><i></i><i></i></span>'; p.className = 'thinking'; }
+  else {
+    const first = ai.lines && ai.lines[0] ? ai.lines[0].text : '';
+    p.innerHTML = '<span class="bp-t">' + esc(ai.err || ai.reply || 'Done!') + '</span>' + (first && !ai.err ? '<small>' + esc(first) + (ai.lines.length > 1 ? ' +' + (ai.lines.length - 1) + ' more' : '') + '</small>' : '');
+    p.className = ai.err ? 'done err' : 'done';
+    try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+    buddyPeekTimer = setTimeout(() => { p.hidden = true; }, 9000);
+  }
+  p.hidden = false;
+}
 function buddyRefresh(){
   const b = $('#buddyBubble'), m = $('#thMascot');
+  if (buddyPending && !ai.busy) { buddyPending = false; if (!buddyOpen) buddyPeek('done'); }
+  else if (buddyPending && !buddyOpen) { const p = $('#buddyPeek'); if (!p || p.hidden || p.className !== 'thinking') buddyPeek('thinking'); }
+  if (buddyOpen) buddyPeek(null);
   if (m) { m.setAttribute('data-action', 'buddy-talk'); m.classList.toggle('talk', buddyOpen && ai.busy && !m.dataset.still); m.classList.toggle('open', buddyOpen); }
   buddyFrame();
   const sh = $('#buddyShade'); if (sh) sh.hidden = !buddyOpen || !m || m.hidden;
@@ -4020,7 +4053,7 @@ function buddyRefresh(){
   const inp = $('#buddyInput'); if (inp) inp.disabled = ai.busy || aiState !== 'ready';
 }
 function buddyClose(){ buddyOpen = false; const b = $('#buddyBubble'); if (b) b.hidden = true; const sh = $('#buddyShade'); if (sh) sh.hidden = true; const i = $('#buddyInput'); if (i) i.blur(); buddyRefresh(); }
-function buddyToggle(){
+function buddyToggle(keep){
   let b = $('#buddyBubble');
   if (!b) {
     b = document.createElement('div'); b.id = 'buddyBubble'; b.hidden = true; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Talk to your buddy');
@@ -4033,16 +4066,18 @@ function buddyToggle(){
   }
   if (buddyOpen) { buddyClose(); return; }
   buddyOpen = true;
-  Object.assign(ai, {reply:'', lines:[], undo:[], err:''}); b.hidden = false; buddyRefresh();
+  if (!keep && !buddyPending) Object.assign(ai, {reply:'', lines:[], undo:[], err:''});   // a fresh chat, unless he's showing what he just did
+  b.hidden = false; buddyRefresh();
   setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60);
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && buddyOpen) { e.stopPropagation(); buddyClose(); } }, true);
 FORMS.buddyForm = () => {
   const i = $('#buddyInput'), text = i ? i.value.trim() : ''; if (!text || ai.busy) return;
-  i.value = ''; aiRun(text); buddyRefresh();
+  i.value = ''; buddyPending = true; aiRun(text); buddyRefresh();
 };
 Object.assign(A, {
   'buddy-talk': () => buddyToggle(),
+  'buddy-peek': () => { buddyPeek(null); if (!buddyOpen) buddyToggle(true); },
   'buddy-close': () => buddyClose(),
   'buddy-setup': () => { buddyClose(); go('settings'); setTimeout(() => jumpTo('set-ai'), 30); }
 });
