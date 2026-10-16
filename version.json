@@ -1,0 +1,23 @@
+{
+ "web": 202610152223,
+ "files": [
+  "capacitor.js",
+  "firebase-config.js",
+  "fonts/archivo-latin-ext-wdth-normal.woff2",
+  "fonts/archivo-latin-wdth-normal.woff2",
+  "fonts/dm-mono-latin-400-normal.woff2",
+  "fonts/dm-mono-latin-500-normal.woff2",
+  "index.html",
+  "vendor/firebase.js"
+ ],
+ "needApk": 24,
+ "needExe": 24,
+ "apk": {
+  "code": 24,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=24"
+ },
+ "exe": {
+  "code": 24,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
+ }
+}
