@@ -1,5 +1,5 @@
 {
- "web": 202610161543,
+ "web": 202610161757,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Install the new phone app: your widget buddy sits on the right of his chat and his GIF plays while it's open."
+ "notes": "Resize theme pictures, save notes without a title, and slide each note color to your own shade in Settings."
 }

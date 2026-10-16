@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161543;</script>
+<script>window.JOEY_WEB_VERSION = 202610161757;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -726,10 +726,10 @@ button.wx-day:active{background:var(--surface-2)}
 
 /* theme note cards */
 .note.has-card{position:relative;isolation:isolate;overflow:hidden}
-.note.has-card::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ncard) center/cover no-repeat;opacity:calc(1 - var(--nfade,.5));pointer-events:none}
-.note.has-card.card-corner{min-height:84px}
-.note.has-card.card-corner::before{background:var(--ncard) right 8px bottom 8px/auto 60px no-repeat;opacity:calc(1 - var(--nfade,.5) * .6)}
-.note.has-card.card-corner p{padding-right:52px}
+.note.has-card::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ncard) center/var(--ncardsz,cover) no-repeat;opacity:calc(1 - var(--nfade,.5));pointer-events:none}
+.note.has-card.card-corner{min-height:max(84px,calc(var(--ncardh,60px) + 20px))}
+.note.has-card.card-corner::before{background:var(--ncard) right 8px bottom 8px/auto var(--ncardh,60px) no-repeat;opacity:calc(1 - var(--nfade,.5) * .6)}
+.note.has-card.card-corner p{padding-right:calc(var(--ncardh,60px) * .85)}
 .note.card-clear{background:color-mix(in srgb,var(--surface) 55%,transparent)!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .note.card-line{background:transparent!important;border:1.5px solid color-mix(in srgb,var(--ink) 30%,transparent)}
 
@@ -769,6 +769,16 @@ button.wx-day:active{background:var(--surface-2)}
 
 .toast.has-undo{display:flex;align-items:center;gap:14px;padding:8px 8px 8px 16px}
 .toast-undo{flex:none;padding:7px 12px;border-radius:9px;font-weight:800;color:var(--bg);background:color-mix(in srgb,var(--bg) 18%,transparent);text-transform:uppercase;letter-spacing:.04em;font-size:.78rem}
+
+.th-size-row{align-items:center}
+.th-size-row input{flex:1;min-width:120px;accent-color:var(--accent)}
+.th-size-row output{min-width:44px;text-align:right;font-size:.8rem;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.hue-row{display:grid;grid-template-columns:22px 64px 1fr;align-items:center;gap:10px;padding:4px 0}
+.hue-sw{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
+.hue-n{font-size:.88rem;font-weight:600}
+.hue-sl{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;background:linear-gradient(90deg,hsl(0 75% 55%) 0%,hsl(60 75% 55%) 15%,hsl(120 75% 55%) 30%,hsl(180 75% 55%) 45%,hsl(240 75% 55%) 60%,hsl(300 75% 55%) 75%,hsl(359 75% 55%) 90%,#8a8a8a 92%,#8a8a8a 100%)}
+.hue-sl::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.hue-sl::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35)}
 </style>
 </head>
 <body>
@@ -853,6 +863,28 @@ const ACCENTS = [
 ];
 // note and event colors ("ember" is red now; it used to be orange, so older notes and theme pictures carry over)
 const HUES = {sun:'#E9B10C', leaf:'#2BB57F', cyan:'#13B5C6', sky:'#2E9FE0', grape:'#7E62EE', berry:'#E0508F', ember:'#E5484D', slate:'#8A909C'};
+const HUE_DEFAULTS = Object.assign({}, HUES);
+function hexHsl(hex){
+  const n = parseInt(String(hex).slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  let h = 0, s = 0;
+  if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; }
+  return [h, s, l];
+}
+function hslHex(h, s, l){
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+// your own shade of each named color (Settings → Look); the names stay the same
+function applyHues(){ const o = (S.settings && S.settings.hues) || {}; Object.keys(HUE_DEFAULTS).forEach(k => { HUES[k] = /^#[0-9a-fA-F]{6}$/.test(o[k] || '') ? o[k] : HUE_DEFAULTS[k]; }); }
+// a slider position 0–399: the first 360 are every hue, the last stretch fades to grey
+function hueFromSlider(k, v){
+  const [, s0, l] = hexHsl(HUE_DEFAULTS[k]), s = Math.max(0.55, s0);
+  if (v < 360) return hslHex(v, s, l);
+  return hslHex(0, 0, Math.min(0.62, Math.max(0.42, l)));
+}
+function sliderFromHue(hex){ const [h, s] = hexHsl(hex); return s < 0.12 ? 399 : Math.round(h); }
 const HUE_NAMES = {sun:'Yellow', leaf:'Green', cyan:'Cyan', sky:'Blue', grape:'Purple', berry:'Pink', ember:'Red', slate:'Grey'};
 const hueOf = k => HUES[k] || 'var(--accent)';
 const tintOf = k => HUES[k] ? 'background:color-mix(in srgb,' + HUES[k] + ' 18%,var(--surface))' : '';
@@ -965,6 +997,7 @@ function normSettings(s){
   if (!(Number(o.v) >= 6)) { o.alarmFade = false; o.v = 6; }   // version 6: new alarms start at full volume
   if (!/^(royal|app|#[0-9a-fA-F]{6})$/.test(String(o.widgetColor || ''))) o.widgetColor = 'royal';
   ['cBg', 'cCard', 'cInk', 'cAccent'].forEach(k => { if (!/^#[0-9a-fA-F]{6}$/.test(String(o[k] || ''))) o[k] = ''; });
+  o.hues = (o.hues && typeof o.hues === 'object') ? Object.fromEntries(Object.entries(o.hues).filter(([k, v]) => HUE_DEFAULTS[k] && /^#[0-9a-fA-F]{6}$/.test(String(v)))) : {};
   o.wxKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(o.wxKey || '')) ? String(o.wxKey) : '';
   o.wxName = String(o.wxName || '').slice(0, 80);
   o.tabs = Array.isArray(o.tabs) ? Array.from(new Set(o.tabs.filter(k => TAB_OPTIONS.includes(k)))).slice(0, 4) : d.tabs;
@@ -1386,6 +1419,7 @@ function applySettings(){
   rootEl.classList.toggle('calm', !!s.calm);
   rootEl.classList.toggle('bg-lavender', s.background === 'lavender');
   rootEl.classList.toggle('bg-mist', s.background === 'mist');
+  applyHues();
   if (s.cAccent) { rootEl.style.setProperty('--accent', s.cAccent); rootEl.style.setProperty('--on-accent', fgLum(s.cAccent) > 0.45 ? '#1A1428' : '#FFFFFF'); }
   if (s.cBg) rootEl.style.setProperty('--bg', s.cBg); else rootEl.style.removeProperty('--bg');
   fgApply(s.cCard, s.cInk);
@@ -3158,6 +3192,9 @@ function settingsHTML(){
         '<label>Cards<input type="color" id="setCCard" value="' + esc(s.cCard || fgDefaults(s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).card) + '"></label>' +
         '<label>Text<input type="color" id="setCInk" value="' + esc(s.cInk || fgDefaults(s.cCard || s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).ink) + '"></label>' +
         (s.cBg || s.cCard || s.cInk || s.cAccent ? '<button class="btn sm" data-action="fg-auto">Back to automatic</button>' : '') + '</div></div>' +
+      '<div class="srow stack" id="hueRows"><span class="lbl">Note and event colors' + sub('Slide to any shade. The names stay the same everywhere you pick a color.') + '</span>' +
+        Object.keys(HUE_DEFAULTS).map(k => '<div class="hue-row"><span class="hue-sw" style="background:' + HUES[k] + '"></span><span class="hue-n">' + HUE_NAMES[k] + '</span><input type="range" class="hue-sl" data-k="' + k + '" min="0" max="399" step="1" value="' + sliderFromHue(HUES[k]) + '" aria-label="' + HUE_NAMES[k] + ' shade"></div>').join('') +
+        (Object.keys(s.hues || {}).length ? '<button class="btn sm" data-action="hues-reset" style="justify-self:start">Back to the original colors</button>' : '') + '</div>' +
       seg('textSize', 'Text size', [['s','Small'],['m','Default'],['l','Large'],['xl','Extra large']]) +
       seg('corners', 'Corners', [['rounded','Rounded'],['soft','Soft'],['square','Square']]) +
       tgl('calm', 'Reduce motion', 'Turns off sliding and bouncing animations') + '</div>' +
@@ -3380,6 +3417,8 @@ function noteBgApply(){
   const t = f ? thFor('notes') : null, col = f && $('#nColor') ? $('#nColor').value || 'none' : 'none';
   const u = t ? (thImg(t, 'nbg_' + col) || thImg(t, 'nbg_all')) : '';
   sh.classList.toggle('has-nbg', !!u);
+  sh.style.backgroundSize = u ? 'cover,' + thBgSize(thSize(t, thImg(t, 'nbg_' + col) ? 'nbg_' + col : 'nbg_all')) : '';
+  sh.style.backgroundRepeat = u ? 'no-repeat' : '';
   if (u) {
     const fade = t.nbgFade == null ? 40 : Number(t.nbgFade);
     sh.style.setProperty('--nbg', 'url("' + u + '")');
@@ -3391,10 +3430,11 @@ function saveNoteFromSheet(){
   const f = $('#noteForm'); if (!f) return;
   const id = f.dataset.id || uid(), old = S.notes[id];
   const title = $('#nTitle').value.trim(), body = $('#nBody').value, color = $('#nColor').value, pinned = $('#nPin').getAttribute('aria-pressed') === 'true';
-  if (!title && !body.trim()) { if (old) { delItem('notes', id); toast('Empty note removed'); } return; }
+  if (!title && !body.trim() && !old && !ui.noteDone) return;   // closed a brand-new note without writing or tapping Done
+  ui.noteDone = false;
   if (old && old.title === title && old.body === body && old.color === color && !!old.pinned === pinned) return;
   putItem('notes', id, {title, body, color, pinned, created:(old && old.created) || Date.now(), updated:Date.now()});
-  toast(old ? 'Note saved' : 'Note added');
+  toast(old ? 'Note saved' : (title ? 'Note added' : 'Note added as Untitled'));
 }
 function remSheet(id, date){
   const r = id ? S.reminders[id] : {text:'', date:date || '', time:'', repeat:'none'};
@@ -3625,6 +3665,7 @@ const A = {
   'zone-add': t => { if (S.settings.clocks.length >= 12) { toast('You can keep up to 12 world clocks.'); return; } S.settings.clocks.push(t.dataset.tz); saveSettings(); closeSheet(); render(); },
   'zone-remove': t => { S.settings.clocks = S.settings.clocks.filter(z => z !== t.dataset.tz); saveSettings(); render(); },
   'set': t => { if (t.dataset.k === 'accent') S.settings.cAccent = ''; setSetting(t.dataset.k, t.dataset.v); },
+  'hues-reset': () => { S.settings.hues = {}; saveSettings(); applySettings(); render(); toast('Colors are back to the originals.'); },
   'fg-auto': () => { Object.assign(S.settings, {cBg:'', cCard:'', cInk:'', cAccent:''}); saveSettings(); applySettings(); render(); toast('Back to the automatic colors.'); },
   'th-fg-auto': () => { const th = TH.themes[thOpen]; if (!th) return; delete th.card; delete th.ink; thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'set-toggle': t => setSetting(t.dataset.k, !S.settings[t.dataset.k]),
@@ -3794,7 +3835,7 @@ const FORMS = {
     if (a.sound && a.sound !== S.settings.alarmSound) { S.settings.alarmSound = a.sound; saveSettings(); }   // new alarms start with the last sound you picked
     const nx = nextOcc(a); toast(nx ? 'Alarm set for ' + untilText(nx) + ' from now' : 'Alarm saved');
   },
-  noteForm: () => closeSheet(),
+  noteForm: () => { ui.noteDone = true; closeSheet(); },
   remForm: f => {
     const id = f.dataset.id || uid(), old = S.reminders[id] || {};
     const text = $('#rText').value.trim(); if (!text) return;
@@ -3994,6 +4035,19 @@ function thPattern(kind, color){
   }[kind];
   return svg ? 'url("data:image/svg+xml,' + svg.replace(/"/g, "'").replace(/#/g, '%23') + '")' : 'none';
 }
+// how big a background picture shows: 100 fills the space, smaller shows the whole picture smaller
+const TH_SIZE_RE = /^(bg|hero|card_|nbg_)/;
+const thSize = (t, slot) => { const v = t && t.sizes && Number(t.sizes[slot]); return v >= 20 ? v : 100; };
+const thBgSize = v => v >= 100 ? 'cover' : v + '%';
+const thSizeLabel = (slot, v) => slot.startsWith('card_') ? (v === 100 ? 'Normal' : v + '%') : (v >= 100 ? 'Fill' : v + '%');
+let thSizeRaf = 0;
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('th-size') || !TH.themes[thOpen]) return;
+  const th = TH.themes[thOpen]; th.sizes = Object.assign({}, th.sizes, {[el.dataset.slot]:Number(el.value)});
+  const o = el.parentNode.querySelector('output'); if (o) o.textContent = thSizeLabel(el.dataset.slot, Number(el.value));
+  if (!thSizeRaf) thSizeRaf = requestAnimationFrame(() => { thSizeRaf = 0; thApplied = ''; render(); noteBgApply(); });
+});
+document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('th-size') && TH.themes[thOpen]) thSave(); });
 function thApply(screen){
   const t = thFor(screen), sig = t ? JSON.stringify([t, Object.keys(thUrls).length, screen]) : 'none|' + S.settings.accent + S.settings.theme + S.settings.background;
   if (sig === thApplied) return;
@@ -4019,7 +4073,7 @@ function thApply(screen){
   if (st.wobble) R.classList.add('th-wobble');
   if (st.serif) R.classList.add('th-serif');
   const bgi = thImg(t, 'bg');
-  if (bgEl) { bgEl.style.backgroundImage = bgi ? 'url("' + bgi + '")' : ''; bgEl.style.opacity = String(1 - (t.bgFade == null ? 35 : t.bgFade) / 100); }
+  if (bgEl) { bgEl.style.backgroundImage = bgi ? 'url("' + bgi + '")' : ''; bgEl.style.backgroundSize = thBgSize(thSize(t, 'bg')); bgEl.style.backgroundRepeat = 'no-repeat'; bgEl.style.opacity = String(1 - (t.bgFade == null ? 35 : t.bgFade) / 100); }
   if (bgi) R.classList.add('th-bgimg');
   const em = thImg(t, 'empty'); if (em) { R.classList.add('th-has-empty'); R.style.setProperty('--th-empty', 'url("' + em + '")'); }
   fgApply(t.card || S.settings.cCard, t.ink || S.settings.cInk, accent);
@@ -4041,7 +4095,7 @@ function thDecorate(){
     const hero = $('#main .hero');
     if (hero) {
       const hi = thImg(t, 'hero');
-      if (hi) { hero.classList.add('th-hero-img'); hero.style.backgroundImage = 'linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.12) 45%,rgba(0,0,0,.38)),url("' + hi + '")'; }
+      if (hi) { hero.classList.add('th-hero-img'); hero.style.backgroundImage = 'linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.12) 45%,rgba(0,0,0,.38)),url("' + hi + '")'; hero.style.backgroundSize = 'cover,' + thBgSize(thSize(t, 'hero')); hero.style.backgroundRepeat = 'no-repeat'; }
       const bu = thImg(t, 'buddy'), time = hero.querySelector('.big-time');
       if (bu && time && !hero.querySelector('.th-buddy')) {
         const im = document.createElement('img');
@@ -4065,7 +4119,11 @@ function thDecorate(){
       const c = thImg(t, 'card_' + (n.color || 'none')) || thImg(t, 'card_all');
       el.classList.toggle('has-card', !!c); el.classList.toggle('card-corner', !!c && fit === 'corner');
       el.classList.toggle('card-clear', look === 'clear'); el.classList.toggle('card-line', look === 'line');
-      if (c) { el.style.setProperty('--ncard', 'url("' + c + '")'); el.style.setProperty('--nfade', String(fade)); }
+      if (c) {
+        const cs = thSize(t, thImg(t, 'card_' + (n.color || 'none')) ? 'card_' + (n.color || 'none') : 'card_all');
+        el.style.setProperty('--ncard', 'url("' + c + '")'); el.style.setProperty('--nfade', String(fade));
+        el.style.setProperty('--ncardsz', thBgSize(cs)); el.style.setProperty('--ncardh', Math.round(60 * cs / 100) + 'px');
+      }
     });
     const speed = {slow:1.5, normal:1, fast:0.6}[t.runSpeed] || 1;
     $$('#main .note[data-id]').forEach((el, i) => {
@@ -4200,6 +4258,13 @@ Object.assign(A, {
 });
 const TH_COLOR_IDS = {thAccent:'accent', thBgc:'bg', thCard:'card', thInk:'ink'};
 // "Your own colors" in Settings → Look: preview while dragging, save when you let go
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('hue-sl')) return;
+  const k = el.dataset.k, hex = hueFromSlider(k, Number(el.value));
+  S.settings.hues = Object.assign({}, S.settings.hues, {[k]:hex}); HUES[k] = hex;
+  const sw = el.parentNode.querySelector('.hue-sw'); if (sw) sw.style.background = hex;
+});
+document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('hue-sl')) { saveSettings(); applySettings(); render(); } });
 const SET_COLOR_IDS = {setCAccent:'cAccent', setCBg:'cBg', setCCard:'cCard', setCInk:'cInk'};
 document.addEventListener('input', e => { const k = SET_COLOR_IDS[e.target && e.target.id]; if (!k) return; S.settings[k] = e.target.value; applySettings(); });
 document.addEventListener('change', e => { const k = SET_COLOR_IDS[e.target && e.target.id]; if (!k) return; S.settings[k] = e.target.value; saveSettings(); applySettings(); render(); });
@@ -4235,7 +4300,9 @@ function thEditorHTML(id){
       '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (help ? '<small>' + esc(help) + '</small>' : '') + '</span>' +
       (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-pick" data-slot="' + slot + '">' + (u ? 'Change' : 'Add') + '</button>' + (u ? '<button type="button" class="btn sm" data-action="th-rm" data-slot="' + slot + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
       (slot === 'buddy' && u ? '<div class="th-sub"><span>Where</span>' + seg('buddyAt', [['hold','Under the time'],['corner','Corner']]) + '<span>Size</span>' + seg('buddySize', [['s','Small'],['m','Medium'],['l','Large']]) + '<span>Motion</span>' + seg('buddyMove', [['squish','Squish'],['bounce','Bounce'],['none','Still']]) + '</div>' : '') +
-      (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '');
+      (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
+      (u && TH_SIZE_RE.test(slot) ? (function(){ const mx = slot.startsWith('card_') ? 200 : 100, v = Math.min(mx, thSize(t, slot));
+        return '<div class="th-sub th-size-row"><span>Size</span><input type="range" class="th-size" data-slot="' + slot + '" min="20" max="' + mx + '" step="5" value="' + v + '" aria-label="Picture size"><output>' + thSizeLabel(slot, v) + '</output></div>'; })() : '');
   };
   const runnersUsed = Object.keys(t.img || {}).some(k => k.startsWith('run_'));
   const cardsUsed = Object.keys(t.img || {}).some(k => k.startsWith('card_'));
