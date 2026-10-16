@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160036;</script>
+<script>window.JOEY_WEB_VERSION = 202610160044;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -851,7 +851,7 @@ const APP_NAME = "Joey's Multipurpose App";
 function nextNewYear(){ return (new Date().getFullYear() + 1) + '-01-01'; }
 function defaultSettings(){
   return {
-    v:5, appName:APP_NAME, name:'Joey', greeting:true,
+    v:6, appName:APP_NAME, name:'Joey', greeting:true,
     theme:'light', accent:'purple', background:'white', textSize:'m', corners:'rounded', calm:false,
     menuLayout:'tiles', menu:['calendar','reminders','notes','alarm','weather','clock','stopwatch','timer','settings'], tileInfo:true, showWidgets:true, startScreen:'home', aiBar:true, aiTier:'quick',
     showDock:true, tabs:['calendar','reminders','notes','clock'],
@@ -861,7 +861,7 @@ function defaultSettings(){
     remTime:'09:00', snooze:10, showDone:false,
     noteSort:'edited', noteColor:'none', notePreview:5, noteView:'grid',
     timerPresets:[1,5,10,25], hundredths:true, wakeLock:true,
-    alarmVolume:90, alarmFade:true, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
+    alarmVolume:90, alarmFade:false, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
     sound:true, tone:'chime', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
     widgets:[
       {id:'w-capture', type:'capture', size:'full'},
@@ -905,6 +905,7 @@ function normSettings(s){
     o.v = 4;
   }
   if (!(Number(o.v) >= 5)) { o.alarmAutoStop = 1; o.v = 5; }   // version 5: alarms ring for 1 minute unless you pick longer
+  if (!(Number(o.v) >= 6)) { o.alarmFade = false; o.v = 6; }   // version 6: new alarms start at full volume
   if (!/^(royal|app|#[0-9a-fA-F]{6})$/.test(String(o.widgetColor || ''))) o.widgetColor = 'royal';
   ['cBg', 'cCard', 'cInk', 'cAccent'].forEach(k => { if (!/^#[0-9a-fA-F]{6}$/.test(String(o[k] || ''))) o[k] = ''; });
   o.wxKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(o.wxKey || '')) ? String(o.wxKey) : '';
@@ -1823,7 +1824,7 @@ function fireAlarm(id, snoozed){
   const a = S.alarms[id]; if (!a) return;
   if (previewing) soundStop();
   alarmRing = {id, startedAt:Date.now(), label:a.label || '', snooze:Number(a.snooze) || S.settings.alarmSnooze,
-    sound:a.sound || S.settings.alarmSound, fade:a.fade !== false, vibrate:a.vibrate !== false, once:!alarmDays(a).length};
+    sound:a.sound || S.settings.alarmSound, fade:a.fade === true, vibrate:a.vibrate !== false, once:!alarmDays(a).length};
   if (alarmRing.once && !snoozed) putItem('alarms', id, Object.assign({}, a, {enabled:false}));
   renderRing();
   startRingSound();
@@ -2052,7 +2053,7 @@ function alarmSheet(id){
       '<div class="row-btns"><button type="button" class="btn sm" data-action="al-preview" id="alPreviewBtn">' + icon(previewing ? 'stop' : 'play') + (previewing ? 'Stop' : 'Preview') + '</button></div></div>' +
     '<label class="fld"><span>Snooze</span><select class="in" id="alSnooze">' + [5,9,10,15,20].map(n => '<option value="' + n + '"' + (Number(a.snooze || s.alarmSnooze) === n ? ' selected' : '') + '>' + n + ' minutes</option>').join('') + '</select></label>' +
     '<label class="fld"><span>Ring for</span><select class="in" id="alRing"><option value="0"' + (!Number(a.ring) ? ' selected' : '') + '>Default (' + s.alarmAutoStop + (s.alarmAutoStop === 1 ? ' minute' : ' minutes') + ')</option>' + [1,2,3,5,10,15,30].map(n => '<option value="' + n + '"' + (Number(a.ring) === n ? ' selected' : '') + '>' + n + (n === 1 ? ' minute' : ' minutes') + '</option>').join('') + '</select></label>' +
-    tg('alFade', 'Start quiet and get louder', a.fade !== false) + tg('alVib', 'Vibrate', a.vibrate !== false) +
+    tg('alFade', 'Start quiet and get louder', a.fade === true) + tg('alVib', 'Vibrate', a.vibrate !== false) +
     '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="al-del" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">' + (id ? 'Save' : 'Set alarm') + '</button></div></form>');
   updateAlarmHint();
 }
@@ -4400,7 +4401,7 @@ function nativeAlarmList(){
   return Object.entries(S.alarms).map(([id, a]) => {
     const p = String((a && a.time) || '').split(':').map(Number);
     return {id, hour:p[0], minute:p[1], days:alarmDays(a), date:a.date || '', enabled:!!a.enabled, label:a.label || '',
-      sound:a.sound || S.settings.alarmSound, vibrate:a.vibrate !== false, snooze:Number(a.snooze) || S.settings.alarmSnooze, fade:a.fade !== false, ring:Number(a.ring) || 0};
+      sound:a.sound || S.settings.alarmSound, vibrate:a.vibrate !== false, snooze:Number(a.snooze) || S.settings.alarmSnooze, fade:a.fade === true, ring:Number(a.ring) || 0};
   }).filter(x => Number.isInteger(x.hour) && Number.isInteger(x.minute));
 }
 function syncNativeAlarms(force){

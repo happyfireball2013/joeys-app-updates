@@ -1,5 +1,5 @@
 {
- "web": 202610160036,
+ "web": 202610160044,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "The Windows title bar now matches your theme instead of being plain white."
+ "notes": "New alarms start at full volume now. You can still turn on Start quiet and get louder per alarm."
 }
