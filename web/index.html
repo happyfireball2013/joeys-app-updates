@@ -18,9 +18,15 @@ img{max-width:100%}
 .ai-src{margin:0 0 2px;font:500 .68rem/1.2 "DM Mono",monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
 .ai-wait{margin:8px 4px 0;font-size:.85rem;color:var(--ink-2)}
 .ai-why{margin:0 0 6px;font-size:.8rem;color:var(--ink-2)}
+#updNotice{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translate(-50%,-140%);z-index:60;display:flex;align-items:center;gap:10px;max-width:min(92vw,460px);padding:12px 16px;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 8px 28px rgba(30,15,70,.22);border:1px solid var(--line);transition:transform .35s cubic-bezier(.2,.9,.3,1.2),opacity .3s}
+#updNotice.in{transform:translate(-50%,0)}
+#updNotice.out{transform:translate(-50%,-140%);opacity:0}
+#updNotice .un-ic{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-weight:800}
+#updNotice .un-t{display:grid;gap:2px;min-width:0}
+#updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610152241;</script>
+<script>window.JOEY_WEB_VERSION = 202610152302;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4054,12 +4060,20 @@ function omKeyParse(k){ const m = String(k || '').match(/^g(-?\d+)_(-?\d+)$/); r
 function omGetJSON(url){ return fetch(url, {cache:'no-store'}).then(r => { if (!r.ok) throw new Error('http ' + r.status); return r.json(); }); }
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 async function omGps(){
-  if (typeof JA !== 'undefined' && JA) {   // phone: Android's own location
+  if (typeof JA !== 'undefined' && JA) {   // phone: Android's own location, then Capacitor's location helper
+    let why = '';
     try { const r = await withTimeout(JA.locate(), 30000); return {lat:r.lat, lon:r.lon, src:'gps'}; }
-    catch (e) {
-      const m = String((e && (e.message || e.errorMessage)) || e || '');
-      throw new Error(/denied/.test(m) ? 'Location permission is off' : /\boff\b/.test(m) ? 'Location is turned off on your phone' : /timeout|nofix/.test(m) ? 'Couldn’t get a location fix' : m || 'Location failed');
-    }
+    catch (e) { const m = String((e && (e.message || e.errorMessage)) || e || ''); why = /denied/.test(m) ? 'Location permission is off' : /\boff\b/.test(m) ? 'Location is turned off on your phone' : /timeout|nofix/.test(m) ? 'Couldn’t get a location fix' : (m || 'Location failed'); }
+    try {
+      const G = capPlugin('Geolocation');
+      if (G) {
+        let p = await withTimeout(G.checkPermissions(), 5000).catch(() => null);
+        const ok = x => x && (x.location === 'granted' || x.coarseLocation === 'granted');
+        if (!ok(p)) p = await withTimeout(G.requestPermissions({permissions:['location', 'coarseLocation']}), 60000).catch(() => null);
+        if (ok(p)) { const pos = await withTimeout(G.getCurrentPosition({enableHighAccuracy:false, timeout:15000, maximumAge:30 * 60000}), 20000); return {lat:pos.coords.latitude, lon:pos.coords.longitude, src:'gps'}; }
+      }
+    } catch (e) { if (!why) why = 'Couldn’t get a location fix'; }
+    throw new Error(why || 'Location failed');
   }
   return new Promise((res, rej) => {   // computers: Windows location
     if (!navigator.geolocation) return rej(new Error('No location on this computer'));
@@ -4145,7 +4159,10 @@ function omShape(j, name){
 async function omRefresh(force){
   const s = S.settings;
   if (!s.weatherOn || OM.busy) return;
-  if (!force && weather.at.current && Date.now() - weather.at.current < 20 * 6e4 && weather.sig === omSig()) return;
+  let wv = ''; try { wv = localStorage.getItem('jma:wxVer') || ''; } catch (e) {}
+  if (wv !== String(window.JOEY_WEB_VERSION || '')) { force = true; try { localStorage.setItem('jma:wxVer', String(window.JOEY_WEB_VERSION || '')); } catch (e) {} }   // new version: start fresh
+  const fresh = OM.src === 'approx' || OM.src === 'default' ? 8 * 6e4 : 20 * 6e4;   // keep trying for a real location
+  if (!force && weather.at.current && Date.now() - weather.at.current < fresh && weather.sig === omSig()) return;
   OM.busy = true; OM.status = 'Loading…'; scheduleRender();
   const notes = [];
   try {
@@ -4410,7 +4427,7 @@ if (!window.claude) {
   };
   A['wx-pick'] = t => { S.settings.wxKey = t.dataset.key; S.settings.wxName = t.dataset.name; S.settings.wxGps = false; ui.wxResults = null; saveSettings(); render(); toast('Weather set to ' + t.dataset.name); omRefresh(true); };
   A['wx-gps'] = () => { S.settings.wxGps = S.settings.wxGps === false; saveSettings(); render(); omRefresh(true); };
-  setInterval(() => omRefresh(false), 30 * 6e4);
+  setInterval(() => omRefresh(false), 10 * 6e4);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) omRefresh(false); });
 
   // say when the weather is only an approximate location, and how to fix it
@@ -5013,10 +5030,10 @@ async function updCheck(force){
       if (JUP) {
         let path = '';
         for (let i = 0; i < files.length; i += 4) { const r = await JUP.saveFiles({dir:'w' + v.web, files:files.slice(i, i + 4)}); path = r.path; }
-        UPD.ready = {ver:v.web, path};
+        UPD.ready = {ver:v.web, path, notes:v.notes || ''};
       } else {
         await DESK.saveUpdate(v.web, files);
-        UPD.ready = {ver:v.web};
+        UPD.ready = {ver:v.web, notes:v.notes || ''};
       }
       updMaybeSwitch(false);
     }
@@ -5030,9 +5047,20 @@ function updMaybeSwitch(hidden){
   const busy = !$('#sheet').hidden || ai.busy || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
   if (!hidden && busy) return;
   if (!hidden && document.visibilityState === 'visible' && Date.now() - (UPD.openedAt || 0) > 15000) return;   // mid-use: wait until you step away
-  try { localStorage.setItem('jma:justUpdated', String(r.ver)); } catch (e) {}
+  try { localStorage.setItem('jma:justUpdated', String(r.ver)); localStorage.setItem('jma:updNotes', r.notes || ''); } catch (e) {}
   if (JUP) JUP.switchTo({path:r.path}).catch(() => {});
   else DESK.switchTo(r.ver).catch(() => {});
+}
+// the little "updated" popup
+function updNotice(title, notes){
+  const old = document.getElementById('updNotice'); if (old) old.remove();
+  const el = document.createElement('div'); el.id = 'updNotice'; el.setAttribute('role', 'status');
+  el.innerHTML = '<span class="un-ic">✓</span><span class="un-t"><b>' + esc(title) + '</b>' + (notes ? '<small>' + esc(notes) + '</small>' : '') + '</span>';
+  el.addEventListener('click', () => el.classList.add('out'));
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  setTimeout(() => el.classList.add('out'), notes ? 9000 : 6000);
+  setTimeout(() => el.remove(), (notes ? 9000 : 6000) + 600);
 }
 function updBannerHTML(){
   if (UPD.apk) return '<div class="na-setup upd-banner"><div class="na-row"><span>New phone app version ready<small>Includes changes to alarms, widgets or other phone parts. Your data stays.</small></span><button class="btn sm accent" data-action="upd-apk">' + (UPD.installing ? 'Downloading…' : 'Install') + '</button></div></div>';
@@ -5061,8 +5089,12 @@ if (updOn()) {
     // this version started fine: tell the app so it keeps it
     if (JUP) JUP.bootOk({keep:''}).catch(() => {});
     if (DESK) DESK.bootOk(window.JOEY_WEB_VERSION || 0).catch(() => {});
-    let j = null; try { j = localStorage.getItem('jma:justUpdated'); localStorage.removeItem('jma:justUpdated'); } catch (e) {}
-    if (j && Number(j) === window.JOEY_WEB_VERSION) toast('Updated to the newest version');
+    let j = null, notes = ''; try { j = localStorage.getItem('jma:justUpdated'); notes = localStorage.getItem('jma:updNotes') || ''; localStorage.removeItem('jma:justUpdated'); } catch (e) {}
+    if (j && Number(j) === window.JOEY_WEB_VERSION) updNotice('Updated to the newest version', notes);
+    // the phone or Windows app itself was updated
+    const shellNow = JUP ? JUP.info().then(i => i.versionCode) : DESK.info().then(i => i.shell);
+    shellNow.then(n => { let was = 0; try { was = Number(localStorage.getItem('jma:shellVer') || 0); localStorage.setItem('jma:shellVer', String(n)); } catch (e) {}
+      if (was && n > was && !(j && Number(j) === window.JOEY_WEB_VERSION)) updNotice(JUP ? 'Phone app updated' : 'Windows app updated', notes || 'You’re on the newest version.'); }).catch(() => {});
     updCheck(true);
   }, 4000);
 }
