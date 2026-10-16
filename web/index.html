@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161139;</script>
+<script>window.JOEY_WEB_VERSION = 202610161256;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -757,11 +757,11 @@ button.wx-day:active{background:var(--surface-2)}
 .bd-ic .ic{width:22px;height:22px}
 .bd-date{display:grid;grid-template-columns:2fr 1fr 1.3fr;gap:8px}
 
-.cal-grid{touch-action:pan-y}
-.cal-in-r{animation:calInR .24s ease-out}
-.cal-in-l{animation:calInL .24s ease-out}
-@keyframes calInR{from{transform:translateX(40px);opacity:.3}}
-@keyframes calInL{from{transform:translateX(-40px);opacity:.3}}
+.cal-vp{position:relative;overflow:hidden;touch-action:pan-y}
+.cal-track{position:relative;will-change:transform}
+.cal-side{position:absolute;top:0;left:0;width:100%;pointer-events:none}
+.cal-prev{transform:translateX(calc(-100% - 28px))}
+.cal-next{transform:translateX(calc(100% + 28px))}
 </style>
 </head>
 <body>
@@ -2940,8 +2940,8 @@ function bdayAge(b, ds){ const yr = Number(b.year); return yr > 1800 ? +ds.slice
 const bdayTitle = b => (String(b.name || '').trim() || 'Someone') + '’s birthday';
 function bdaySub(b, ds){ const a = bdayAge(b, ds); return a > 0 ? 'Turns ' + a : 'Birthday'; }
 
-function calendarHTML(){
-  const s = S.settings, m = ui.calMonth, y = m.getFullYear(), mo = m.getMonth();
+function calCellsHTML(m){
+  const s = S.settings, y = m.getFullYear(), mo = m.getMonth();
   const wsd = s.weekStartMon ? 1 : 0;
   const off = (new Date(y, mo, 1).getDay() - wsd + 7) % 7;
   const dim = new Date(y, mo + 1, 0).getDate();
@@ -2960,6 +2960,11 @@ function calendarHTML(){
     const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (bd ? ', ' + bd + (bd > 1 ? ' birthdays' : ' birthday') : '') + (evs.length ? ', ' + evs.length + (evs.length > 1 ? ' events' : ' event') : '') + (rc ? ', ' + rc + (rc > 1 ? ' reminders' : ' reminder') : '');
     cells += '<button class="day' + (out ? ' out' : '') + (ds === t ? ' today' : '') + (ds === ui.calSel ? ' sel' : '') + '" data-action="cal-sel" data-date="' + ds + '" aria-label="' + esc(label) + '" aria-pressed="' + (ds === ui.calSel) + '">' + llCellInner(ds, d.getDate()) + '<span class="dots">' + dots + '</span></button>';
   }
+  return cells;
+}
+function calendarHTML(){
+  const s = S.settings, m = ui.calMonth, y = m.getFullYear(), mo = m.getMonth(), t = todayStr();
+  const cells = calCellsHTML(m);
   const sel = ui.calSel, evs = eventsOn(sel);
   const rems = s.calReminders ? Object.entries(S.reminders).filter(e => e[1].date === sel).sort(remSort) : [];
   const onThisMonth = y === new Date().getFullYear() && mo === new Date().getMonth();
@@ -2969,7 +2974,7 @@ function calendarHTML(){
   return head((!onThisMonth || sel !== t) ? '<button class="link" data-action="cal-today">Back to today</button>' : esc(fmtDate(new Date())), 'Calendar',
       '<button class="ib accent" data-action="new-event" data-date="' + sel + '" aria-label="New event">' + icon('plus') + '</button>') +
     '<div class="cal"><div class="cal-nav"><button class="ib sm ghost" data-action="cal-nav" data-d="-1" aria-label="Previous month">' + icon('left') + '</button><b>' + m.toLocaleDateString('en-US', {month:'long', year:'numeric'}) + '</b><button class="ib sm ghost" data-action="cal-nav" data-d="1" aria-label="Next month">' + icon('right') + '</button></div>' +
-    '<div class="cal-grid">' + cells + '</div></div>' +
+    '<div class="cal-vp"><div class="cal-track"><div class="cal-grid">' + cells + '</div></div></div></div>' +
     '<div class="sec-title"><span>' + esc(fmtDate(parseYmd(sel))) + '</span></div>' +
     (function(){ const w = S.settings.calWeather && wxForDate(sel); return w ? '<div class="agenda-wx">' + wxIcon(w.day ? w.day.icon : 1, false) + '<span><b>' + deg(w.day && w.day.temperature) + '</b> / ' + deg(w.night && w.night.temperature) + ' \u00b7 ' + esc((w.day && w.day.phrase) || '') + '</span></div>' : ''; })() +
     llAgendaHTML(sel) + (sel <= todayStr() ? '<div class="sec-title"><span>Plans</span></div>' : '') +
@@ -4968,10 +4973,11 @@ window.__joeyAsk = async function(){
       const asks = (r && r.asks) || []; if (!asks.length) break;
       for (const a of asks) {
         for (let i = 0; i < 120 && ai.busy; i++) await askSleep(500);
-        Object.assign(ai, {reply:'', lines:[], undo:[], err:''});
+        Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
         try { await aiRun(String(a.text || '')); } catch (e) {}
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
-        const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).join('\n');
+        const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy.charAt(0).toLowerCase() + ai.engineWhy.slice(1) : '') : ai.engine ? 'Answered by ' + ai.engine : '';
+        const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
         await JW.askDone({id:a.id, reply:ai.err ? '' : (ai.reply || 'Done!'), detail:ai.err ? '' : detail, err:ai.err || ''}).catch(() => {});
         syncWidgets(true);
       }
@@ -5106,7 +5112,7 @@ if (NATIVE && JAI) {
     try {
       const r = await withTimeout(JAI.generate({prompt:nanoPrompt(text), temperature:0.2, maxTokens:450}), 60000);
       if (my !== nanoReq) return;
-      NANO.lastMs = r.ms || 0; raw = String(r.text || '').trim();
+      NANO.lastMs = r.ms || 0; raw = String(r.text || '').trim(); ai.engine = 'Gemini Nano';
     } catch (e) {
       if (my !== nanoReq) return;
       ai.busy = false; aiCtl = null;
@@ -5491,12 +5497,22 @@ async function gemRun(text, fallback){
     const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. You are Gemini, the assistant inside Joey’s Multipurpose App on his ' + (NATIVE ? 'phone' : 'computer') + '.';
     const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]})).concat([{role:'user', parts:[{text:'Request: ' + text}]}]);
     let raw;
-    try { raw = await gemCall(system, contents); }
+    try {
+      try { raw = await gemCall(system, contents); }
+      catch (e1) {   // one more try before giving up (a phone waking up or in the background can drop the first try)
+        const m1 = String(e1 && e1.message || '');
+        if (m1 === 'badkey' || my !== gemReq) throw e1;
+        await new Promise(r => setTimeout(r, m1 === 'limit' ? 2500 : 1500));
+        if (my !== gemReq) throw e1;
+        raw = await gemCall(system, contents);
+      }
+      ai.engine = 'Gemini';
+    }
     catch (e) {
       if (my !== gemReq) return;
       const m = String(e && e.message || '');
       ai.busy = false; aiCtl = null; ui.aiText = text;
-      if (fallback && m !== 'badkey') { ai.turns = turns; return fallback(text); }   // offline or Google busy: the phone's own AI answers
+      if (fallback && m !== 'badkey') { ai.turns = turns; ai.engineWhy = m === 'limit' ? 'Gemini’s free limit was reached' : m === 'offline' || m === 'network' ? 'Gemini couldn’t be reached' : 'Gemini didn’t answer'; return fallback(text); }   // offline or Google busy: the phone's own AI answers
       ai.err = m === 'badkey' ? 'Google didn’t accept the Gemini key. Check it in Settings → AI assistant.' : m === 'limit' ? 'You’ve hit Gemini’s free limit for now. Try again in a little while.' : m === 'offline' ? 'You’re offline. The AI bar needs the internet on the computer.' : 'Gemini didn’t answer. Try again. ' + (m.startsWith('failed') ? m.slice(6) : '');
       render(); return;
     }
@@ -5815,40 +5831,74 @@ if (saved) {
 loadClocks();
 loadAlarmLocal();
 IDB.keys().then(ks => { (ks || []).forEach(k => { if (!/^(photo|th):/.test(String(k))) localSongs.add(String(k)); }); scheduleRender(); }).catch(() => {});
-/* swipe left or right on the calendar to change months (and sideways scroll on a laptop trackpad) */
-const CALSW = {on:false, dir:'', x:0, y:0, dx:0, wheel:0, wheelAt:0};
-function calShift(d){
-  A['cal-nav']({dataset:{d:String(d)}});
-  const g = $('#main .cal-grid'); if (!g || S.settings.calm) return;
-  g.classList.remove('cal-in-l', 'cal-in-r'); void g.offsetWidth; g.classList.add(d > 0 ? 'cal-in-r' : 'cal-in-l');
+/* swipe the calendar like a carousel: the next or previous month slides in with your finger
+   (two-finger sideways scrolling on a laptop trackpad does the same) */
+const CALSW = {on:false, dir:'', x:0, y:0, dx:0, w:0, t0:0, lastX:0, lastT:0, vel:0, wheelT:0, busy:false};
+const calMonthAt = d => new Date(ui.calMonth.getFullYear(), ui.calMonth.getMonth() + d, 1);
+const calMonthName = m => m.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+function calDragBegin(){
+  const vp = $('#main .cal-vp'), tr = vp && vp.querySelector('.cal-track'); if (!tr) return false;
+  CALSW.w = (vp.clientWidth || 1) + 28;   // a month's width plus the gap between months
+  if (!tr.querySelector('.cal-side')) {
+    tr.insertAdjacentHTML('afterbegin', '<div class="cal-grid cal-side cal-prev" aria-hidden="true">' + calCellsHTML(calMonthAt(-1)) + '</div>');
+    tr.insertAdjacentHTML('beforeend', '<div class="cal-grid cal-side cal-next" aria-hidden="true">' + calCellsHTML(calMonthAt(1)) + '</div>');
+  }
+  tr.style.transition = 'none';
+  return true;
 }
+function calDragTo(dx){
+  const tr = $('#main .cal-track'); if (!tr) return;
+  dx = Math.max(-CALSW.w * 1.05, Math.min(CALSW.w * 1.05, dx));
+  tr.style.transform = 'translateX(' + dx + 'px)';
+  // the title switches once the other month is more than halfway in
+  const b = $('#main .cal-nav b'); if (b) b.textContent = calMonthName(calMonthAt(Math.abs(dx) > CALSW.w / 2 ? (dx < 0 ? 1 : -1) : 0));
+}
+function calDragFinish(dx, vel){
+  const tr = $('#main .cal-track'); if (!tr) return;
+  const go = (Math.abs(dx) > CALSW.w * 0.3 || Math.abs(vel) > 0.45) && Math.sign(dx || -vel) !== 0 ? (dx < 0 || (Math.abs(dx) < 4 && vel < 0) ? 1 : -1) : 0;
+  CALSW.busy = true;
+  tr.style.transition = 'transform ' + (S.settings.calm ? 0 : go ? 0.28 : 0.22) + 's cubic-bezier(.2,.8,.25,1)';
+  tr.style.transform = 'translateX(' + (go ? -go * CALSW.w : 0) + 'px)';
+  const done = () => {
+    CALSW.busy = false;
+    if (go) A['cal-nav']({dataset:{d:String(go)}});   // redraws the page on the new month
+    else { tr.style.transition = 'none'; tr.style.transform = ''; tr.querySelectorAll('.cal-side').forEach(e => e.remove()); const b = $('#main .cal-nav b'); if (b) b.textContent = calMonthName(ui.calMonth); }
+  };
+  if (S.settings.calm) done(); else setTimeout(done, go ? 290 : 230);
+}
+function calShift(d){ if (CALSW.busy || !calDragBegin()) { A['cal-nav']({dataset:{d:String(d)}}); return; } calDragFinish(-d * CALSW.w * 0.5, -d); }
 document.addEventListener('touchstart', e => {
-  const g = e.target.closest && e.target.closest('#main .cal-grid');
-  CALSW.on = !!g && e.touches.length === 1; CALSW.dir = ''; CALSW.dx = 0;
-  if (CALSW.on) { CALSW.x = e.touches[0].clientX; CALSW.y = e.touches[0].clientY; }
+  const g = e.target.closest && e.target.closest('#main .cal-vp');
+  CALSW.on = !!g && e.touches.length === 1 && !CALSW.busy; CALSW.dir = ''; CALSW.dx = 0;
+  if (CALSW.on) { CALSW.x = CALSW.lastX = e.touches[0].clientX; CALSW.y = e.touches[0].clientY; CALSW.lastT = Date.now(); CALSW.vel = 0; }
 }, {passive:true});
 document.addEventListener('touchmove', e => {
   if (!CALSW.on) return;
-  const dx = e.touches[0].clientX - CALSW.x, dy = e.touches[0].clientY - CALSW.y;
-  if (!CALSW.dir) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) CALSW.dir = 'h'; else if (Math.abs(dy) > 10) { CALSW.on = false; return; } else return; }
+  const x = e.touches[0].clientX, dx = x - CALSW.x, dy = e.touches[0].clientY - CALSW.y;
+  if (!CALSW.dir) {
+    if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) { CALSW.dir = 'h'; if (!calDragBegin()) { CALSW.on = false; return; } CALSW.x = x; }
+    else if (Math.abs(dy) > 10) { CALSW.on = false; return; }
+    else return;
+  }
   if (e.cancelable) e.preventDefault();
-  CALSW.dx = dx;
-  const g = $('#main .cal-grid'); if (g) { g.style.transition = 'none'; g.style.transform = 'translateX(' + (dx * 0.6) + 'px)'; g.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / 600)); }
+  const now = Date.now(); if (now > CALSW.lastT) { CALSW.vel = CALSW.vel * 0.4 + 0.6 * ((x - CALSW.lastX) / (now - CALSW.lastT)); }
+  CALSW.lastX = x; CALSW.lastT = now;
+  CALSW.dx = x - CALSW.x; calDragTo(CALSW.dx);
 }, {passive:false});
 const calSwEnd = () => {
   if (!CALSW.on) return; CALSW.on = false;
-  const g = $('#main .cal-grid');
-  if (g) { g.style.transition = 'transform .2s ease, opacity .2s'; g.style.transform = ''; g.style.opacity = ''; }
-  if (CALSW.dir === 'h' && Math.abs(CALSW.dx) > 50) calShift(CALSW.dx < 0 ? 1 : -1);
+  if (CALSW.dir === 'h') calDragFinish(CALSW.dx, Date.now() - CALSW.lastT > 120 ? 0 : CALSW.vel);
 };
 document.addEventListener('touchend', calSwEnd, {passive:true});
 document.addEventListener('touchcancel', calSwEnd, {passive:true});
 document.addEventListener('wheel', e => {
-  if (!(e.target.closest && e.target.closest('#main .cal-grid')) || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  if (!(e.target.closest && e.target.closest('#main .cal-vp')) || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
   e.preventDefault();
-  if (Date.now() - CALSW.wheelAt < 450) return;
-  CALSW.wheel += e.deltaX;
-  if (Math.abs(CALSW.wheel) > 60) { calShift(CALSW.wheel > 0 ? 1 : -1); CALSW.wheel = 0; CALSW.wheelAt = Date.now(); }
+  if (CALSW.busy) return;
+  if (!CALSW.wheelT) { if (!calDragBegin()) return; CALSW.dx = 0; }
+  CALSW.dx -= e.deltaX; calDragTo(CALSW.dx);
+  clearTimeout(CALSW.wheelT);
+  CALSW.wheelT = setTimeout(() => { CALSW.wheelT = 0; calDragFinish(CALSW.dx, 0); }, 140);
 }, {passive:false});
 
 function bdayMigrate(){
