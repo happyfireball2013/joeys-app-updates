@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161901;</script>
+<script>window.JOEY_WEB_VERSION = 202610161911;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -773,12 +773,6 @@ button.wx-day:active{background:var(--surface-2)}
 .th-size-row{align-items:center}
 .th-size-row input{flex:1;min-width:120px;accent-color:var(--accent)}
 .th-size-row output{min-width:44px;text-align:right;font-size:.8rem;color:var(--ink-2);font-variant-numeric:tabular-nums}
-.hue-row{display:grid;grid-template-columns:22px 64px 1fr;align-items:center;gap:10px;padding:4px 0}
-.hue-sw{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
-.hue-n{font-size:.88rem;font-weight:600}
-.hue-sl{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;background:linear-gradient(90deg,hsl(0 75% 55%) 0%,hsl(60 75% 55%) 15%,hsl(120 75% 55%) 30%,hsl(180 75% 55%) 45%,hsl(240 75% 55%) 60%,hsl(300 75% 55%) 75%,hsl(359 75% 55%) 90%,#8a8a8a 92%,#8a8a8a 100%)}
-.hue-sl::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35);box-shadow:0 1px 4px rgba(0,0,0,.3)}
-.hue-sl::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35)}
 
 .th-ncolors{display:grid;gap:6px;margin-top:6px;padding:12px;border-radius:var(--r-sm);background:var(--surface-2)}
 .th-ncolors small{color:var(--ink-2);font-size:.8rem}
@@ -1005,7 +999,7 @@ function normSettings(s){
   if (!(Number(o.v) >= 6)) { o.alarmFade = false; o.v = 6; }   // version 6: new alarms start at full volume
   if (!/^(royal|app|#[0-9a-fA-F]{6})$/.test(String(o.widgetColor || ''))) o.widgetColor = 'royal';
   ['cBg', 'cCard', 'cInk', 'cAccent'].forEach(k => { if (!/^#[0-9a-fA-F]{6}$/.test(String(o[k] || ''))) o[k] = ''; });
-  o.hues = (o.hues && typeof o.hues === 'object') ? Object.fromEntries(Object.entries(o.hues).filter(([k, v]) => HUE_DEFAULTS[k] && /^#[0-9a-fA-F]{6}$/.test(String(v)))) : {};
+  delete o.hues;   // the old color sliders are gone: everything uses the original colors
   o.wxKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(o.wxKey || '')) ? String(o.wxKey) : '';
   o.wxName = String(o.wxName || '').slice(0, 80);
   o.tabs = Array.isArray(o.tabs) ? Array.from(new Set(o.tabs.filter(k => TAB_OPTIONS.includes(k)))).slice(0, 4) : d.tabs;
@@ -1427,7 +1421,6 @@ function applySettings(){
   rootEl.classList.toggle('calm', !!s.calm);
   rootEl.classList.toggle('bg-lavender', s.background === 'lavender');
   rootEl.classList.toggle('bg-mist', s.background === 'mist');
-  applyHues();
   if (s.cAccent) { rootEl.style.setProperty('--accent', s.cAccent); rootEl.style.setProperty('--on-accent', fgLum(s.cAccent) > 0.45 ? '#1A1428' : '#FFFFFF'); }
   if (s.cBg) rootEl.style.setProperty('--bg', s.cBg); else rootEl.style.removeProperty('--bg');
   fgApply(s.cCard, s.cInk);
@@ -3200,9 +3193,7 @@ function settingsHTML(){
         '<label>Cards<input type="color" id="setCCard" value="' + esc(s.cCard || fgDefaults(s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).card) + '"></label>' +
         '<label>Text<input type="color" id="setCInk" value="' + esc(s.cInk || fgDefaults(s.cCard || s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).ink) + '"></label>' +
         (s.cBg || s.cCard || s.cInk || s.cAccent ? '<button class="btn sm" data-action="fg-auto">Back to automatic</button>' : '') + '</div></div>' +
-      '<div class="srow stack" id="hueRows"><span class="lbl">Note and event colors' + sub('Slide to any shade. The names stay the same everywhere you pick a color.') + '</span>' +
-        Object.keys(HUE_DEFAULTS).map(k => '<div class="hue-row"><span class="hue-sw" style="background:' + HUES[k] + '"></span><span class="hue-n">' + HUE_NAMES[k] + '</span><input type="range" class="hue-sl" data-k="' + k + '" min="0" max="399" step="1" value="' + sliderFromHue(HUES[k]) + '" aria-label="' + HUE_NAMES[k] + ' shade"></div>').join('') +
-        (Object.keys(s.hues || {}).length ? '<button class="btn sm" data-action="hues-reset" style="justify-self:start">Back to the original colors</button>' : '') + '</div>' +
+
       seg('textSize', 'Text size', [['s','Small'],['m','Default'],['l','Large'],['xl','Extra large']]) +
       seg('corners', 'Corners', [['rounded','Rounded'],['soft','Soft'],['square','Square']]) +
       tgl('calm', 'Reduce motion', 'Turns off sliding and bouncing animations') + '</div>' +
@@ -3390,8 +3381,8 @@ window.__joeyIdle = setIdle;
 /* ---------- sheets ---------- */
 let sheetHook = null;
 function openSheet(html, onClose, focusId){
+  sheetResetLook();
   $('#sheetBody').innerHTML = html; $('#sheet').hidden = false; sheetHook = onClose || null;
-  const shp = $('#sheet .sheet'); if (shp) shp.classList.remove('has-nbg');
   if (focusId) setTimeout(() => { const el = document.getElementById(focusId); if (el) el.focus(); }, 60);
 }
 function closeSheet(skipHook){
@@ -3400,7 +3391,14 @@ function closeSheet(skipHook){
   const h = sheetHook; sheetHook = null;
   if (h && !skipHook) h();
   $('#sheet').hidden = true; $('#sheetBody').innerHTML = '';
-  const shp = $('#sheet .sheet'); if (shp) shp.classList.remove('has-nbg');
+  sheetResetLook();
+}
+// open notes color the pop-up panel; clear that so other pop-ups (themes, reminders…) look normal
+function sheetResetLook(){
+  const sh = $('#sheet .sheet'); if (!sh) return;
+  sh.classList.remove('has-nbg', 'has-ncol');
+  ['--surface', '--surface-2', '--line', '--ink', '--ink-2', '--nbg', '--nbgveil'].forEach(v => sh.style.removeProperty(v));
+  sh.style.backgroundSize = ''; sh.style.backgroundRepeat = '';
 }
 const sheetHead = title => '<div class="sh-hd"><h2>' + title + '</h2><button type="button" class="ib sm ghost" data-action="sheet-close" aria-label="Close">' + icon('x') + '</button></div>';
 function colorPicker(groupId, value, withNone){
@@ -3692,7 +3690,6 @@ const A = {
   'zone-add': t => { if (S.settings.clocks.length >= 12) { toast('You can keep up to 12 world clocks.'); return; } S.settings.clocks.push(t.dataset.tz); saveSettings(); closeSheet(); render(); },
   'zone-remove': t => { S.settings.clocks = S.settings.clocks.filter(z => z !== t.dataset.tz); saveSettings(); render(); },
   'set': t => { if (t.dataset.k === 'accent') S.settings.cAccent = ''; setSetting(t.dataset.k, t.dataset.v); },
-  'hues-reset': () => { S.settings.hues = {}; saveSettings(); applySettings(); render(); toast('Colors are back to the originals.'); },
   'fg-auto': () => { Object.assign(S.settings, {cBg:'', cCard:'', cInk:'', cAccent:''}); saveSettings(); applySettings(); render(); toast('Back to the automatic colors.'); },
   'th-ncol-reset': () => { const th = TH.themes[thOpen]; if (!th) return; delete th.nColors; thSave(); thRefreshEditor(); },
   'th-fg-auto': () => { const th = TH.themes[thOpen]; if (!th) return; delete th.card; delete th.ink; thSave(); thApplied = ''; thRefreshEditor(); render(); },
@@ -4286,13 +4283,6 @@ Object.assign(A, {
 });
 const TH_COLOR_IDS = {thAccent:'accent', thBgc:'bg', thCard:'card', thInk:'ink'};
 // "Your own colors" in Settings → Look: preview while dragging, save when you let go
-document.addEventListener('input', e => {
-  const el = e.target; if (!el.classList || !el.classList.contains('hue-sl')) return;
-  const k = el.dataset.k, hex = hueFromSlider(k, Number(el.value));
-  S.settings.hues = Object.assign({}, S.settings.hues, {[k]:hex}); HUES[k] = hex;
-  const sw = el.parentNode.querySelector('.hue-sw'); if (sw) sw.style.background = hex;
-});
-document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('hue-sl')) { saveSettings(); applySettings(); render(); } });
 const SET_COLOR_IDS = {setCAccent:'cAccent', setCBg:'cBg', setCCard:'cCard', setCInk:'cInk'};
 document.addEventListener('input', e => { const k = SET_COLOR_IDS[e.target && e.target.id]; if (!k) return; S.settings[k] = e.target.value; applySettings(); });
 document.addEventListener('change', e => { const k = SET_COLOR_IDS[e.target && e.target.id]; if (!k) return; S.settings[k] = e.target.value; saveSettings(); applySettings(); render(); });
