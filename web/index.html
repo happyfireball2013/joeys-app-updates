@@ -20,7 +20,7 @@ img{max-width:100%}
 .ai-why{margin:0 0 6px;font-size:.8rem;color:var(--ink-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610152223;</script>
+<script>window.JOEY_WEB_VERSION = 202610152241;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4742,13 +4742,13 @@ async function fbAttach(u){
   FBX.unsubs.push(FB.onSnapshot(R.themes, s => {
     if (!s.exists() || FBX.thTimer) return;
     const d = clone(s.data()); if (!d || typeof d !== 'object') return;
-    TH = Object.assign(thDefaults(), d); lsSet('jma:themes', JSON.stringify(TH)); thApplied = ''; thLoadImages();
+    TH = Object.assign(thDefaults(), d); lsSet('jma:themes', JSON.stringify(TH)); thApplied = ''; thLoadImages(); fbImgLater();
   }, fbSnapErr));
   COLLS.forEach(c => FBX.unsubs.push(FB.onSnapshot(R[c], qs => {
     const o = {}; qs.docs.forEach(d => { o[d.id] = clone(d.data()); });
     S[c] = o; lsSave(); scheduleRender();
   }, fbSnapErr)));
-  updateSaved(); scheduleRender();
+  updateSaved(); scheduleRender(); fbImgLater();
 }
 function fbSnapErr(e){ if (e && e.code === 'permission-denied') { FBX.err = 'The database refused to share your data. Check the Rules step.'; scheduleRender(); } }
 
@@ -4766,7 +4766,7 @@ putItem = function(coll, id, obj){ _fbPut(coll, id, obj); if (fbOn() && FBX.refs
 const _fbDel = delItem;
 delItem = function(coll, id){ _fbDel(coll, id); if (fbOn() && FBX.refs[coll]) fbWrite(FB.doc(FBX.refs[coll], id), null); };
 const _fbThSave = thSave;
-thSave = function(){ _fbThSave(); if (!fbOn()) return; clearTimeout(FBX.thTimer); FBX.thTimer = setTimeout(() => { FBX.thTimer = null; const d = fbThemesOut(); if (d) fbWrite(FBX.refs.themes, d); }, 800); };
+thSave = function(){ _fbThSave(); if (!fbOn()) return; fbImgLater(); clearTimeout(FBX.thTimer); FBX.thTimer = setTimeout(() => { FBX.thTimer = null; const d = fbThemesOut(); if (d) fbWrite(FBX.refs.themes, d); }, 800); };
 const _fbSaveState = saveState;
 saveState = function(){
   if (!fbOn()) return _fbSaveState();
@@ -4836,6 +4836,56 @@ if (!window.claude && fbConfigured()) {
   s.onerror = () => { FBX.err = 'The sync code couldn’t load.'; scheduleRender(); };
   document.head.appendChild(s);
 }
+
+/* theme pictures: copied through the database in pieces (Firebase's free plan has no file storage) */
+const FBI = {timer:null, busy:false, again:false, CH:700000};
+const fbImgMap = k => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } };
+const fbImgSave = (k, o) => { try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) {} };
+function fbImgLater(){ clearTimeout(FBI.timer); FBI.timer = setTimeout(fbImgSync, 1500); }
+function fbImgDoc(id){ return FB.doc(FBX.fs, 'users', FBX.user.uid, 'themeImages', id); }
+async function fbImgSync(){
+  if (!fbOn()) return;
+  if (FBI.busy) { FBI.again = true; return; }
+  FBI.busy = true;
+  const up = fbImgMap('jma:thimgup'), have = fbImgMap('jma:thimgv');
+  let pending = false;
+  try {
+    const want = {};
+    Object.entries(TH.themes || {}).forEach(([id, th]) => Object.entries(th.img || {}).forEach(([slot, v]) => { want[id + ':' + slot] = v; }));
+    for (const [k, v] of Object.entries(want)) {
+      let rec = null; try { rec = await IDB.get('th:' + k); } catch (e) {}
+      const present = !!(rec && rec.buf);
+      if (present && up[k] !== v && (have[k] === undefined || have[k] === v)) {
+        // send it up in pieces, then the little record that says it's complete
+        const s = b64(rec.buf), n = Math.max(1, Math.ceil(s.length / FBI.CH));
+        for (let i = 0; i < n; i++) await FB.setDoc(fbImgDoc(k + ':' + i), {d:s.slice(i * FBI.CH, (i + 1) * FBI.CH)});
+        await FB.setDoc(fbImgDoc(k), {v, n, type:rec.type || 'image/png'});
+        up[k] = v; have[k] = v; fbImgSave('jma:thimgup', up); fbImgSave('jma:thimgv', have);
+      } else if (!present || (have[k] !== undefined && have[k] !== v)) {
+        const m = await FB.getDoc(fbImgDoc(k));
+        if (!m.exists() || m.data().v !== v) { pending = true; continue; }   // not uploaded yet; tries again soon
+        const meta = m.data(); let s = '';
+        for (let i = 0; i < meta.n; i++) { const c = await FB.getDoc(fbImgDoc(k + ':' + i)); if (!c.exists()) throw new Error('missing piece'); s += c.data().d; }
+        const bin = atob(s), u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        await IDB.put('th:' + k, {buf:u8.buffer, type:meta.type});
+        if (thUrls[k]) URL.revokeObjectURL(thUrls[k]);
+        thUrls[k] = URL.createObjectURL(new Blob([u8], {type:meta.type}));
+        have[k] = v; up[k] = v; fbImgSave('jma:thimgv', have); fbImgSave('jma:thimgup', up);
+        thApplied = ''; scheduleRender();
+      }
+    }
+    // pictures that were removed from a theme: delete their copies
+    for (const k of Object.keys(up)) {
+      if (want[k] !== undefined) continue;
+      try { const m = await FB.getDoc(fbImgDoc(k)); if (m.exists()) { const n = m.data().n || 1; await FB.deleteDoc(fbImgDoc(k)); for (let i = 0; i < n; i++) await FB.deleteDoc(fbImgDoc(k + ':' + i)); } } catch (e) {}
+      delete up[k]; delete have[k];
+    }
+    fbImgSave('jma:thimgup', up); fbImgSave('jma:thimgv', have);
+  } catch (e) { FBI.err = String(e && e.message || e); window.__joeyImgErr = FBI.err; setTimeout(fbImgLater, 60000); }
+  finally { FBI.busy = false; if (FBI.again) { FBI.again = false; fbImgLater(); } else if (pending) { FBI.tries = (FBI.tries || 0) + 1; if (FBI.tries < 30) setTimeout(fbImgLater, 8000); } else FBI.tries = 0; }
+}
+
 /* ---------- computer app: AI bar through Google's Gemini (free API key) ---------- */
 // The key is saved with your settings, so it syncs: add it once and every computer can use it.
 const GEM = {models:['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'], lastErr:'', model:''};
