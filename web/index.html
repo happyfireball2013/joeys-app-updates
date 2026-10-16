@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160129;</script>
+<script>window.JOEY_WEB_VERSION = 202610160153;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -884,7 +884,7 @@ function defaultSettings(){
     remTime:'09:00', snooze:10, showDone:false,
     noteSort:'edited', noteColor:'none', notePreview:5, noteView:'grid',
     timerPresets:[1,5,10,25], hundredths:true, wakeLock:true,
-    alarmVolume:90, alarmFade:false, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
+    alarmVolume:90, alarmFade:false, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', phoneAi:'gemini', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
     sound:true, tone:'chime', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
     widgets:[
       {id:'w-capture', type:'capture', size:'full'},
@@ -900,7 +900,7 @@ const ENUMS = {
   theme:['light','dark','system'], accent:ACCENTS.map(a => a.id), background:['white','lavender','mist'], textSize:['s','m','l','xl'], corners:['rounded','soft','square'],
   wxUnit:['imperial','metric'], menuLayout:['tiles','list'], startScreen:['home','calendar','reminders','notes','alarm','weather','clock','stopwatch','timer','last'],
   dateStyle:['long','medium','us','intl','iso'], noteSort:['edited','created','title'], noteView:['grid','list'],
-  noteColor:['none'].concat(Object.keys(HUES)), eventColor:['accent'].concat(Object.keys(HUES)), tone:['chime','beep','bell'], aiTier:['quick','default']
+  noteColor:['none'].concat(Object.keys(HUES)), eventColor:['accent'].concat(Object.keys(HUES)), tone:['chime','beep','bell'], aiTier:['quick','default'], phoneAi:['gemini','nano']
 };
 const NUMS = {alarmSnooze:[5,9,10,15,20], alarmAutoStop:[1,2,3,5,10,15,30], homeUpcoming:[0,1,2,3,4], eventLength:[15,30,45,60,90,120], snooze:[5,10,15,30,60], notePreview:[2,3,5,8]};
 function normSettings(s){
@@ -4965,7 +4965,7 @@ if (NATIVE && JAI) {
     return _settingsNano()
       .replace(/<div class="srow stack"><span class="lbl">AI speed[\s\S]*?<\/div><\/div>/, '')
       .replace(/<div class="srow"><div class="status[^"]*"><i><\/i><span>Ready\. Works offline[^<]*<\/span><\/div><\/div>/, rows)
-      .replace('Type or say things like “remind me Tuesday at 3 PM to take out the dishes”', 'Gemini Nano, Google’s AI built into your phone');
+      .replace('Type or say things like “remind me Tuesday at 3 PM to take out the dishes”', 'Ask Gemini or Gemini Nano from the menu');
   };
   A['nano-retry'] = () => { if (NANO.status === 'downloadable') { NANO.dlState = 'downloading'; JAI.download().catch(() => {}); } NANO.status = 'checking'; render(); setTimeout(nanoCheck, 800); };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) nanoCheck(); });
@@ -5302,20 +5302,17 @@ async function gemCall(system, contents){
   }
   throw new Error(last && last.status === 429 ? 'limit' : 'failed' + (last ? ' (' + last.status + (last.msg ? ': ' + last.msg.slice(0, 120) : '') + ')' : ''));
 }
-if (!NATIVE && !window.claude) {
-  const gemReady = () => !!gemKey();
-  const gemSync = () => { aiState = gemReady() ? 'ready' : 'off'; };
-  gemSync();
-  let gemReq = 0;
-  aiRun = async function(text){
+// Runs one request through Gemini. On the phone, `fallback` (Gemini Nano) takes over if Gemini can't be reached.
+let gemReq = 0;
+async function gemRun(text, fallback){
     text = String(text || '').trim(); if (!text || ai.busy) return;
-    if (!gemReady()) { Object.assign(ai, {req:text, reply:'', lines:[], undo:[], err:'Add your free Gemini key in Settings → AI assistant.'}); ui.aiText = text; render(); return; }
+    if (!gemKey()) { Object.assign(ai, {req:text, reply:'', lines:[], undo:[], err:'Add your free Gemini key in Settings → AI assistant.'}); ui.aiText = text; render(); return; }
     if (Date.now() - ai.lastAt > 10 * 6e4) ai.turns = [];
     const turns = ai.turns.slice(-4), my = ++gemReq;
     Object.assign(ai, {busy:true, req:text, reply:'', lines:[], undo:[], err:''});
     ui.aiText = ''; render();
     aiCtl = {abort(){ gemReq++; ai.busy = false; aiCtl = null; ui.aiText = text; render(); }};
-    const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. You are Gemini, the assistant inside Joey’s Multipurpose App on his computer.';
+    const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. You are Gemini, the assistant inside Joey’s Multipurpose App on his ' + (NATIVE ? 'phone' : 'computer') + '.';
     const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]})).concat([{role:'user', parts:[{text:'Request: ' + text}]}]);
     let raw;
     try { raw = await gemCall(system, contents); }
@@ -5323,6 +5320,7 @@ if (!NATIVE && !window.claude) {
       if (my !== gemReq) return;
       const m = String(e && e.message || '');
       ai.busy = false; aiCtl = null; ui.aiText = text;
+      if (fallback && m !== 'badkey') { ai.turns = turns; return fallback(text); }   // offline or Google busy: the phone's own AI answers
       ai.err = m === 'badkey' ? 'Google didn’t accept the Gemini key. Check it in Settings → AI assistant.' : m === 'limit' ? 'You’ve hit Gemini’s free limit for now. Try again in a little while.' : m === 'offline' ? 'You’re offline. The AI bar needs the internet on the computer.' : 'Gemini didn’t answer. Try again. ' + (m.startsWith('failed') ? m.slice(6) : '');
       render(); return;
     }
@@ -5336,7 +5334,25 @@ if (!NATIVE && !window.claude) {
     Object.assign(ai, {req:text, reply:res.reply, lines:res.lines, undo:res.undo, err:'', lastAt:Date.now()});
     ai.turns = turns.concat({role:'user', content:'Request: ' + text}, {role:'assistant', content:JSON.stringify({actions:out.actions, reply:res.reply})}).slice(-6);
     render();
-  };
+}
+const gemKeyRows = () => {
+  const k = gemKey();
+  return '<div class="srow stack"><label class="lbl" for="gemKey">Gemini key<small>Free from Google. Paste it once and it syncs to your other devices.</small></label>' +
+    '<div class="row-btns" style="width:100%"><input class="in" id="gemKey" type="password" autocomplete="off" placeholder="Paste your key" value="' + esc(k) + '" style="flex:1;min-width:0"><button class="btn sm accent" data-action="gem-save">Save</button></div>' +
+    '<button class="link" data-action="gem-get" style="justify-self:start">Get a free key from Google AI Studio</button></div>';
+};
+A['gem-save'] = () => {
+  const v = (($('#gemKey') || {}).value || '').trim();
+  S.settings.geminiKey = v; saveSettings(); if (typeof gemSync === 'function') gemSync(); render();
+  toast(v ? 'Gemini key saved. Try the AI bar on the menu.' : 'Gemini key removed.');
+};
+A['gem-get'] = () => { window.open('https://aistudio.google.com/apikey', '_blank'); };
+let gemSync = null;
+if (!NATIVE && !window.claude) {
+  const gemReady = () => !!gemKey();
+  gemSync = () => { aiState = gemReady() ? 'ready' : 'off'; };
+  gemSync();
+  aiRun = text => gemRun(text, null);
   const _aiHTMLg = aiHTML;
   aiHTML = function(){
     return _aiHTMLg().replace(/<div class="chips ai-ex">[\s\S]*?<p class="ai-tip">[\s\S]*?<\/p>/, '').replace('placeholder="Tell me what to add or change…"', 'placeholder="Ask Gemini…"');
@@ -5345,24 +5361,44 @@ if (!NATIVE && !window.claude) {
   settingsHTML = function(){
     gemSync();
     const k = gemKey();
-    const rows = '<div class="srow stack"><label class="lbl" for="gemKey">Gemini key<small>Free from Google. Paste it once and it syncs to your other computers.</small></label>' +
-      '<div class="row-btns" style="width:100%"><input class="in" id="gemKey" type="password" autocomplete="off" placeholder="Paste your key" value="' + esc(k) + '" style="flex:1;min-width:0"><button class="btn sm accent" data-action="gem-save">Save</button></div>' +
-      '<button class="link" data-action="gem-get" style="justify-self:start">Get a free key from Google AI Studio</button></div>' +
+    const rows = gemKeyRows() +
       '<div class="srow"><div class="status' + (k ? ' on' : '') + '"><i></i><span>' + (k ? 'Ready. The AI bar uses Google’s Gemini' + (GEM.model ? ' (' + esc(GEM.model) + ')' : '') + '. It needs the internet.' : 'Add your key to turn on the AI bar on this computer.') + '</span></div></div>';
     return _settingsG()
       .replace(/<div class="srow stack"><span class="lbl">AI speed[\s\S]*?<\/div><\/div>/, '')
       .replace(/<div class="srow"><div class="status[^"]*"><i><\/i><span>(?:AI is not available in this copy of the app\.|Checking whether AI is available…|Ready\. Each request uses a little of your Claude plan\.)<\/span><\/div><\/div>/, rows)
       .replace('Type or say things like “remind me Tuesday at 3 PM to take out the dishes”', 'Google’s Gemini, using your free key');
   };
-  A['gem-save'] = () => {
-    const v = (($('#gemKey') || {}).value || '').trim();
-    S.settings.geminiKey = v; saveSettings(); gemSync(); render();
-    toast(v ? 'Gemini key saved. Try the AI bar on the menu.' : 'Gemini key removed.');
-  };
-  A['gem-get'] = () => { window.open('https://aistudio.google.com/apikey', '_blank'); };
   // a key added on another computer arrives through sync
   const _applyG = applySettings;
   applySettings = function(){ _applyG(); const was = aiState; gemSync(); if (was !== aiState) scheduleRender(); };
+}
+
+/* phone: use the synced Gemini key for smarter answers, with Gemini Nano as the offline backup */
+if (NATIVE && !window.claude) {
+  const nanoRun = aiRun;
+  const phoneGem = () => !!gemKey() && S.settings.phoneAi !== 'nano';
+  aiRun = async function(text){
+    if (phoneGem() && navigator.onLine !== false) return gemRun(text, typeof nanoReady === 'function' && nanoReady() ? nanoRun : null);
+    return nanoRun(text);
+  };
+  const _aiHTMLp = aiHTML;
+  aiHTML = function(){
+    const h = _aiHTMLp();
+    if (!phoneGem()) return h;
+    return h.replace(/<p class="ai-wait">[\s\S]*?<\/p>/, '').replace(/placeholder="(Ask Gemini Nano…|Gemini Nano is getting ready…)"/, 'placeholder="Ask Gemini…"');
+  };
+  const _settingsP = settingsHTML;
+  settingsHTML = function(){
+    const h = _settingsP(), at = h.indexOf('id="set-ai"'); if (at < 0) return h;
+    const g = h.indexOf('<div class="group">', at); if (g < 0) return h;
+    const k = gemKey(), use = S.settings.phoneAi === 'nano' ? 'nano' : 'gemini';
+    const rows = gemKeyRows() +
+      '<div class="srow stack"><span class="lbl">Use on this phone<small>' + (k ? 'Gemini is smarter but needs the internet. Gemini Nano works offline and stays on your phone. With Gemini picked, Nano still answers when you’re offline.' : 'Add your Gemini key above to choose the smarter online Gemini.') + '</small></span>' +
+      '<div class="seg sm"><button data-action="set" data-k="phoneAi" data-v="gemini" aria-pressed="' + (use === 'gemini') + '"' + (k ? '' : ' disabled') + '>Gemini (smarter)</button><button data-action="set" data-k="phoneAi" data-v="nano" aria-pressed="' + (use === 'nano' || !k) + '">Gemini Nano (offline)</button></div></div>' +
+      (k && use === 'gemini' ? '<div class="srow"><div class="status on"><i></i><span>Ready. The AI bar and your buddy use Google’s Gemini' + (GEM.model ? ' (' + esc(GEM.model) + ')' : '') + '.</span></div></div>' : '');
+    const ins = g + '<div class="group">'.length;
+    return h.slice(0, ins) + rows + h.slice(ins);
+  };
 }
 /* ---------- phone and Windows apps: automatic updates ---------- */
 // New versions of the app's page download quietly and switch over when you next open the app (or step away).

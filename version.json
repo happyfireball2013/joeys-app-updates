@@ -1,5 +1,5 @@
 {
- "web": 202610160129,
+ "web": 202610160153,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Notes now come in red, grey and cyan, and themes can put a picture behind open notes. Install the new phone app to give the weather widget your clock picture."
+ "notes": "Your phone now uses your Gemini key for smarter answers. Gemini Nano takes over when you're offline."
 }
