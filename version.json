@@ -1,5 +1,5 @@
 {
- "web": 202610160057,
+ "web": 202610160103,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Uses far less CPU and graphics power, and pauses its moving decorations when you switch away or leave it alone for a minute."
+ "notes": "Calendar picture bubbles show the whole picture. The phone app uses less battery."
 }

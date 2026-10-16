@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160057;</script>
+<script>window.JOEY_WEB_VERSION = 202610160103;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -605,7 +605,7 @@ textarea.in{resize:vertical;line-height:1.5}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (min-width:600px){.hd h1{font-size:1.875rem}}
 /* themes */
-#thBg{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;pointer-events:none}
+#thBg{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;pointer-events:none;transform:translateZ(0)}
 :root.th-on body{background-image:var(--th-pattern,none);background-attachment:fixed}
 :root.th-bgimg body{background-image:none}
 :root.th-round{--r:28px;--r-sm:18px}
@@ -719,6 +719,10 @@ button.wx-day:active{background:var(--surface-2)}
 /* low-power mode */
 :root.idle *,:root.idle *::before,:root.idle *::after{animation-play-state:paused!important;transition:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 :root.idle .ring-ic{animation-play-state:running!important}
+
+/* phone app: skip see-through blur (the costliest effect while scrolling) and use solid-looking buttons instead */
+:root.is-phone *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+:root.is-phone .dock button:not([aria-current="page"]):not([aria-pressed="true"]),:root.is-phone .hd .ib{background:color-mix(in srgb,var(--surface) 95%,transparent)}
 </style>
 </head>
 <body>
@@ -2186,7 +2190,9 @@ function saliencyFocus(src, w0, h0){
   }
   return {x:best.x, y:best.y, s:best.s};
 }
-async function smartFocus(src, w0, h0, minS){
+// Bubbles show the whole picture, zoomed all the way out (no hunting for faces or "interesting" spots).
+async function smartFocus(src, w0, h0, minS){ return {x:0.5, y:0.5, s:1, how:'full'}; }
+async function smartFocusOld(src, w0, h0, minS){
   try {
     const k = Math.min(1, 640 / Math.max(w0, h0)), cw = Math.max(1, Math.round(w0 * k)), ch = Math.max(1, Math.round(h0 * k));
     const c = document.createElement('canvas'); c.width = cw; c.height = ch;
@@ -2232,18 +2238,18 @@ async function llRefocusAll(){
   try {
     for (const d of Object.keys(S.lifelog)) {
       for (const p0 of llPhotos(S.lifelog[d])) {
-        if (p0.focus) continue;
+        if (p0.focus && (p0.focus.how === 'full' || p0.focus.how === 'manual')) continue;
         let src = await llFullImage(p0), w, h, minS = 0.3, fromThumb = false;
         if (src) { w = src.width || src.naturalWidth; h = src.height || src.naturalHeight; }
         if (!src || !w || !h) {
-          if (!p0.thumb) continue;
+          if (!p0.thumb || p0.focus) continue;   // only the small bubble is here: can't zoom out further
           src = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = p0.thumb; });
           if (!src) continue; w = src.naturalWidth; h = src.naturalHeight; minS = 0.55; fromThumb = true;
         }
         const focus = await smartFocus(src, w, h, minS);
         const thumb = focusThumb(src, w, h, focus);
         const e = llEntry(d); if (!e) break;
-        if (!llPhotos(e).some(x => x.id === p0.id && !x.focus)) continue;
+        if (!llPhotos(e).some(x => x.id === p0.id && !(x.focus && (x.focus.how === 'full' || x.focus.how === 'manual')))) continue;
         const patch = fromThumb ? {thumb, focus:Object.assign(focus, {src:'thumb'})} : {thumb, focus, w, h};
         saveLL(d, {photos:llPhotos(e).map(x => x.id === p0.id ? Object.assign({}, x, patch) : x)});
         await new Promise(r => setTimeout(r, 60));
@@ -3145,6 +3151,11 @@ function jumpTo(id){ const el = document.getElementById(id); if (el) el.scrollIn
 let lastDay = todayStr(), lastMin = -1;
 function onSecond(){
   const d = new Date();
+  if (document.hidden) {   // app in the background or screen off: only the checks, no drawing
+    if (d.getSeconds() % 10 === 0) checkReminders();
+    checkAlarms(d); if (tm.state === 'running' && tm.endAt <= Date.now()) timerDone();
+    return;
+  }
   const bt = bigTime(clockParts(d)), ld = fmtDate(d), fx = factsOf(d);
   $$('[data-live="time"]').forEach(el => { if (el.innerHTML !== bt) el.innerHTML = bt; });
   // only touch the page when the text actually changes (saves work every second)
@@ -4425,6 +4436,7 @@ function capPlugin(name){
   return null;
 }
 const NATIVE = capNative();
+if (NATIVE) document.documentElement.classList.add('is-phone');
 const JA = NATIVE ? capPlugin('JoeyAlarm') : null;
 let nativeSetup = null, nativeSig = '';
 function nativeAlarmList(){
