@@ -31,7 +31,7 @@ img{max-width:100%}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160004;</script>
+<script>window.JOEY_WEB_VERSION = 202610160020;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -639,7 +639,10 @@ textarea.in{resize:vertical;line-height:1.5}
 .ll-face .th-face{width:44px;height:44px}.ll-faces.big .ll-face .th-face{width:56px;height:56px}.ll-face-lg .th-face{width:52px;height:52px}.w-ll .ll-faces .ll-face .th-face{width:36px;height:36px}
 :root.th-has-empty .empty::before{content:"";display:block;width:110px;height:110px;margin:0 auto 10px;background:var(--th-empty) center/contain no-repeat}
 #thMascot{position:fixed;right:10px;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:76px;height:76px;z-index:4;pointer-events:none}
-#thMascot img{width:100%;height:100%;object-fit:contain;animation:thBounce 2.6s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+#thMascot img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+#thMascot.open{z-index:66}
+#buddyShade{position:fixed;inset:0;z-index:64;background:rgba(20,10,40,.14);animation:bbFade .2s ease}
+@keyframes bbFade{from{opacity:0}}
 .calm .th-buddy,.calm .runner,.calm .runner img,.calm #thMascot img,.calm .tile,.calm .hero .big-time{animation:none!important}
 .th-sw{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);flex:none;vertical-align:middle}
 .th-sw i{width:14px;height:14px;border-radius:50%;background:var(--sa,var(--accent))}
@@ -700,6 +703,14 @@ button.wx-day:active{background:var(--surface-2)}
 .bb-typing i{width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.4;animation:bbDot 1s infinite}
 .bb-typing i:nth-child(2){animation-delay:.15s}.bb-typing i:nth-child(3){animation-delay:.3s}
 @keyframes bbDot{0%,100%{opacity:.3;transform:none}50%{opacity:1;transform:translateY(-3px)}}
+
+.hd.hd-float{position:sticky;top:0;height:0;padding:0;margin:0;background:none;justify-content:flex-end;gap:8px;z-index:7;overflow:visible;pointer-events:none}
+.hd.hd-float .ib{pointer-events:auto;transform:translate(-12px,26px);background:color-mix(in srgb,var(--surface) 84%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid color-mix(in srgb,var(--line) 75%,transparent);box-shadow:0 3px 12px rgba(30,15,70,.14)}
+.hd.hd-float + .hero{margin-top:12px}
+.hd.hd-float + .hero .hero-top{flex-direction:column;align-items:flex-start;padding-right:104px;min-height:48px}
+.sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.acc-pick{position:relative;background:var(--sw)!important;overflow:hidden;cursor:pointer}
+.acc-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 </style>
 </head>
 <body>
@@ -846,7 +857,7 @@ function defaultSettings(){
     remTime:'09:00', snooze:10, showDone:false,
     noteSort:'edited', noteColor:'none', notePreview:5, noteView:'grid',
     timerPresets:[1,5,10,25], hundredths:true, wakeLock:true,
-    alarmVolume:90, alarmFade:true, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', alarmSound:'tone:chime',
+    alarmVolume:90, alarmFade:true, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
     sound:true, tone:'chime', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
     widgets:[
       {id:'w-capture', type:'capture', size:'full'},
@@ -891,6 +902,7 @@ function normSettings(s){
   }
   if (!(Number(o.v) >= 5)) { o.alarmAutoStop = 1; o.v = 5; }   // version 5: alarms ring for 1 minute unless you pick longer
   if (!/^(royal|app|#[0-9a-fA-F]{6})$/.test(String(o.widgetColor || ''))) o.widgetColor = 'royal';
+  ['cBg', 'cCard', 'cInk', 'cAccent'].forEach(k => { if (!/^#[0-9a-fA-F]{6}$/.test(String(o[k] || ''))) o[k] = ''; });
   o.wxKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(o.wxKey || '')) ? String(o.wxKey) : '';
   o.wxName = String(o.wxName || '').slice(0, 80);
   o.tabs = Array.isArray(o.tabs) ? Array.from(new Set(o.tabs.filter(k => TAB_OPTIONS.includes(k)))).slice(0, 4) : d.tabs;
@@ -1283,11 +1295,40 @@ function applySettings(){
   rootEl.classList.toggle('calm', !!s.calm);
   rootEl.classList.toggle('bg-lavender', s.background === 'lavender');
   rootEl.classList.toggle('bg-mist', s.background === 'mist');
+  if (s.cAccent) { rootEl.style.setProperty('--accent', s.cAccent); rootEl.style.setProperty('--on-accent', fgLum(s.cAccent) > 0.45 ? '#1A1428' : '#FFFFFF'); }
+  if (s.cBg) rootEl.style.setProperty('--bg', s.cBg); else rootEl.style.removeProperty('--bg');
+  fgApply(s.cCard, s.cInk);
   $('#dock').hidden = !s.showDock;
   document.title = s.appName || APP_NAME;
   syncWakeLock();
   if (mcpNs) syncWeather();
 }
+/* your own colors for the cards, bars and text on top of the background */
+function fgLum(hex){
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return 1;
+  const n = parseInt(m[1], 16), ch = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function fgDefaults(bg){ const dark = fgLum(bg) < 0.18; return {card:dark ? '#1A1624' : '#FFFFFF', ink:dark ? '#EEEAF7' : '#1A1428'}; }
+const FG_VARS = ['--surface', '--surface-2', '--ink', '--ink-2', '--line', '--accent-soft'];
+function fgApply(card, ink){
+  FG_VARS.forEach(v => rootEl.style.removeProperty(v)); rootEl.style.removeProperty('color-scheme');
+  if (!card && !ink) return;
+  if (card) {
+    const autoInk = fgLum(card) < 0.28 ? '#F2EEFA' : '#1A1428', k = ink || autoInk;
+    rootEl.style.setProperty('--surface', card);
+    rootEl.style.setProperty('--surface-2', 'color-mix(in srgb,' + card + ' 90%,' + k + ')');
+    rootEl.style.setProperty('--line', 'color-mix(in srgb,' + card + ' 84%,' + k + ')');
+    rootEl.style.setProperty('--accent-soft', 'color-mix(in srgb,var(--accent) 20%,' + card + ')');
+    rootEl.style.setProperty('--ink', k);
+    rootEl.style.setProperty('--ink-2', 'color-mix(in srgb,' + k + ' 64%,' + card + ')');
+    rootEl.style.setProperty('color-scheme', fgLum(card) < 0.28 ? 'dark' : 'light');
+  } else {
+    rootEl.style.setProperty('--ink', ink);
+    rootEl.style.setProperty('--ink-2', 'color-mix(in srgb,' + ink + ' 64%,var(--surface))');
+  }
+}
+
 function startScreen(){
   const st = S.settings.startScreen;
   if (st === 'last') { const l = lsGet('daykit:last'); return SCREENS.includes(l) ? l : 'home'; }
@@ -2800,7 +2841,7 @@ function head(eyebrow, title, right){
 }
 function homeHTML(){
   const s = S.settings;
-  return '<header class="hd"><div class="hd-main"><h1>' + esc(s.appName) + '</h1></div>' +
+  return '<header class="hd hd-float"><h1 class="sr-only">' + esc(s.appName) + '</h1>' +
     '<button class="ib" data-action="go" data-screen="settings" aria-label="Settings">' + icon('sliders') + '</button></header>' +
     heroHTML() + aiHTML() +
     '<div class="sec-title first"><span>Menu</span><button class="link" data-action="jump-settings" data-to="set-menu">Edit menu</button></div>' + menuHTML() +
@@ -2962,13 +3003,19 @@ function settingsHTML(){
 
     title('set-you', 'You') + '<div class="group">' +
       '<div class="srow"><label class="lbl" for="setName">Your name' + sub('Shown in the greeting') + '</label><input class="in" id="setName" value="' + esc(s.name) + '" placeholder="Name" maxlength="40"></div>' +
-      '<div class="srow"><label class="lbl" for="setApp">App name' + sub('Shown at the top of the menu') + '</label><input class="in" id="setApp" value="' + esc(s.appName) + '" placeholder="' + esc(APP_NAME) + '" maxlength="40"></div>' +
+      '<div class="srow"><label class="lbl" for="setApp">App name' + sub('Shown as the window title on your computer') + '</label><input class="in" id="setApp" value="' + esc(s.appName) + '" placeholder="' + esc(APP_NAME) + '" maxlength="40"></div>' +
       tgl('greeting', 'Greeting on the clock', 'Good morning, good evening…') + '</div>' +
 
     title('set-look', 'Look') + '<div class="group">' +
       seg('theme', 'Theme', [['light','Light'],['dark','Dark'],['system','Match phone']]) +
       seg('background', 'Background', [['white','White'],['lavender','Lavender'],['mist','Cloud gray']], 'Used with the light theme') +
-      '<div class="srow stack"><span class="lbl">Highlight color' + sub('Purple to start. Colors the big clock, buttons and highlights') + '</span><div class="swatches">' + ACCENTS.map(a => '<button class="acc" style="--sw:' + a.fill + '" data-action="set" data-k="accent" data-v="' + a.id + '" aria-pressed="' + (s.accent === a.id) + '" aria-label="' + a.name + '"></button>').join('') + '</div></div>' +
+      '<div class="srow stack"><span class="lbl">Highlight color' + sub('Purple to start. Colors the big clock, buttons and highlights') + '</span><div class="swatches">' + ACCENTS.map(a => '<button class="acc" style="--sw:' + a.fill + '" data-action="set" data-k="accent" data-v="' + a.id + '" aria-pressed="' + (!s.cAccent && s.accent === a.id) + '" aria-label="' + a.name + '"></button>').join('') +
+        '<label class="acc acc-pick" style="--sw:' + (s.cAccent || 'conic-gradient(#f44,#fc4,#4c8,#4af,#a6f,#f44)') + '" aria-pressed="' + !!s.cAccent + '" title="Any color"><input type="color" id="setCAccent" aria-label="Any highlight color" value="' + esc(s.cAccent || (ACCENTS.find(a => a.id === s.accent) || ACCENTS[0]).fill) + '"></label></div></div>' +
+      '<div class="srow stack"><span class="lbl">Your own colors' + sub('Pick any color for the page, the cards and buttons on top of it, and the text') + '</span>' +
+        '<div class="th-colors"><label>Page<input type="color" id="setCBg" value="' + esc(s.cBg || getComputedStyle(rootEl).getPropertyValue('--bg').trim() || '#FFFFFF') + '"></label>' +
+        '<label>Cards<input type="color" id="setCCard" value="' + esc(s.cCard || fgDefaults(s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).card) + '"></label>' +
+        '<label>Text<input type="color" id="setCInk" value="' + esc(s.cInk || fgDefaults(s.cCard || s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).ink) + '"></label>' +
+        (s.cBg || s.cCard || s.cInk || s.cAccent ? '<button class="btn sm" data-action="fg-auto">Back to automatic</button>' : '') + '</div></div>' +
       seg('textSize', 'Text size', [['s','Small'],['m','Default'],['l','Large'],['xl','Extra large']]) +
       seg('corners', 'Corners', [['rounded','Rounded'],['soft','Soft'],['square','Square']]) +
       tgl('calm', 'Reduce motion', 'Turns off sliding and bouncing animations') + '</div>' +
@@ -3384,7 +3431,9 @@ const A = {
   'add-zone': () => citySheet(),
   'zone-add': t => { if (S.settings.clocks.length >= 12) { toast('You can keep up to 12 world clocks.'); return; } S.settings.clocks.push(t.dataset.tz); saveSettings(); closeSheet(); render(); },
   'zone-remove': t => { S.settings.clocks = S.settings.clocks.filter(z => z !== t.dataset.tz); saveSettings(); render(); },
-  'set': t => setSetting(t.dataset.k, t.dataset.v),
+  'set': t => { if (t.dataset.k === 'accent') S.settings.cAccent = ''; setSetting(t.dataset.k, t.dataset.v); },
+  'fg-auto': () => { Object.assign(S.settings, {cBg:'', cCard:'', cInk:'', cAccent:''}); saveSettings(); applySettings(); render(); toast('Back to the automatic colors.'); },
+  'th-fg-auto': () => { const th = TH.themes[thOpen]; if (!th) return; delete th.card; delete th.ink; thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'set-toggle': t => setSetting(t.dataset.k, !S.settings[t.dataset.k]),
   'menu-toggle': t => {
     const k = t.dataset.k, m = S.settings.menu;
@@ -3694,11 +3743,11 @@ async function thStoreImage(id, slot, file){
       if (!blob || blob.type !== 'image/webp') blob = await new Promise(res => c.toBlob(b => res(b), 'image/png'));
       type = blob.type;
     }
-    const k = id + ':' + slot;
-    await IDB.put('th:' + k, {buf:await blob.arrayBuffer(), type});
+    const k = id + ':' + slot, v = Date.now();
+    await IDB.put('th:' + k, {buf:await blob.arrayBuffer(), type, v});   // the picture remembers which version it is, for syncing
     if (thUrls[k]) URL.revokeObjectURL(thUrls[k]);
     thUrls[k] = URL.createObjectURL(blob);
-    t.img = Object.assign({}, t.img, {[slot]:Date.now()}); thSave();
+    t.img = Object.assign({}, t.img, {[slot]:v}); thSave();
   } catch (e) { toast(e && e.message === 'big' ? 'That GIF is over 6 MB. Try a smaller one.' : 'That picture couldn’t be used. Try a PNG, JPG or GIF.'); }
   thBusy = ''; thApplied = ''; thRefreshEditor(); render();
 }
@@ -3769,7 +3818,8 @@ function thApply(screen){
   if (bgEl) { bgEl.style.backgroundImage = bgi ? 'url("' + bgi + '")' : ''; bgEl.style.opacity = String(1 - (t.bgFade == null ? 35 : t.bgFade) / 100); }
   if (bgi) R.classList.add('th-bgimg');
   const em = thImg(t, 'empty'); if (em) { R.classList.add('th-has-empty'); R.style.setProperty('--th-empty', 'url("' + em + '")'); }
-  if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; if (m && mas.dataset.src !== m) { mas.dataset.src = m; mas.innerHTML = '<img src="' + m + '" alt="">'; } if (!m) { mas.dataset.src = ''; buddyClose(); } mas.setAttribute('role', 'button'); mas.setAttribute('aria-label', 'Talk to your buddy'); }
+  fgApply(t.card || S.settings.cCard, t.ink || S.settings.cInk, accent);
+  if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; if (m && mas.dataset.src !== m) { mas.dataset.src = m; mas.dataset.still = ''; mas.innerHTML = '<img src="' + m + '" alt="">'; buddyStill(mas, m); } if (!m) { mas.dataset.src = ''; buddyClose(); } mas.setAttribute('role', 'button'); mas.setAttribute('aria-label', 'Talk to your buddy'); }
 }
 const TH_PAL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10" cy="7.3" r="1.3" fill="currentColor"/><circle cx="14.5" cy="7.3" r="1.3" fill="currentColor"/><circle cx="17" cy="11" r="1.3" fill="currentColor"/></svg>';
 function thDecorate(){
@@ -3838,15 +3888,35 @@ function buddyBodyHTML(){
     (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '');
   return '<p>Hi! What can I do for you?</p>';
 }
+// a GIF buddy shows its first frame and only plays while you're talking to it
+async function buddyStill(mas, url){
+  try {
+    const type = (await (await fetch(url)).blob()).type;
+    if (!/gif/i.test(type) || mas.dataset.src !== url) return;
+    const im = new Image(); im.src = url; await im.decode();
+    const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    c.getContext('2d').drawImage(im, 0, 0);
+    const still = c.toDataURL('image/png');
+    if (mas.dataset.src !== url) return;
+    mas.dataset.still = still; buddyFrame();
+  } catch (e) {}
+}
+function buddyFrame(){
+  const m = $('#thMascot'), img = m && m.querySelector('img'); if (!img || !m.dataset.still) return;
+  const want = buddyOpen ? m.dataset.src : m.dataset.still;
+  if (img.getAttribute('src') !== want) img.setAttribute('src', want);
+}
 function buddyRefresh(){
   const b = $('#buddyBubble'), m = $('#thMascot');
-  if (m) { m.setAttribute('data-action', 'buddy-talk'); m.classList.toggle('talk', buddyOpen && ai.busy); }
+  if (m) { m.setAttribute('data-action', 'buddy-talk'); m.classList.toggle('talk', buddyOpen && ai.busy && !m.dataset.still); m.classList.toggle('open', buddyOpen); }
+  buddyFrame();
+  const sh = $('#buddyShade'); if (sh) sh.hidden = !buddyOpen || !m || m.hidden;
   if (!b) return;
   if (!buddyOpen || !m || m.hidden) { b.hidden = true; return; }
   const body = b.querySelector('.bb-body'); if (body) body.innerHTML = buddyBodyHTML();
   const inp = $('#buddyInput'); if (inp) inp.disabled = ai.busy || aiState !== 'ready';
 }
-function buddyClose(){ buddyOpen = false; const b = $('#buddyBubble'); if (b) b.hidden = true; }
+function buddyClose(){ buddyOpen = false; const b = $('#buddyBubble'); if (b) b.hidden = true; const sh = $('#buddyShade'); if (sh) sh.hidden = true; const i = $('#buddyInput'); if (i) i.blur(); buddyRefresh(); }
 function buddyToggle(){
   let b = $('#buddyBubble');
   if (!b) {
@@ -3854,11 +3924,16 @@ function buddyToggle(){
     b.innerHTML = '<button class="bb-x" data-action="buddy-close" aria-label="Close">' + icon('x') + '</button><div class="bb-body"></div>' +
       '<form id="buddyForm" class="bb-form" autocomplete="off"><input class="in" id="buddyInput" placeholder="Say something…" enterkeyhint="send"><button class="ai-go" type="submit" aria-label="Send">' + icon('send') + '</button></form>';
     document.body.appendChild(b);
+    // tapping anywhere else puts the bubble away, and the app's buttons wait until it's closed
+    const sh = document.createElement('div'); sh.id = 'buddyShade'; sh.hidden = true; sh.setAttribute('data-action', 'buddy-close');
+    document.body.appendChild(sh);
   }
-  buddyOpen = !buddyOpen;
-  if (buddyOpen) { Object.assign(ai, {reply:'', lines:[], undo:[], err:''}); b.hidden = false; buddyRefresh(); setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60); }
-  else b.hidden = true;
+  if (buddyOpen) { buddyClose(); return; }
+  buddyOpen = true;
+  Object.assign(ai, {reply:'', lines:[], undo:[], err:''}); b.hidden = false; buddyRefresh();
+  setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60);
 }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && buddyOpen) { e.stopPropagation(); buddyClose(); } }, true);
 FORMS.buddyForm = () => {
   const i = $('#buddyInput'), text = i ? i.value.trim() : ''; if (!text || ai.busy) return;
   i.value = ''; aiRun(text); buddyRefresh();
@@ -3868,6 +3943,11 @@ Object.assign(A, {
   'buddy-close': () => buddyClose(),
   'buddy-setup': () => { buddyClose(); go('settings'); setTimeout(() => jumpTo('set-ai'), 30); }
 });
+const TH_COLOR_IDS = {thAccent:'accent', thBgc:'bg', thCard:'card', thInk:'ink'};
+// "Your own colors" in Settings → Look: preview while dragging, save when you let go
+const SET_COLOR_IDS = {setCAccent:'cAccent', setCBg:'cBg', setCCard:'cCard', setCInk:'cInk'};
+document.addEventListener('input', e => { const k = SET_COLOR_IDS[e.target && e.target.id]; if (!k) return; S.settings[k] = e.target.value; applySettings(); });
+document.addEventListener('change', e => { const k = SET_COLOR_IDS[e.target && e.target.id]; if (!k) return; S.settings[k] = e.target.value; saveSettings(); applySettings(); render(); });
 const _thApplySettings = applySettings;
 applySettings = function(){ _thApplySettings(); if (thFor(ui.screen)) { thApplied = ''; thApply(ui.screen); } };
 
@@ -3907,11 +3987,13 @@ function thEditorHTML(id){
     '<label class="fld"><span>Name</span><input class="in" id="thName" value="' + esc(t.name) + '" maxlength="40" placeholder="Kirby, Zelda, Pikmin…"></label>' +
     '<div class="fld"><span>Starter style</span><div class="th-styles">' + Object.entries(TH_STYLES).map(([k, s]) => '<button type="button" class="th-style" data-action="th-style" data-v="' + k + '" aria-pressed="' + (t.style === k) + '"><span class="th-sw" style="background:' + s.bg + ';--sa:' + s.accent + '"><i></i></span><span>' + s.label + '</span></button>').join('') + '</div></div>' +
     '<div class="fld"><span>Colors</span><div class="th-colors"><label>Main color<input type="color" id="thAccent" value="' + esc(t.accent || st.accent) + '"></label><label>Background<input type="color" id="thBgc" value="' + esc(t.bg || st.bg) + '"></label>' +
+      '<label>Cards<input type="color" id="thCard" value="' + esc(t.card || fgDefaults(t.bg || st.bg).card) + '"></label><label>Text<input type="color" id="thInk" value="' + esc(t.ink || fgDefaults(t.card || t.bg || st.bg).ink) + '"></label>' +
+      (t.card || t.ink ? '<button type="button" class="btn sm" data-action="th-fg-auto">Auto cards and text</button>' : '') +
       '<button type="button" class="btn sm" data-action="th-opt" data-k="pattern" data-v="' + (t.pattern === false ? 'true' : 'false') + '">' + (t.pattern === false ? 'Show' : 'Hide') + ' background shapes</button></div></div>' +
     '<input type="file" id="thFile" accept="image/*" hidden>' +
     thSlotGroups().map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
       (g.name === 'Notes' && runnersUsed ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') + '</div></div>').join('') +
-    '<p class="hint">Pictures stay on this phone. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
+    '<p class="hint">Pictures sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
     '<div class="sh-actions"><button type="button" class="btn danger" data-action="th-del" data-id="' + id + '">Delete theme</button><span class="grow"></span><button type="button" class="btn accent" data-action="sheet-close">Done</button></div>';
 }
 function thOpenEditor(id){ thOpen = id; openSheet('<div id="thEditor" data-id="' + id + '">' + thEditorHTML(id) + '</div>', () => { thOpen = null; render(); }); }
@@ -3957,12 +4039,12 @@ document.addEventListener('change', e => {
   if (t.id === 'thFile') { const f = t.files && t.files[0]; t.value = ''; if (f && thOpen && thSlot) thStoreImage(thOpen, thSlot, f); }
   else if (t.id === 'thApp') { TH.app = t.value; thSave(); thApplied = ''; render(); }
   else if (t.dataset && t.dataset.thpage) { if (t.value) TH.pages[t.dataset.thpage] = t.value; else delete TH.pages[t.dataset.thpage]; thSave(); thApplied = ''; render(); }
-  else if ((t.id === 'thAccent' || t.id === 'thBgc') && TH.themes[thOpen]) { TH.themes[thOpen][t.id === 'thAccent' ? 'accent' : 'bg'] = t.value; thSave(); thApplied = ''; render(); }
+  else if (TH_COLOR_IDS[t.id] && TH.themes[thOpen]) { TH.themes[thOpen][TH_COLOR_IDS[t.id]] = t.value; thSave(); thApplied = ''; render(); if (t.id === 'thCard' || t.id === 'thInk') thRefreshEditor(); }
   else if (t.id === 'thName' && TH.themes[thOpen]) { TH.themes[thOpen].name = t.value.trim().slice(0, 40) || 'My theme'; thSave(); }
 });
 document.addEventListener('input', e => {
   const t = e.target;
-  if ((t.id === 'thAccent' || t.id === 'thBgc') && TH.themes[thOpen]) { TH.themes[thOpen][t.id === 'thAccent' ? 'accent' : 'bg'] = t.value; thSave(); thApplied = ''; thApply(ui.screen); }
+  if (TH_COLOR_IDS[t.id] && TH.themes[thOpen]) { TH.themes[thOpen][TH_COLOR_IDS[t.id]] = t.value; thSave(); thApplied = ''; thApply(ui.screen); }
 });
 (function(){
   const bg = document.createElement('div'); bg.id = 'thBg'; document.body.insertBefore(bg, document.body.firstChild);
@@ -4446,6 +4528,7 @@ if (NATIVE && JA) {
   openLLViewer = function(date, i){ llReturn = $('#llSheet') ? date : (llReturn && $('#llBig') ? llReturn : null); return _openLLViewer(date, i); };
   window.__joeyBack = function(){
     try {
+      if (typeof buddyOpen !== 'undefined' && buddyOpen) { buddyClose(); return true; }
       if (!$('#sheet').hidden) {
         if ($('#llBig') && llReturn) { const d = llReturn; llReturn = null; closeSheet(true); openLLSheet(d); return true; }
         closeSheet(); return true;
@@ -5012,20 +5095,33 @@ async function fbImgSync(){
     for (const [k, v] of Object.entries(want)) {
       let rec = null; try { rec = await IDB.get('th:' + k); } catch (e) {}
       const present = !!(rec && rec.buf);
-      if (present && up[k] !== v && (have[k] === undefined || have[k] === v)) {
+      // which version is the picture on this device?
+      let mine = null, meta = null;
+      if (present) {
+        if (rec.v !== undefined) mine = rec.v;
+        else if (have[k] === undefined || have[k] === v) mine = v;
+        else {
+          // saved before pictures knew their version: if the database doesn't have this version, the one here is it
+          // (this used to get stuck when you swapped a picture that had synced before)
+          const m = await FB.getDoc(fbImgDoc(k)); meta = m.exists() ? m.data() : null;
+          mine = meta && meta.v === v ? have[k] : v;
+        }
+      }
+      if (present && mine === v && up[k] !== v) {
         // send it up in pieces, then the little record that says it's complete
         const s = b64(rec.buf), n = Math.max(1, Math.ceil(s.length / FBI.CH));
         for (let i = 0; i < n; i++) await FB.setDoc(fbImgDoc(k + ':' + i), {d:s.slice(i * FBI.CH, (i + 1) * FBI.CH)});
         await FB.setDoc(fbImgDoc(k), {v, n, type:rec.type || 'image/png'});
         up[k] = v; have[k] = v; fbImgSave('jma:thimgup', up); fbImgSave('jma:thimgv', have);
-      } else if (!present || (have[k] !== undefined && have[k] !== v)) {
-        const m = await FB.getDoc(fbImgDoc(k));
-        if (!m.exists() || m.data().v !== v) { pending = true; continue; }   // not uploaded yet; tries again soon
-        const meta = m.data(); let s = '';
+        if (rec.v === undefined) { try { await IDB.put('th:' + k, Object.assign({}, rec, {v})); } catch (e) {} }
+      } else if (!present || mine !== v) {
+        if (!meta) { const m = await FB.getDoc(fbImgDoc(k)); meta = m.exists() ? m.data() : null; }
+        if (!meta || meta.v !== v) { pending = true; continue; }   // not uploaded yet; tries again soon
+        let s = '';
         for (let i = 0; i < meta.n; i++) { const c = await FB.getDoc(fbImgDoc(k + ':' + i)); if (!c.exists()) throw new Error('missing piece'); s += c.data().d; }
         const bin = atob(s), u8 = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-        await IDB.put('th:' + k, {buf:u8.buffer, type:meta.type});
+        await IDB.put('th:' + k, {buf:u8.buffer, type:meta.type, v});
         if (thUrls[k]) URL.revokeObjectURL(thUrls[k]);
         thUrls[k] = URL.createObjectURL(new Blob([u8], {type:meta.type}));
         have[k] = v; up[k] = v; fbImgSave('jma:thimgv', have); fbImgSave('jma:thimgup', up);
