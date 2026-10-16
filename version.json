@@ -1,5 +1,5 @@
 {
- "web": 202610160153,
+ "web": 202610160155,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your phone now uses your Gemini key for smarter answers. Gemini Nano takes over when you're offline."
+ "notes": "The settings search has an X to clear it."
 }

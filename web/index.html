@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160153;</script>
+<script>window.JOEY_WEB_VERSION = 202610160155;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -736,6 +736,12 @@ button.wx-day:active{background:var(--surface-2)}
 /* open note background picture */
 .sheet.has-nbg{background-image:linear-gradient(var(--nbgveil),var(--nbgveil)),var(--nbg);background-size:cover;background-position:center}
 .sheet.has-nbg .in{background:color-mix(in srgb,var(--surface) 82%,transparent)}
+
+.set-search .in{padding-right:44px}
+.set-search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}
+.ss-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--ink-2);background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.ss-x .ic{position:static;transform:none;width:16px;height:16px}
+.ss-x[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -4283,12 +4289,13 @@ function ssFilter(){
 const _ssSettings = settingsHTML;
 settingsHTML = function(){
   const h = _ssSettings(), at = h.indexOf('<div class="jump">');
-  const bar = '<div class="search set-search">' + icon('search') + '<input class="in" id="setSearch" type="search" value="' + esc(ui.setQuery || '') + '" placeholder="Search settings" aria-label="Search settings" autocomplete="off"></div>';
+  const bar = '<div class="search set-search">' + icon('search') + '<input class="in" id="setSearch" type="search" value="' + esc(ui.setQuery || '') + '" placeholder="Search settings" aria-label="Search settings" autocomplete="off"><button type="button" class="ss-x" data-action="ss-clear" aria-label="Clear search"' + (ui.setQuery ? '' : ' hidden') + '>' + icon('x') + '</button></div>';
   return at < 0 ? bar + h : h.slice(0, at) + bar + h.slice(at);
 };
 const _ssRender = render;
 render = function(){ _ssRender(); if (ui.screen === 'settings') ssFilter(); };
-document.addEventListener('input', e => { if (e.target && e.target.id === 'setSearch') { ui.setQuery = e.target.value; ssFilter(); $('#main').scrollTop = 0; } });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'setSearch') { ui.setQuery = e.target.value; ssFilter(); $('#main').scrollTop = 0; const x = $('.ss-x'); if (x) x.hidden = !ui.setQuery; } });
+A['ss-clear'] = () => { const i = $('#setSearch'); ui.setQuery = ''; if (i) { i.value = ''; i.focus(); } ssFilter(); const x = $('.ss-x'); if (x) x.hidden = true; };
 /* ---------- Android app: weather from Open-Meteo (free, no key) using the phone's location ---------- */
 // The forecast is reshaped into the same form the AccuWeather connector returns, so the clock,
 // weather screen, calendar and warnings all work unchanged.
