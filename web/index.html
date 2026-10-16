@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161258;</script>
+<script>window.JOEY_WEB_VERSION = 202610161303;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -759,12 +759,16 @@ button.wx-day:active{background:var(--surface-2)}
 
 .cal-vp{position:relative;overflow:hidden;touch-action:pan-y}
 .cal-track{position:relative;will-change:transform}
+:root .cal-track.gliding,:root.calm .cal-track.gliding,:root.idle .cal-track.gliding{transition:transform var(--glide,320ms) cubic-bezier(.22,.7,.2,1)!important}
 .cal-side{position:absolute;top:0;left:0;width:100%;pointer-events:none}
 .cal-prev{transform:translateX(calc(-100% - 28px))}
 .cal-next{transform:translateX(calc(100% + 28px))}
 
 .bb-nano{display:block;margin-top:8px;padding:6px 9px;border-radius:10px;font-size:.72rem;line-height:1.35;color:var(--ink-2);background:color-mix(in srgb,var(--ink) 6%,transparent)}
 #buddyPeek .bp-nano{font-size:.68rem;color:var(--ink-2);opacity:.85}
+
+.toast.has-undo{display:flex;align-items:center;gap:14px;padding:8px 8px 8px 16px}
+.toast-undo{flex:none;padding:7px 12px;border-radius:9px;font-weight:800;color:var(--bg);background:color-mix(in srgb,var(--bg) 18%,transparent);text-transform:uppercase;letter-spacing:.04em;font-size:.78rem}
 </style>
 </head>
 <body>
@@ -1207,17 +1211,34 @@ function remMeta(r){
   if (r.repeat && r.repeat !== 'none') bits.push('<i>' + icon('repeat') + REPEAT_SHORT[r.repeat] + '</i>');
   return bits.join('');
 }
+/* Checking off a reminder shows a check mark right where it is. The check stays until 4:00 AM the next day:
+   then repeating reminders come back for their next day, and one-time ones move to Completed. */
+const REM_RESET_HOUR = 4;
+function remBoundary(){ const d = new Date(); if (d.getHours() < REM_RESET_HOUR) d.setDate(d.getDate() - 1); d.setHours(REM_RESET_HOUR, 0, 0, 0); return d.getTime(); }
+const remRecent = r => !!(r && r.done && (r.doneAt || 0) >= remBoundary());
+function remShowStatus(r){
+  if (!remRecent(r)) return remStatus(r);
+  const s = remStatus(Object.assign({}, r, {done:false}));
+  return s === 'overdue' ? 'today' : s;
+}
+function remRoll(){
+  const b = remBoundary();
+  Object.entries(S.reminders).forEach(([id, r]) => {
+    if (!r || !r.done || !r.repeat || r.repeat === 'none' || (r.doneAt || 0) >= b) return;
+    putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null, date:nextDate(r)}));
+  });
+}
 function toggleRem(id){
   const r = S.reminders[id]; if (!r) return;
-  if (r.done) { putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null})); return; }
-  if (r.repeat && r.repeat !== 'none') {
-    const n = nextDate(r);
-    putItem('reminders', id, Object.assign({}, r, {date:n}));
-    toast('Done. Next one: ' + fmtDay(n));
-  } else {
-    putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:Date.now()}));
-    toast('Marked done');
+  const before = clone(r);
+  const undo = () => { putItem('reminders', id, before); render(); };
+  if (r.done) {
+    putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null}));
+    toast('Unchecked', undo);
+    return;
   }
+  putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:Date.now()}));
+  toast(r.repeat && r.repeat !== 'none' ? 'Done for ' + (r.date === todayStr() || !r.date ? 'today' : fmtDay(r.date)) + '. It comes back ' + fmtDay(nextDate(r)) + '.' : 'Marked done', undo);
 }
 const openRems = () => Object.entries(S.reminders).filter(e => !e[1].done);
 const eventsOn = date => Object.entries(S.events).filter(e => e[1].date === date).sort((a, b) => (a[1].start || '').localeCompare(b[1].start || ''));
@@ -1331,7 +1352,16 @@ function checkReminders(){
   });
 }
 let toastTimer = null;
-function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+function toast(msg, undo){
+  const t = $('#toast'); clearTimeout(toastTimer);
+  if (typeof undo === 'function') {
+    t.innerHTML = '<span>' + esc(msg) + '</span><button type="button" class="toast-undo">Undo</button>';
+    t.querySelector('button').onclick = () => { t.hidden = true; clearTimeout(toastTimer); undo(); };
+    t.classList.add('has-undo');
+  } else { t.textContent = msg; t.classList.remove('has-undo'); }
+  t.hidden = false;
+  toastTimer = setTimeout(() => { t.hidden = true; }, typeof undo === 'function' ? 6000 : 2600);
+}
 function arm(btn, text){
   if (!S.settings.confirmDelete) return true;
   if (btn.dataset.armed) return true;
@@ -2800,7 +2830,7 @@ function applyAiActions(out){
       } else if (type === 'complete_reminder') {
         const r = S.reminders[id0]; if (!r || r.done) return;
         remember('reminders', id0);
-        if (r.repeat && r.repeat !== 'none') { const n = nextDate(r); putItem('reminders', id0, Object.assign({}, r, {date:n})); lines.push({icon:'check', text:'Done: ' + r.text, sub:'Next one ' + fmtDay(n), action:'edit-rem', id:id0}); }
+        if (r.repeat && r.repeat !== 'none') { const n = nextDate(r); putItem('reminders', id0, Object.assign({}, r, {done:true, doneAt:Date.now()})); lines.push({icon:'check', text:'Done: ' + r.text, sub:'Comes back ' + fmtDay(n), action:'edit-rem', id:id0}); }
         else { putItem('reminders', id0, Object.assign({}, r, {done:true, doneAt:Date.now()})); lines.push({icon:'check', text:'Done: ' + r.text, sub:'Marked complete'}); }
       } else if (type === 'update_reminder') {
         const r = S.reminders[id0]; if (!r) return;
@@ -3006,11 +3036,11 @@ function bdaySheet(id, ds){
 function remindersHTML(){
   const all = Object.entries(S.reminders);
   const groups = {overdue:[], today:[], upcoming:[], someday:[], done:[]};
-  all.forEach(e => groups[remStatus(e[1])].push(e));
+  all.forEach(e => groups[remShowStatus(e[1])].push(e));
   Object.keys(groups).forEach(k => groups[k].sort(k === 'done' ? (a, b) => (b[1].doneAt || 0) - (a[1].doneAt || 0) : remSort));
   const row = ([id, r]) => '<div class="rrow ' + remStatus(r) + (r.done ? ' done' : '') + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
   const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card">' + groups[key].map(row).join('') + '</div>' : '';
-  const open = all.length - groups.done.length, showDone = S.settings.showDone;
+  const open = all.filter(e => !e[1].done).length, showDone = S.settings.showDone;
   let body = block('overdue', 'Overdue', 'danger') + block('today', 'Today') + block('upcoming', 'Upcoming') + block('someday', 'No date');
   if (!open) body += '<div class="empty"><b>' + (groups.done.length ? 'All done' : 'No reminders yet') + '</b>Type one above, or tap + to set a date, time and repeat.</div>';
   if (groups.done.length) {
@@ -3276,6 +3306,7 @@ function onSecond(){
   const mk = d.getHours() * 60 + d.getMinutes();
   if (mk !== lastMin) {
     const first = lastMin < 0; lastMin = mk;
+    if (d.getMinutes() === 0 || first) remRoll();
     const typing = document.activeElement && main.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if (!first && !typing && ['home','reminders','calendar','clock','alarm'].includes(ui.screen)) scheduleRender();
     if (nightOn) { nightShift = {x:Math.round(Math.random() * 24 - 12), y:Math.round(Math.random() * 24 - 12)}; renderNight(); }
@@ -5853,7 +5884,7 @@ function calDragBegin(){
     tr.insertAdjacentHTML('afterbegin', '<div class="cal-grid cal-side cal-prev" aria-hidden="true">' + calCellsHTML(calMonthAt(-1)) + '</div>');
     tr.insertAdjacentHTML('beforeend', '<div class="cal-grid cal-side cal-next" aria-hidden="true">' + calCellsHTML(calMonthAt(1)) + '</div>');
   }
-  tr.style.transition = 'none';
+  tr.classList.remove('gliding'); tr.style.transition = 'none';
   return true;
 }
 function calDragTo(dx){
@@ -5867,14 +5898,19 @@ function calDragFinish(dx, vel){
   const tr = $('#main .cal-track'); if (!tr) return;
   const go = (Math.abs(dx) > CALSW.w * 0.3 || Math.abs(vel) > 0.45) && Math.sign(dx || -vel) !== 0 ? (dx < 0 || (Math.abs(dx) < 4 && vel < 0) ? 1 : -1) : 0;
   CALSW.busy = true;
-  tr.style.transition = 'transform ' + (S.settings.calm ? 0 : go ? 0.28 : 0.22) + 's cubic-bezier(.2,.8,.25,1)';
-  tr.style.transform = 'translateX(' + (go ? -go * CALSW.w : 0) + 'px)';
+  // glide the rest of the way: a slow release eases in gently, a quick flick keeps its speed
+  const target = go ? -go * CALSW.w : 0, left = Math.abs(target - dx);
+  const ms = Math.round(Math.max(260, Math.min(520, left / Math.max(0.9, Math.abs(vel) * 1.1))));
+  CALSW.ms = ms;
+  void tr.offsetWidth;
+  tr.style.setProperty('--glide', ms + 'ms'); tr.classList.add('gliding');   // glides even with Reduce motion or low-power mode on
+  tr.style.transform = 'translateX(' + target + 'px)';
   const done = () => {
     CALSW.busy = false;
     if (go) A['cal-nav']({dataset:{d:String(go)}});   // redraws the page on the new month
-    else { tr.style.transition = 'none'; tr.style.transform = ''; tr.querySelectorAll('.cal-side').forEach(e => e.remove()); const b = $('#main .cal-nav b'); if (b) b.textContent = calMonthName(ui.calMonth); }
+    else { tr.classList.remove('gliding'); tr.style.transition = 'none'; tr.style.transform = ''; tr.querySelectorAll('.cal-side').forEach(e => e.remove()); const b = $('#main .cal-nav b'); if (b) b.textContent = calMonthName(ui.calMonth); }
   };
-  if (S.settings.calm) done(); else setTimeout(done, go ? 290 : 230);
+  setTimeout(done, ms + 20);
 }
 function calShift(d){ if (CALSW.busy || !calDragBegin()) { A['cal-nav']({dataset:{d:String(d)}}); return; } calDragFinish(-d * CALSW.w * 0.5, -d); }
 document.addEventListener('touchstart', e => {
@@ -5923,7 +5959,7 @@ function bdayMigrate(){
     delItem('reminders', rid);
   });
 }
-setTimeout(bdayMigrate, 6000); setTimeout(bdayMigrate, 30000);
+setTimeout(remRoll, 5000); setTimeout(bdayMigrate, 6000); setTimeout(bdayMigrate, 30000);
 setTimeout(() => llRefocusAll(), 3000); setTimeout(() => llRefocusAll(), 25000);
 const h0 = (location.hash || '').slice(1);
 ui.screen = SCREENS.includes(h0) ? h0 : startScreen();
