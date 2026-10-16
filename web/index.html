@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160044;</script>
+<script>window.JOEY_WEB_VERSION = 202610160057;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -612,7 +612,7 @@ textarea.in{resize:vertical;line-height:1.5}
 :root.th-round .tile:active{transform:scale(.96)}
 :root.th-wobble .tile{animation:thWob 6s ease-in-out infinite}
 :root.th-wobble .tile:nth-child(2n){animation-delay:-2s}:root.th-wobble .tile:nth-child(3n){animation-delay:-4s}
-@keyframes thWob{0%,100%{border-radius:var(--r)}33%{border-radius:calc(var(--r)*1.35) calc(var(--r)*.8) calc(var(--r)*1.2) calc(var(--r)*.9)}66%{border-radius:calc(var(--r)*.85) calc(var(--r)*1.3) calc(var(--r)*.9) calc(var(--r)*1.25)}}
+@keyframes thWob{0%,100%{rotate:0deg;scale:1 1}33%{rotate:.45deg;scale:1.008 .994}66%{rotate:-.45deg;scale:.994 1.008}}
 :root.th-serif h1,:root.th-serif .big-time,:root.th-serif .tile-txt b{font-family:Georgia,"Times New Roman",serif;font-stretch:100%}
 .hero.th-hero-img{background-size:cover;background-position:center;text-shadow:0 1px 3px rgba(0,0,0,.35)}
 .hero.th-holding{text-align:center}
@@ -634,10 +634,10 @@ textarea.in{resize:vertical;line-height:1.5}
 .tile-ic.th-tile{background:none!important;width:auto;height:auto}
 .tile-ic.th-tile img{width:52px;height:52px;object-fit:contain;display:block}
 .note.has-runner{position:relative;overflow:hidden;padding-bottom:40px}
-.runner{position:absolute;bottom:3px;left:-44px;width:38px;height:38px;pointer-events:none;animation:thRun var(--rd,6s) linear infinite alternate}
-.runner img{width:100%;height:100%;object-fit:contain;display:block;animation:thFlip calc(var(--rd,6s) * 2) steps(1) infinite,thBob .32s ease-in-out infinite alternate;animation-delay:inherit}
-@keyframes thRun{from{left:-4px}to{left:calc(100% - 38px)}}
-@keyframes thFlip{0%{scale:1 1}50%{scale:-1 1}}
+.runner{position:absolute;bottom:3px;left:-4px;width:calc(100% - 34px);height:38px;pointer-events:none;animation:thRun var(--rd,6s) linear infinite alternate}
+.runner img{width:38px;height:38px;object-fit:contain;display:block;animation:thFlip calc(var(--rd,6s) * 2) linear infinite,thBob .32s ease-in-out infinite alternate;animation-delay:inherit}
+@keyframes thRun{from{transform:translateX(0)}to{transform:translateX(100%)}}   /* moves on the graphics chip, no redraw */
+@keyframes thFlip{0%,49.9%{scale:1 1}50%,99.9%{scale:-1 1}100%{scale:1 1}}
 @keyframes thBob{from{translate:0 0}to{translate:0 -3px}}
 .th-face{width:115%;height:115%;object-fit:contain;display:block}
 .ll-face .th-face{width:44px;height:44px}.ll-faces.big .ll-face .th-face{width:56px;height:56px}.ll-face-lg .th-face{width:52px;height:52px}.w-ll .ll-faces .ll-face .th-face{width:36px;height:36px}
@@ -715,6 +715,10 @@ button.wx-day:active{background:var(--surface-2)}
 .sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .acc-pick{position:relative;background:var(--sw)!important;overflow:hidden;cursor:pointer}
 .acc-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+
+/* low-power mode */
+:root.idle *,:root.idle *::before,:root.idle *::after{animation-play-state:paused!important;transition:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+:root.idle .ring-ic{animation-play-state:running!important}
 </style>
 </head>
 <body>
@@ -3112,6 +3116,7 @@ const main = $('#main');
 let rq = 0;
 function scheduleRender(){ if (rq) return; rq = requestAnimationFrame(() => { rq = 0; render(); }); }
 function render(){
+  setTimeout(kickFrame, 0);   // a stopwatch or timer that just started gets its smooth display
   const ae = document.activeElement; let f = null;
   if (ae && ae.id && main.contains(ae)) { f = {id:ae.id}; try { f.s = ae.selectionStart; f.e = ae.selectionEnd; } catch (e) {} }
   const sc = ui.screen;
@@ -3142,10 +3147,13 @@ function onSecond(){
   const d = new Date();
   const bt = bigTime(clockParts(d)), ld = fmtDate(d), fx = factsOf(d);
   $$('[data-live="time"]').forEach(el => { if (el.innerHTML !== bt) el.innerHTML = bt; });
-  $$('[data-live="date"]').forEach(el => { el.textContent = ld; });
-  $$('[data-live="facts"]').forEach(el => { el.textContent = fx; });
-  const fs2 = factsShort(d); $$('[data-live="facts-short"]').forEach(el => { el.textContent = fs2; });
-  $$('[data-live="tz"]').forEach(el => { el.textContent = tzShort(d, el.dataset.tz); });
+  // only touch the page when the text actually changes (saves work every second)
+  const put = (el, v) => { if (el.textContent !== v) el.textContent = v; };
+  $$('[data-live="date"]').forEach(el => put(el, ld));
+  $$('[data-live="facts"]').forEach(el => put(el, fx));
+  const fs2 = factsShort(d); $$('[data-live="facts-short"]').forEach(el => put(el, fs2));
+  $$('[data-live="tz"]').forEach(el => put(el, tzShort(d, el.dataset.tz)));
+  if ((sw.running || tm.state === 'running') && !frameOn) kickFrame();
   if (tm.state === 'running' && tm.endAt <= Date.now()) timerDone();
   if (d.getSeconds() % 10 === 0) checkReminders();
   checkAlarms(d);
@@ -3161,7 +3169,11 @@ function onSecond(){
     prefetchAlarmSongs();
   }
 }
+// the smooth stopwatch / timer display only runs while one of them is going
+let frameOn = false;
+function kickFrame(){ if (!frameOn && (sw.running || tm.state === 'running')) { frameOn = true; requestAnimationFrame(frame); } }
 function frame(){
+  if (!(sw.running || tm.state === 'running')) { frameOn = false; return; }
   if (sw.running) { const s = fmtSw(swElapsed()); $$('[data-live="sw"]').forEach(el => { el.textContent = s; }); }
   if (tm.state === 'running') {
     const rem = Math.max(0, tm.endAt - Date.now()), t = fmtTimer(rem);
@@ -3172,6 +3184,24 @@ function frame(){
   }
   requestAnimationFrame(frame);
 }
+
+/* low-power mode: when you switch to another window, or leave the app alone for a minute,
+   moving decorations pause and see-through blur turns off. Anything you do brings it right back. */
+const IDLE = {on:false, last:Date.now()};
+function setIdle(on){
+  on = !!on && !(typeof alarmRing !== 'undefined' && alarmRing && alarmRing.id);
+  if (IDLE.on === on) return;
+  IDLE.on = on; rootEl.classList.toggle('idle', on);
+  if (!on) { IDLE.last = Date.now(); onSecond(); }
+}
+['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev => window.addEventListener(ev, () => {
+  IDLE.last = Date.now(); if (IDLE.on && !document.hidden) setIdle(false);
+}, {passive:true, capture:true}));
+window.addEventListener('blur', () => { if (!('ontouchstart' in window)) setIdle(true); });   // switched to another window on the computer
+window.addEventListener('focus', () => setIdle(false));
+document.addEventListener('visibilitychange', () => setIdle(document.hidden));
+setInterval(() => { if (!IDLE.on && Date.now() - IDLE.last > 60000) setIdle(true); }, 5000);
+window.__joeyIdle = setIdle;
 
 /* ---------- sheets ---------- */
 let sheetHook = null;
@@ -5494,7 +5524,7 @@ ui.screen = SCREENS.includes(h0) ? h0 : startScreen();
 applySettings();
 render();
 onSecond();
-requestAnimationFrame(frame);
+kickFrame();
 setInterval(onSecond, 1000);
 if (missedTimer) setTimeout(() => toast('Your timer finished while the app was closed.'), 600);
 initCloud();

@@ -1,5 +1,5 @@
 {
- "web": 202610160044,
+ "web": 202610160057,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "New alarms start at full volume now. You can still turn on Start quiet and get louder per alarm."
+ "notes": "Uses far less CPU and graphics power, and pauses its moving decorations when you switch away or leave it alone for a minute."
 }
