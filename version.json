@@ -1,5 +1,5 @@
 {
- "web": 202610160020,
+ "web": 202610160026,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 29,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Pick any color for the page, cards and text (Settings \u2192 Look, or in a theme). Buddy GIFs play when you tap them. Swapped theme pictures sync again."
+ "notes": "On the PC, your buddy now stands in the bottom-right corner, much bigger."
 }

@@ -18,6 +18,7 @@ img{max-width:100%}
 .ai-src{margin:0 0 2px;font:500 .68rem/1.2 "DM Mono",monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
 .ai-wait{margin:8px 4px 0;font-size:.85rem;color:var(--ink-2)}
 .ai-why{margin:0 0 6px;font-size:.8rem;color:var(--ink-2)}
+@media (min-width:760px){.is-desk{--bud:clamp(96px,calc((100vw - 560px) / 2 - 16px),304px)}.is-desk #thMascot{right:10px;bottom:0;width:var(--bud);height:var(--bud)}.is-desk #thMascot img{object-position:50% 100%;object-view-box:var(--trim,none);filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}.is-desk #buddyBubble{bottom:calc(var(--bud) + 4px);right:14px}.is-desk #buddyBubble::after{right:calc(var(--bud) / 2 - 13px)}}
 #ptr{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top,0px));z-index:30;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--ink-2);border:1px solid var(--line);box-shadow:0 4px 14px rgba(30,15,70,.18);opacity:0;transform:translate(-50%,-44px);pointer-events:none}
 #ptr svg{width:22px;height:22px}
 #ptr.ready{color:var(--accent)}
@@ -31,7 +32,7 @@ img{max-width:100%}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160020;</script>
+<script>window.JOEY_WEB_VERSION = 202610160026;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3819,7 +3820,7 @@ function thApply(screen){
   if (bgi) R.classList.add('th-bgimg');
   const em = thImg(t, 'empty'); if (em) { R.classList.add('th-has-empty'); R.style.setProperty('--th-empty', 'url("' + em + '")'); }
   fgApply(t.card || S.settings.cCard, t.ink || S.settings.cInk, accent);
-  if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; if (m && mas.dataset.src !== m) { mas.dataset.src = m; mas.dataset.still = ''; mas.innerHTML = '<img src="' + m + '" alt="">'; buddyStill(mas, m); } if (!m) { mas.dataset.src = ''; buddyClose(); } mas.setAttribute('role', 'button'); mas.setAttribute('aria-label', 'Talk to your buddy'); }
+  if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; if (m && mas.dataset.src !== m) { mas.dataset.src = m; mas.dataset.still = ''; mas.style.removeProperty('--trim'); mas.innerHTML = '<img src="' + m + '" alt="">'; buddyStill(mas, m); } if (!m) { mas.dataset.src = ''; buddyClose(); } mas.setAttribute('role', 'button'); mas.setAttribute('aria-label', 'Talk to your buddy'); }
 }
 const TH_PAL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10" cy="7.3" r="1.3" fill="currentColor"/><circle cx="14.5" cy="7.3" r="1.3" fill="currentColor"/><circle cx="17" cy="11" r="1.3" fill="currentColor"/></svg>';
 function thDecorate(){
@@ -3892,10 +3893,19 @@ function buddyBodyHTML(){
 async function buddyStill(mas, url){
   try {
     const type = (await (await fetch(url)).blob()).type;
-    if (!/gif/i.test(type) || mas.dataset.src !== url) return;
+    if (mas.dataset.src !== url) return;
     const im = new Image(); im.src = url; await im.decode();
     const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
-    c.getContext('2d').drawImage(im, 0, 0);
+    const g = c.getContext('2d', {willReadFrequently:true}); g.drawImage(im, 0, 0);
+    // trim see-through edges so the buddy can stand right on the bottom of the window
+    try {
+      const W = c.width, H = c.height, d = g.getImageData(0, 0, W, H).data;
+      let x0 = W, y0 = H, x1 = -1, y1 = -1;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 >= 0) { const pc = (n, of) => (100 * n / of).toFixed(2) + '%';
+        mas.style.setProperty('--trim', 'inset(' + pc(y0, H) + ' ' + pc(W - 1 - x1, W) + ' ' + pc(H - 1 - y1, H) + ' ' + pc(x0, W) + ')'); }
+    } catch (e) {}
+    if (!/gif/i.test(type)) return;
     const still = c.toDataURL('image/png');
     if (mas.dataset.src !== url) return;
     mas.dataset.still = still; buddyFrame();
@@ -5242,6 +5252,7 @@ const UPD = {base:'https://raw.githubusercontent.com/happyfireball2013/joeys-app
 const JUP = NATIVE ? capPlugin('JoeyUpdate') : null;
 const DESK = window.joeyDesktop || null;
 const updOn = () => !!(JUP || DESK) && !window.claude;
+if (DESK) document.documentElement.classList.add('is-desk');   // the Windows app
 function b64(buf){
   const u8 = new Uint8Array(buf); let s = '';
   for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
