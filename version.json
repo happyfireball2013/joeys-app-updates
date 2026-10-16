@@ -13,12 +13,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 46,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=46"
+  "code": 47,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=47"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Birthdays on the calendar, swipe between months, and install the new phone app to ask your buddy right from the weather widget."
+ "notes": "Your widget buddy now sits bigger inside the coming-up card."
 }
