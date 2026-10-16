@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161303;</script>
+<script>window.JOEY_WEB_VERSION = 202610161543;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1230,15 +1230,10 @@ function remRoll(){
 }
 function toggleRem(id){
   const r = S.reminders[id]; if (!r) return;
-  const before = clone(r);
-  const undo = () => { putItem('reminders', id, before); render(); };
-  if (r.done) {
-    putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null}));
-    toast('Unchecked', undo);
-    return;
-  }
+  // tapping a checked circle unchecks it, so there's no separate undo
+  if (r.done) { putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null})); return; }
   putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:Date.now()}));
-  toast(r.repeat && r.repeat !== 'none' ? 'Done for ' + (r.date === todayStr() || !r.date ? 'today' : fmtDay(r.date)) + '. It comes back ' + fmtDay(nextDate(r)) + '.' : 'Marked done', undo);
+  if (r.repeat && r.repeat !== 'none') toast('Done for ' + (r.date === todayStr() || !r.date ? 'today' : fmtDay(r.date)) + '. It comes back ' + fmtDay(nextDate(r)) + '.');
 }
 const openRems = () => Object.entries(S.reminders).filter(e => !e[1].done);
 const eventsOn = date => Object.entries(S.events).filter(e => e[1].date === date).sort((a, b) => (a[1].start || '').localeCompare(b[1].start || ''));
@@ -5037,19 +5032,22 @@ async function syncWidgetBuddy(){
   if (!JW || jwBudBusy || Date.now() - (syncWidgetBuddy.failAt || 0) < 60000) return;
   const t = thFor('home'), want = !!(t && t.img && t.img.mascot), url = want ? thImg(t, 'mascot') : '';
   if (want && !url) return;
-  const key = want ? t.id + ':' + t.img.mascot : '';
+  const key = want ? t.id + ':' + t.img.mascot + ':g' : '';
   if (key === jwBudKey) return;
   jwBudBusy = true;
   try {
-    let data = '';
+    let data = '', gif = '';
     if (url) {
       const im = new Image(); im.src = url; await im.decode();
       const k = Math.min(1, 256 / Math.max(im.naturalWidth, im.naturalHeight));
       const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
       c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
       data = c.toDataURL('image/png').split(',')[1];
+      // a GIF buddy also sends the moving version, so he can play in the widget's chat popup
+      const blob = await (await fetch(url)).blob();
+      if (/gif/i.test(blob.type) && blob.size < 6 * 1024 * 1024) gif = b64(await blob.arrayBuffer());
     }
-    await JW.setBuddy({data});
+    await JW.setBuddy({data, gif});
     jwBudKey = key; try { localStorage.setItem('jma:jwBud', key); } catch (e) {}
   } catch (e) { syncWidgetBuddy.failAt = Date.now(); }
   finally { jwBudBusy = false; }
