@@ -13,12 +13,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 31,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=31"
+  "code": 42,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=42"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Notes now come in red, grey and cyan, and themes can put a picture behind open notes for each color."
+ "notes": "Notes now come in red, grey and cyan, and themes can put a picture behind open notes. Install the new phone app to give the weather widget your clock picture."
 }
