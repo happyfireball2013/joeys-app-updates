@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160103;</script>
+<script>window.JOEY_WEB_VERSION = 202610160119;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -723,6 +723,15 @@ button.wx-day:active{background:var(--surface-2)}
 /* phone app: skip see-through blur (the costliest effect while scrolling) and use solid-looking buttons instead */
 :root.is-phone *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 :root.is-phone .dock button:not([aria-current="page"]):not([aria-pressed="true"]),:root.is-phone .hd .ib{background:color-mix(in srgb,var(--surface) 95%,transparent)}
+
+/* theme note cards */
+.note.has-card{position:relative;isolation:isolate;overflow:hidden}
+.note.has-card::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ncard) center/cover no-repeat;opacity:calc(1 - var(--nfade,.5));pointer-events:none}
+.note.has-card.card-corner{min-height:84px}
+.note.has-card.card-corner::before{background:var(--ncard) right 8px bottom 8px/auto 60px no-repeat;opacity:calc(1 - var(--nfade,.5) * .6)}
+.note.has-card.card-corner p{padding-right:52px}
+.note.card-clear{background:color-mix(in srgb,var(--surface) 55%,transparent)!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.note.card-line{background:transparent!important;border:1.5px solid color-mix(in srgb,var(--ink) 30%,transparent)}
 </style>
 </head>
 <body>
@@ -3748,6 +3757,7 @@ function thSlotGroups(){
     {name:'Everywhere', slots:[['bg','Page background','Fills the space behind everything'],['mascot','Corner buddy','Hangs out in the bottom corner. Tap it to talk to the AI. GIFs move!'],['empty','Empty-page picture','Shows when a page has nothing on it yet']]},
     {name:'Clock on the menu', slots:[['hero','Clock background','Behind the time, date and weather'],['buddy','Clock holder','Holds up the clock from underneath. A picture with a see-through background looks best.']]},
     {name:'Menu icons', slots:Object.keys(MENU).map(k => ['tile_' + k, MENU[k].label + ' icon', ''])},
+    {name:'Note cards', slots:[['card_all','Picture on every note card','Shows behind the note. PNGs with see-through backgrounds look great with “Small in the corner”.']].concat(TH_NOTE_COLORS.map(([c, n]) => ['card_' + c, 'Picture on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Notes', slots:[['run_all','Runner on every note','Runs along the bottom of each note']].concat(TH_NOTE_COLORS.map(([c, n]) => ['run_' + c, 'Runner on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Lifelog faces', slots:[['mood_happy','Good day',''],['mood_okay','Okay day',''],['mood_sad','Rough day','']]}
   ];
@@ -3900,6 +3910,15 @@ function thDecorate(){
     });
   }
   if (sc === 'notes') {
+    // note card pictures and looks
+    const fit = t.cardFit === 'corner' ? 'corner' : 'fill', fade = (t.cardFade == null ? 50 : Number(t.cardFade)) / 100, look = t.cardLook || 'solid';
+    $$('#main .note[data-id]').forEach(el => {
+      const n = S.notes[el.dataset.id]; if (!n) return;
+      const c = thImg(t, 'card_' + (n.color || 'none')) || thImg(t, 'card_all');
+      el.classList.toggle('has-card', !!c); el.classList.toggle('card-corner', !!c && fit === 'corner');
+      el.classList.toggle('card-clear', look === 'clear'); el.classList.toggle('card-line', look === 'line');
+      if (c) { el.style.setProperty('--ncard', 'url("' + c + '")'); el.style.setProperty('--nfade', String(fade)); }
+    });
     const speed = {slow:1.5, normal:1, fast:0.6}[t.runSpeed] || 1;
     $$('#main .note[data-id]').forEach((el, i) => {
       const n = S.notes[el.dataset.id]; if (!n) return;
@@ -4038,6 +4057,7 @@ function thEditorHTML(id){
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '');
   };
   const runnersUsed = Object.keys(t.img || {}).some(k => k.startsWith('run_'));
+  const cardsUsed = Object.keys(t.img || {}).some(k => k.startsWith('card_'));
   return sheetHead('Edit theme') +
     '<label class="fld"><span>Name</span><input class="in" id="thName" value="' + esc(t.name) + '" maxlength="40" placeholder="Kirby, Zelda, Pikmin…"></label>' +
     '<div class="fld"><span>Starter style</span><div class="th-styles">' + Object.entries(TH_STYLES).map(([k, s]) => '<button type="button" class="th-style" data-action="th-style" data-v="' + k + '" aria-pressed="' + (t.style === k) + '"><span class="th-sw" style="background:' + s.bg + ';--sa:' + s.accent + '"><i></i></span><span>' + s.label + '</span></button>').join('') + '</div></div>' +
@@ -4047,6 +4067,8 @@ function thEditorHTML(id){
       '<button type="button" class="btn sm" data-action="th-opt" data-k="pattern" data-v="' + (t.pattern === false ? 'true' : 'false') + '">' + (t.pattern === false ? 'Show' : 'Hide') + ' background shapes</button></div></div>' +
     '<input type="file" id="thFile" accept="image/*" hidden>' +
     thSlotGroups().map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
+      (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
+        '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Notes' && runnersUsed ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') + '</div></div>').join('') +
     '<p class="hint">Pictures sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
     '<div class="sh-actions"><button type="button" class="btn danger" data-action="th-del" data-id="' + id + '">Delete theme</button><span class="grow"></span><button type="button" class="btn accent" data-action="sheet-close">Done</button></div>';
