@@ -1,5 +1,5 @@
 {
- "web": 202610160030,
+ "web": 202610160036,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -17,8 +17,8 @@
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=31"
  },
  "exe": {
-  "code": 29,
+  "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your PC buddy is a bit smaller now."
+ "notes": "The Windows title bar now matches your theme instead of being plain white."
 }
