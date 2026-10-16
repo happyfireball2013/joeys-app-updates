@@ -36,7 +36,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161911;</script>
+<script>window.JOEY_WEB_VERSION = 202610161914;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3431,10 +3431,18 @@ function noteBgApply(){
     sh.style.setProperty('--nbgveil', 'color-mix(in srgb,var(--surface) ' + fade + '%,transparent)');
   } else { sh.style.removeProperty('--nbg'); sh.style.removeProperty('--nbgveil'); }
   // the open note's own color, separate from the note cards: one per note color (or one for every note)
-  const nc = t && t.nColors ? (t.nColors[col] || t.nColors.all || '') : '';
+  const nc = f && t && t.nColors ? (t.nColors[col] || t.nColors.all || '') : '';
   ['--surface', '--surface-2', '--line', '--ink', '--ink-2'].forEach(v => sh.style.removeProperty(v));
-  sh.classList.toggle('has-ncol', !!nc);
-  if (nc) {
+  sh.classList.toggle('has-ncol', !!nc || !!(f && HUES[col]));
+  if (!nc && f && HUES[col]) {
+    // Auto: the open note matches its card's color
+    const base = getComputedStyle(rootEl).getPropertyValue('--surface').trim() || '#FFFFFF', ink = getComputedStyle(rootEl).getPropertyValue('--ink').trim() || '#1A1428';
+    const tint = 'color-mix(in srgb,' + HUES[col] + ' 18%,' + base + ')';
+    sh.style.setProperty('--surface', tint);
+    sh.style.setProperty('--surface-2', 'color-mix(in srgb,' + HUES[col] + ' 10%,' + base + ')');
+    sh.style.setProperty('--line', 'color-mix(in srgb,' + HUES[col] + ' 30%,' + base + ')');
+    sh.style.setProperty('--ink-2', 'color-mix(in srgb,' + ink + ' 68%,' + HUES[col] + ')');
+  } else if (nc) {
     const ink = fgLum(nc) < 0.28 ? '#F2EEFA' : '#1A1428';
     sh.style.setProperty('--surface', nc);
     sh.style.setProperty('--surface-2', 'color-mix(in srgb,' + nc + ' 86%,' + ink + ')');
@@ -4337,10 +4345,10 @@ function thEditorHTML(id){
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
-      (g.name === 'Open note background' ? '<div class="th-ncolors"><b>Open note colors</b><small>The color a note opens in, picked separately from your note cards. Anything left on Auto uses “Every note”, or the theme.</small><div class="th-nc-grid">' +
+      (g.name === 'Open note background' ? '<div class="th-ncolors"><b>Open note colors</b><small>The color a note opens in. Auto matches that note’s card color. Set “Every note” to give all of them one color, or pick a color for just one.</small><div class="th-nc-grid">' +
         [['all', 'Every note']].concat(TH_NOTE_COLORS.map(([c, n]) => [c, n.charAt(0).toUpperCase() + n.slice(1)])).map(([k, n]) => {
           const v = t.nColors && t.nColors[k];
-          return '<label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.7, 0.9) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + esc(n) + '</span><em>' + (v ? '' : 'Auto') + '</em></label>';
+          return '<label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.62, 0.86) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + esc(n) + '</span><em>' + (v ? '' : 'Auto') + '</em></label>';
         }).join('') + '</div>' + (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set all back to Auto</button>' : '') + '</div>' : '') +
       (g.name === 'Notes' && runnersUsed ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') + '</div></div>').join('') +
     '<p class="hint">Pictures sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
