@@ -32,7 +32,7 @@ img{max-width:100%}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610160026;</script>
+<script>window.JOEY_WEB_VERSION = 202610160029;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -90,7 +90,8 @@ a{color:inherit}
 #main::-webkit-scrollbar{display:none}
 
 /* header */
-.hd{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:14px 12px;display:flex;align-items:center;gap:8px}
+.hd{position:relative;z-index:5;background:none;padding-block:14px 12px;display:flex;align-items:center;gap:8px}
+.hd .ib{background:color-mix(in srgb,var(--surface) 84%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-color:color-mix(in srgb,var(--line) 75%,transparent)}
 .hd.stack{flex-direction:column;align-items:stretch;gap:10px}
 .hd-row{display:flex;align-items:center;gap:8px}
 .hd-main{flex:1;min-width:0}
@@ -603,8 +604,6 @@ textarea.in{resize:vertical;line-height:1.5}
 #thBg{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;pointer-events:none}
 :root.th-on body{background-image:var(--th-pattern,none);background-attachment:fixed}
 :root.th-bgimg body{background-image:none}
-:root.th-bgimg .hd{background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-:root.th-on .hd{background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 :root.th-round{--r:28px;--r-sm:18px}
 :root.th-round .tile:active{transform:scale(.96)}
 :root.th-wobble .tile{animation:thWob 6s ease-in-out infinite}

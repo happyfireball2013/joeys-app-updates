@@ -1,5 +1,5 @@
 {
- "web": 202610160026,
+ "web": 202610160029,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -20,5 +20,5 @@
   "code": 29,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "On the PC, your buddy now stands in the bottom-right corner, much bigger."
+ "notes": "The bar at the top of every page is gone. Titles and buttons sit right on the page."
 }
