@@ -1,5 +1,5 @@
 {
- "web": 202610152302,
+ "web": 202610152320,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -10,15 +10,15 @@
   "index.html",
   "vendor/firebase.js"
  ],
- "needApk": 28,
- "needExe": 28,
+ "needApk": 29,
+ "needExe": 29,
  "apk": {
-  "code": 28,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=28"
+  "code": 29,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=29"
  },
  "exe": {
-  "code": 28,
+  "code": 29,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "New Ditto icon, and the weather now uses your real location."
+ "notes": "Bigger Ditto icon with no background, and the bottom buttons float so pages aren't cut off."
 }
