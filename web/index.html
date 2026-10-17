@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610170048;</script>
+<script>window.JOEY_WEB_VERSION = 202610170055;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -69,6 +69,8 @@ html.desk-bar #updNotice{top:48px}
   --shadow:0 1px 2px rgba(40,24,90,.05),0 8px 22px rgba(40,24,90,.07);
   --font-ui:"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --font-mono:"DM Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --font-base:"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono-base:"DM Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --r:20px;
   --r-sm:12px;
   --wx-cloud:#B4BCCB;
@@ -793,12 +795,12 @@ button.wx-day:active{background:var(--surface-2)}
 .th-nc:not(.set) input{opacity:.55}
 
 /* note text: theme font and bold */
-:root.nf-on .note b,:root.nf-on .note p,:root.nf-on #noteForm .in{font-family:var(--nfont)}
+:root.nf-on .note b,:root.nf-on .note p,:root.nf-on .in,:root.nf-on .rt,:root.nf-on .ev-main b,:root.nf-on .ev-main .muted,:root.nf-on .hu-t,:root.nf-on .bb-body p,:root.nf-on .ai-reply,:root.nf-on .ll-note,:root.nf-on .up-t{font-family:var(--nfont)}
 :root.nf-on .note p,:root.nf-on #noteForm textarea.in{font-size:calc(1em * var(--nfsize,1))}
 :root.nf-on .note b span{font-size:calc(1em * var(--nfsize,1))}
 :root.nb-on .note b{font-weight:800}
 :root.nb-on .note p{font-weight:700;color:var(--ink)}
-:root.nb-on #noteForm .in{font-weight:700}
+:root.nb-on .in,:root.nb-on .rt,:root.nb-on .ev-main b,:root.nb-on .hu-t{font-weight:700}
 .nf-pick{display:flex;flex-wrap:wrap;gap:6px}
 .nf-pick button{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:.95rem}
 .nf-pick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
@@ -809,6 +811,15 @@ button.wx-day:active{background:var(--surface-2)}
 .nf-add .ic{width:16px;height:16px}
 .nf-x{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
 .nf-x .ic{width:15px;height:15px}
+
+.th-fonts{display:grid;gap:12px}
+.tf-row{display:grid;gap:6px}
+.tf-row>b{font-size:.92rem}
+.tf-row>small{font-size:.78rem;color:var(--ink-2);margin-top:-4px}
+.tf-bold{display:flex;align-items:center;gap:10px;margin-top:4px}
+.tf-bold .seg{flex:1}
+.tf-row:last-child{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tf-mine{font-size:.88rem}
 </style>
 </head>
 <body>
@@ -4128,14 +4139,14 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('th-size') && TH.themes[thOpen]) thSave(); });
 // fonts for note text (bundled with the app, so they look the same everywhere)
 const NOTE_FONTS = {
-  default:{label:'Normal', stack:'var(--font-ui)'},
-  rounded:{label:'Rounded', stack:'"Nunito",var(--font-ui)'},
-  bubbly:{label:'Bubbly', stack:'"Fredoka","Nunito",var(--font-ui)'},
-  pikmin:{label:'Pikmin', stack:'"Pikmin Notes","Fredoka",var(--font-ui)', size:1.08},
+  default:{label:'Normal', stack:'var(--font-base)'},
+  rounded:{label:'Rounded', stack:'"Nunito",var(--font-base)'},
+  bubbly:{label:'Bubbly', stack:'"Fredoka","Nunito",var(--font-base)'},
+  pikmin:{label:'Pikmin', stack:'"Pikmin Notes","Fredoka",var(--font-base)', size:1.08},
   marker:{label:'Marker', stack:'"Patrick Hand","Comic Sans MS",cursive'},
   hand:{label:'Handwritten', stack:'"Caveat","Segoe Print",cursive', size:1.22},
   serif:{label:'Book', stack:'"Lora",Georgia,serif'},
-  mono:{label:'Typewriter', stack:'var(--font-mono)'}
+  mono:{label:'Typewriter', stack:'var(--font-mono-base)'}
 };
 const thFontFamily = t => 'JoeyFont-' + t.id + '-' + ((t.img && t.img.font) || 0);
 const thFontsLoaded = {};
@@ -4146,14 +4157,21 @@ function thFontLoad(t){
   new FontFace(fam, 'url(' + url + ')').load().then(ff => { document.fonts.add(ff); thFontsLoaded[fam] = 'ok'; }).catch(() => { delete thFontsLoaded[fam]; });
   return fam;
 }
+function thFontStack(t, key){
+  if (!t) return null;
+  if (t[key] === 'custom' && thImg(t, 'font')) return {stack:'"' + thFontLoad(t) + '",var(--font-base)', size:1};
+  const f = NOTE_FONTS[t[key]];
+  return f && t[key] !== 'default' ? f : null;
+}
 function noteFontApply(t){
   const R = rootEl;
-  if (t && t.noteFont === 'custom' && thImg(t, 'font')) {
-    R.style.setProperty('--nfont', '"' + thFontLoad(t) + '",var(--font-ui)'); R.style.setProperty('--nfsize', '1'); R.classList.add('nf-on');
-    R.classList.toggle('nb-on', !!t.noteBold); return;
-  }
-  const f = t && NOTE_FONTS[t.noteFont];
-  if (f && t.noteFont !== 'default') { R.style.setProperty('--nfont', f.stack); R.style.setProperty('--nfsize', String(f.size || 1)); R.classList.add('nf-on'); }
+  // App text: every built-in word (titles, labels, buttons)
+  const ui = thFontStack(t, 'uiFont');
+  if (ui) { R.style.setProperty('--font-ui', ui.stack); R.style.setProperty('--font-mono', t.uiFont === 'mono' ? 'var(--font-mono-base)' : ui.stack); R.classList.add('uf-on'); }
+  else { R.style.removeProperty('--font-ui'); R.style.removeProperty('--font-mono'); R.classList.remove('uf-on'); }
+  // Your text: everything typed
+  const mine = thFontStack(t, 'noteFont');
+  if (mine) { R.style.setProperty('--nfont', mine.stack); R.style.setProperty('--nfsize', String(mine.size || 1)); R.classList.add('nf-on'); }
   else { R.style.removeProperty('--nfont'); R.style.removeProperty('--nfsize'); R.classList.remove('nf-on'); }
   R.classList.toggle('nb-on', !!(t && t.noteBold));
 }
@@ -4423,12 +4441,19 @@ function thEditorHTML(id){
       '<label>Cards<input type="color" id="thCard" value="' + esc(t.card || fgDefaults(t.bg || st.bg).card) + '"></label><label>Text<input type="color" id="thInk" value="' + esc(t.ink || fgDefaults(t.card || t.bg || st.bg).ink) + '"></label>' +
       (t.card || t.ink ? '<button type="button" class="btn sm" data-action="th-fg-auto">Auto cards and text</button>' : '') +
       '<button type="button" class="btn sm" data-action="th-opt" data-k="pattern" data-v="' + (t.pattern === false ? 'true' : 'false') + '">' + (t.pattern === false ? 'Show' : 'Hide') + ' background shapes</button></div></div>' +
+    (function(){
+      const tt = Object.assign({id}, t), mine = thImg(tt, 'font');
+      const pick = key => '<div class="nf-pick">' + Object.entries(NOTE_FONTS).map(([k, f]) => '<button type="button" data-action="th-opt" data-k="' + key + '" data-v="' + k + '" aria-pressed="' + ((t[key] || 'default') === k) + '" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' + f.label + '</button>').join('') +
+        (mine ? '<button type="button" data-action="th-opt" data-k="' + key + '" data-v="custom" aria-pressed="' + (t[key] === 'custom') + '" style="font-family:&quot;' + thFontFamily(tt) + '&quot;">' + esc(t.fontName || 'Your font') + '</button>' : '') + '</div>';
+      return '<div class="fld"><span>Fonts</span><div class="th-fonts">' +
+        '<div class="tf-row"><b>App text</b><small>Everything built into the app: titles, labels, buttons and menus</small>' + pick('uiFont') + '</div>' +
+        '<div class="tf-row"><b>Your text</b><small>Everything you type: notes, reminders, events and the boxes you type in</small>' + pick('noteFont') +
+          '<div class="tf-bold"><span>Bold</span>' + seg('noteBold', [['false','Off'],['true','On']]) + '</div></div>' +
+        '<div class="tf-row">' + (mine ? '<span class="tf-mine">Your own font: <b>' + esc(t.fontName || 'Your font') + '</b></span><button type="button" class="btn sm" data-action="th-font-rm">Remove</button>' : '<button type="button" class="nf-add" data-action="th-font-pick">' + icon('plus') + 'Add your own font file</button>') + '</div>' +
+        '</div></div>';
+    })() +
     '<input type="file" id="thFile" accept="image/*" hidden><input type="file" id="thFontFile" accept=".ttf,.otf,.woff,.woff2,font/*,application/font-sfnt,application/x-font-ttf" hidden>' +
     thSlotGroups().map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
-      (g.name === 'Note cards' ? '<div class="th-sub th-nfont"><span>Note text</span><div class="nf-pick">' + Object.entries(NOTE_FONTS).map(([k, f]) => '<button type="button" data-action="th-opt" data-k="noteFont" data-v="' + k + '" aria-pressed="' + ((t.noteFont || 'default') === k) + '" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' + f.label + '</button>').join('') +
-        (thImg(Object.assign({id}, t), 'font') ? '<button type="button" data-action="th-opt" data-k="noteFont" data-v="custom" aria-pressed="' + (t.noteFont === 'custom') + '" style="font-family:&quot;' + thFontFamily(Object.assign({id}, t)) + '&quot;">' + esc(t.fontName || 'Your font') + '</button><button type="button" class="nf-x" data-action="th-font-rm" aria-label="Remove your font">' + icon('x') + '</button>'
-          : '<button type="button" class="nf-add" data-action="th-font-pick">' + icon('plus') + 'Your own font</button>') + '</div>' +
-        '<span>Bold</span>' + seg('noteBold', [['false','Off'],['true','On']]) + '</div>' : '') +
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
