@@ -17,6 +17,7 @@
 @font-face{font-family:"Lora";font-style:normal;font-display:swap;font-weight:700;src:url(fonts/lora-latin-700-normal.woff2) format("woff2")}
 @font-face{font-family:"Fredoka";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/fredoka-latin-400-normal.woff2) format("woff2")}
 @font-face{font-family:"Fredoka";font-style:normal;font-display:swap;font-weight:700;src:url(fonts/fredoka-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Pikmin Notes";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/pikmin.ttf) format("truetype")}
 @font-face{font-family:"Patrick Hand";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/patrick-hand-latin-400-normal.woff2) format("woff2")}
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 img{max-width:100%}
@@ -45,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610170044;</script>
+<script>window.JOEY_WEB_VERSION = 202610170048;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4130,6 +4131,7 @@ const NOTE_FONTS = {
   default:{label:'Normal', stack:'var(--font-ui)'},
   rounded:{label:'Rounded', stack:'"Nunito",var(--font-ui)'},
   bubbly:{label:'Bubbly', stack:'"Fredoka","Nunito",var(--font-ui)'},
+  pikmin:{label:'Pikmin', stack:'"Pikmin Notes","Fredoka",var(--font-ui)', size:1.08},
   marker:{label:'Marker', stack:'"Patrick Hand","Comic Sans MS",cursive'},
   hand:{label:'Handwritten', stack:'"Caveat","Segoe Print",cursive', size:1.22},
   serif:{label:'Book', stack:'"Lora",Georgia,serif'},
