@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610170104;</script>
+<script>window.JOEY_WEB_VERSION = 202610170124;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -5188,7 +5188,7 @@ async function syncWidgetHero(){
 }
 if (NATIVE && JW) {
   const _renderHero = render;
-  render = function(){ _renderHero(); if (!syncWidgetHero.t) syncWidgetHero.t = setTimeout(() => { syncWidgetHero.t = 0; syncWidgetHero(); syncWidgetBuddy(); }, 1500); };
+  render = function(){ _renderHero(); if (!syncWidgetHero.t) syncWidgetHero.t = setTimeout(() => { syncWidgetHero.t = 0; syncWidgetHero(); syncWidgetBuddy(); syncWidgetFont(); }, 1500); };
   const _settingsW = settingsHTML;
   settingsHTML = function(){ const h = _settingsW(), at = h.indexOf('<div class="sec-title" id="set-ai">'); return at < 0 ? h + hswSettingsHTML() : h.slice(0, at) + hswSettingsHTML() + h.slice(at); };
   if (!SET_SECTIONS.some(x => x[0] === 'set-hsw')) { const i = SET_SECTIONS.findIndex(x => x[0] === 'set-ai'); SET_SECTIONS.splice(i < 0 ? SET_SECTIONS.length : i, 0, ['set-hsw', 'Home screen']); }
@@ -5264,6 +5264,41 @@ async function syncWidgetBuddy(){
     jwBudKey = key; try { localStorage.setItem('jma:jwBud', key); } catch (e) {}
   } catch (e) { syncWidgetBuddy.failAt = Date.now(); }
   finally { jwBudBusy = false; }
+}
+
+// the weather widget uses the font from the menu's theme ("App text", or "Your text" if App text is left on Default)
+const JW_FONTS = {
+  rounded:['fonts/ttf/nunito-400.ttf', 'fonts/ttf/nunito-700.ttf'], bubbly:['fonts/ttf/fredoka-400.ttf', 'fonts/ttf/fredoka-700.ttf'],
+  marker:['fonts/ttf/patrick-hand-400.ttf', ''], hand:['fonts/ttf/caveat-400.ttf', 'fonts/ttf/caveat-700.ttf'],
+  serif:['fonts/ttf/lora-400.ttf', 'fonts/ttf/lora-700.ttf'], mono:['fonts/ttf/dm-mono-400.ttf', 'fonts/ttf/dm-mono-500.ttf'],
+  pikmin:['fonts/pikmin.ttf', '']
+};
+let jwFontKey = null; try { jwFontKey = localStorage.getItem('jma:jwFont'); } catch (e) {}
+let jwFontBusy = false;
+function jwFontPick(t){
+  if (!t) return '';
+  const ok = k => k && k !== 'default' && (k === 'custom' ? !!(t.img && t.img.font) : !!JW_FONTS[k]);
+  return ok(t.uiFont) ? t.uiFont : ok(t.noteFont) ? t.noteFont : '';
+}
+async function syncWidgetFont(){
+  if (!JW || jwFontBusy || Date.now() - (syncWidgetFont.failAt || 0) < 60000) return;
+  const t = thFor('home'), f = jwFontPick(t);
+  const key = f ? t.id + ':' + f + (f === 'custom' ? ':' + t.img.font : '') : '';
+  if (key === jwFontKey) return;
+  jwFontBusy = true;
+  try {
+    let data = '', bold = '';
+    if (f === 'custom') {
+      const r = await IDB.get('th:' + t.id + ':font');
+      if (r && r.buf && /ttf|otf/i.test(r.type || '')) data = b64(r.buf);   // the widget can only read .ttf and .otf fonts
+    } else if (f) {
+      const get = async u => u ? b64(await (await fetch(u)).arrayBuffer()) : '';
+      [data, bold] = await Promise.all(JW_FONTS[f].map(get));
+    }
+    await JW.setFont({data, bold});
+    jwFontKey = key; try { localStorage.setItem('jma:jwFont', key); } catch (e) {}
+  } catch (e) { syncWidgetFont.failAt = Date.now(); }
+  finally { jwFontBusy = false; }
 }
 /* ---------- Android app: Gemini Nano (Google's AI on the phone) runs the AI bar ---------- */
 const JAI = NATIVE ? capPlugin('JoeyAI') : null;

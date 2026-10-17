@@ -1,5 +1,5 @@
 {
- "web": 202610170104,
+ "web": 202610170124,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -18,18 +18,29 @@
   "fonts/nunito-latin-700-normal.woff2",
   "fonts/patrick-hand-latin-400-normal.woff2",
   "fonts/pikmin.ttf",
+  "fonts/ttf/caveat-400.ttf",
+  "fonts/ttf/caveat-700.ttf",
+  "fonts/ttf/dm-mono-400.ttf",
+  "fonts/ttf/dm-mono-500.ttf",
+  "fonts/ttf/fredoka-400.ttf",
+  "fonts/ttf/fredoka-700.ttf",
+  "fonts/ttf/lora-400.ttf",
+  "fonts/ttf/lora-700.ttf",
+  "fonts/ttf/nunito-400.ttf",
+  "fonts/ttf/nunito-700.ttf",
+  "fonts/ttf/patrick-hand-400.ttf",
   "index.html",
   "vendor/firebase.js"
  ],
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 51,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=51"
+  "code": 61,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=61"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your own font files can now be up to 12 MB."
+ "notes": "Your weather widget now uses the font from your home page theme. Install the new phone app to get it."
 }
