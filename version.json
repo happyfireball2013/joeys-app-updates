@@ -35,12 +35,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 63,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=63"
+  "code": 64,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=64"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Weather widget: bigger text that spreads out to fill the whole widget. Install the new phone app."
+ "notes": "Weather widget: the day highs and lows no longer get cut off. Install the new phone app."
 }
