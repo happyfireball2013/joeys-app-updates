@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610170055;</script>
+<script>window.JOEY_WEB_VERSION = 202610170104;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4048,7 +4048,7 @@ async function thStoreFont(id, file){
   const t = TH.themes[id]; if (!t || !file) return;
   const ext = (String(file.name).match(/\.(ttf|otf|woff2?)$/i) || [])[1];
   if (!ext) { toast('Pick a font file (.ttf, .otf, .woff or .woff2).'); return; }
-  if (file.size > 3 * 1024 * 1024) { toast('That font file is over 3 MB. Try a smaller one.'); return; }
+  if (file.size > 12 * 1024 * 1024) { toast('That font file is over 12 MB. Try a smaller one.'); return; }   // big fonts (like Japanese ones) are fine
   try {
     const buf = await file.arrayBuffer(), type = 'font/' + ext.toLowerCase();
     await new FontFace('JoeyFontCheck', buf).load();   // make sure it's a real font
