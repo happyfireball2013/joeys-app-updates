@@ -1,12 +1,22 @@
 {
- "web": 202610161914,
+ "web": 202610162059,
  "files": [
   "capacitor.js",
   "firebase-config.js",
+  "fonts/OFL-LICENSE.txt",
   "fonts/archivo-latin-ext-wdth-normal.woff2",
   "fonts/archivo-latin-wdth-normal.woff2",
+  "fonts/caveat-latin-400-normal.woff2",
+  "fonts/caveat-latin-700-normal.woff2",
   "fonts/dm-mono-latin-400-normal.woff2",
   "fonts/dm-mono-latin-500-normal.woff2",
+  "fonts/fredoka-latin-400-normal.woff2",
+  "fonts/fredoka-latin-700-normal.woff2",
+  "fonts/lora-latin-400-normal.woff2",
+  "fonts/lora-latin-700-normal.woff2",
+  "fonts/nunito-latin-400-normal.woff2",
+  "fonts/nunito-latin-700-normal.woff2",
+  "fonts/patrick-hand-latin-400-normal.woff2",
   "index.html",
   "vendor/firebase.js"
  ],
@@ -20,5 +30,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Notes open in the same color as their card, unless you pick another one in your theme."
+ "notes": "Themes can now set a note font, bold note text, and pictures for the bottom buttons."
 }

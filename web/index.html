@@ -9,6 +9,15 @@
 @font-face{font-family:"Archivo";font-style:normal;font-display:swap;font-weight:100 900;font-stretch:62% 125%;src:url(fonts/archivo-latin-ext-wdth-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:"DM Mono";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/dm-mono-latin-400-normal.woff2) format("woff2")}
 @font-face{font-family:"DM Mono";font-style:normal;font-display:swap;font-weight:500;src:url(fonts/dm-mono-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Nunito";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/nunito-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Nunito";font-style:normal;font-display:swap;font-weight:700;src:url(fonts/nunito-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Caveat";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/caveat-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Caveat";font-style:normal;font-display:swap;font-weight:700;src:url(fonts/caveat-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lora";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/lora-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Lora";font-style:normal;font-display:swap;font-weight:700;src:url(fonts/lora-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Fredoka";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/fredoka-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Fredoka";font-style:normal;font-display:swap;font-weight:700;src:url(fonts/fredoka-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Patrick Hand";font-style:normal;font-display:swap;font-weight:400;src:url(fonts/patrick-hand-latin-400-normal.woff2) format("woff2")}
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 img{max-width:100%}
 [hidden]{display:none!important}
@@ -36,7 +45,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610161914;</script>
+<script>window.JOEY_WEB_VERSION = 202610162059;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -781,6 +790,19 @@ button.wx-day:active{background:var(--surface-2)}
 .th-nc input{width:40px;height:32px;border:1px solid var(--line);border-radius:9px;padding:2px;background:var(--surface)}
 .th-nc em{font-style:normal;font-size:.68rem;color:var(--ink-2);min-height:.9em}
 .th-nc:not(.set) input{opacity:.55}
+
+/* note text: theme font and bold */
+:root.nf-on .note b,:root.nf-on .note p,:root.nf-on #noteForm .in{font-family:var(--nfont)}
+:root.nf-on .note p,:root.nf-on #noteForm textarea.in{font-size:calc(1em * var(--nfsize,1))}
+:root.nf-on .note b span{font-size:calc(1em * var(--nfsize,1))}
+:root.nb-on .note b{font-weight:800}
+:root.nb-on .note p{font-weight:700;color:var(--ink)}
+:root.nb-on #noteForm .in{font-weight:700}
+.nf-pick{display:flex;flex-wrap:wrap;gap:6px}
+.nf-pick button{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:.95rem}
+.nf-pick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.th-nfont{flex-wrap:wrap}
+.dock-img{width:26px;height:26px;object-fit:contain;display:block}
 </style>
 </head>
 <body>
@@ -3978,6 +4000,7 @@ function thSlotGroups(){
     {name:'Everywhere', slots:[['bg','Page background','Fills the space behind everything'],['mascot','Corner buddy','Hangs out in the bottom corner. Tap it to talk to the AI. GIFs move!'],['empty','Empty-page picture','Shows when a page has nothing on it yet']]},
     {name:'Clock on the menu', slots:[['hero','Clock background','Behind the time, date and weather'],['buddy','Clock holder','Holds up the clock from underneath. A picture with a see-through background looks best.']]},
     {name:'Menu icons', slots:Object.keys(MENU).map(k => ['tile_' + k, MENU[k].label + ' icon', ''])},
+    {name:'Bottom buttons', slots:['home'].concat(TAB_OPTIONS).map(k => ['dock_' + k, (TABS[k] ? TABS[k].label : k) + ' button', ''])},
     {name:'Note cards', slots:[['card_all','Picture on every note card','Shows behind the note. PNGs with see-through backgrounds look great with “Small in the corner”.']].concat(TH_NOTE_COLORS.map(([c, n]) => ['card_' + c, 'Picture on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Open note background', slots:[['nbg_all','Behind every open note','Fills the page when you open a note to read or edit it']].concat(TH_NOTE_COLORS.map(([c, n]) => ['nbg_' + c, 'Behind open ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Notes', slots:[['run_all','Runner on every note','Runs along the bottom of each note']].concat(TH_NOTE_COLORS.map(([c, n]) => ['run_' + c, 'Runner on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
@@ -4081,6 +4104,22 @@ document.addEventListener('input', e => {
   if (!thSizeRaf) thSizeRaf = requestAnimationFrame(() => { thSizeRaf = 0; thApplied = ''; render(); noteBgApply(); });
 });
 document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('th-size') && TH.themes[thOpen]) thSave(); });
+// fonts for note text (bundled with the app, so they look the same everywhere)
+const NOTE_FONTS = {
+  default:{label:'Normal', stack:'var(--font-ui)'},
+  rounded:{label:'Rounded', stack:'"Nunito",var(--font-ui)'},
+  bubbly:{label:'Bubbly', stack:'"Fredoka","Nunito",var(--font-ui)'},
+  marker:{label:'Marker', stack:'"Patrick Hand","Comic Sans MS",cursive'},
+  hand:{label:'Handwritten', stack:'"Caveat","Segoe Print",cursive', size:1.22},
+  serif:{label:'Book', stack:'"Lora",Georgia,serif'},
+  mono:{label:'Typewriter', stack:'var(--font-mono)'}
+};
+function noteFontApply(t){
+  const R = rootEl, f = t && NOTE_FONTS[t.noteFont];
+  if (f && t.noteFont !== 'default') { R.style.setProperty('--nfont', f.stack); R.style.setProperty('--nfsize', String(f.size || 1)); R.classList.add('nf-on'); }
+  else { R.style.removeProperty('--nfont'); R.style.removeProperty('--nfsize'); R.classList.remove('nf-on'); }
+  R.classList.toggle('nb-on', !!(t && t.noteBold));
+}
 function thApply(screen){
   const t = thFor(screen), sig = t ? JSON.stringify([t, Object.keys(thUrls).length, screen]) : 'none|' + S.settings.accent + S.settings.theme + S.settings.background;
   if (sig === thApplied) return;
@@ -4089,6 +4128,7 @@ function thApply(screen){
   cls.forEach(c => R.classList.remove(c));
   ['--bg','--line','--th-pattern','--th-bg','--th-bgfade','--th-empty'].forEach(v => R.style.removeProperty(v));
   const bgEl = $('#thBg'), mas = $('#thMascot');
+  noteFontApply(t);
   if (!t) {
     applySettings();
     if (bgEl) bgEl.style.backgroundImage = ''; if (mas) mas.hidden = true;
@@ -4144,6 +4184,12 @@ function thDecorate(){
       if (old) { const s = document.createElement('span'); s.className = 'tile-ic th-tile'; s.innerHTML = '<img src="' + u + '" alt="">'; old.replaceWith(s); }
     });
   }
+  // the bottom buttons: a theme picture in place of each icon
+  $$('#dock button[data-screen]').forEach(btn => {
+    const k = btn.dataset.screen, u = thImg(t, 'dock_' + k), img = btn.querySelector('img.dock-img');
+    if (u) { if (img) { if (img.getAttribute('src') !== u) img.src = u; } else { const ic = btn.querySelector('svg.ic'); const im = document.createElement('img'); im.className = 'dock-img'; im.alt = ''; im.src = u; if (ic) ic.replaceWith(im); else btn.prepend(im); } }
+    else if (img && TABS[k]) img.outerHTML = icon(TABS[k].icon);
+  });
   if (sc === 'notes') {
     // note card pictures and looks
     const fit = t.cardFit === 'corner' ? 'corner' : 'fill', fade = (t.cardFade == null ? 50 : Number(t.cardFade)) / 100, look = t.cardLook || 'solid';
@@ -4342,6 +4388,8 @@ function thEditorHTML(id){
       '<button type="button" class="btn sm" data-action="th-opt" data-k="pattern" data-v="' + (t.pattern === false ? 'true' : 'false') + '">' + (t.pattern === false ? 'Show' : 'Hide') + ' background shapes</button></div></div>' +
     '<input type="file" id="thFile" accept="image/*" hidden>' +
     thSlotGroups().map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
+      (g.name === 'Note cards' ? '<div class="th-sub th-nfont"><span>Note text</span><div class="nf-pick">' + Object.entries(NOTE_FONTS).map(([k, f]) => '<button type="button" data-action="th-opt" data-k="noteFont" data-v="' + k + '" aria-pressed="' + ((t.noteFont || 'default') === k) + '" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' + f.label + '</button>').join('') + '</div>' +
+        '<span>Bold</span>' + seg('noteBold', [['false','Off'],['true','On']]) + '</div>' : '') +
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
