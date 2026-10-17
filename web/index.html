@@ -45,7 +45,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610162059;</script>
+<script>window.JOEY_WEB_VERSION = 202610170044;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -803,6 +803,11 @@ button.wx-day:active{background:var(--surface-2)}
 .nf-pick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
 .th-nfont{flex-wrap:wrap}
 .dock-img{width:26px;height:26px;object-fit:contain;display:block}
+
+.nf-add{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;border:1px dashed var(--line);background:none;font-size:.9rem;font-weight:600;color:var(--accent-ink)}
+.nf-add .ic{width:16px;height:16px}
+.nf-x{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.nf-x .ic{width:15px;height:15px}
 </style>
 </head>
 <body>
@@ -4027,6 +4032,22 @@ async function thLoadImages(){
   }
   thApplied = ''; scheduleRender();
 }
+async function thStoreFont(id, file){
+  const t = TH.themes[id]; if (!t || !file) return;
+  const ext = (String(file.name).match(/\.(ttf|otf|woff2?)$/i) || [])[1];
+  if (!ext) { toast('Pick a font file (.ttf, .otf, .woff or .woff2).'); return; }
+  if (file.size > 3 * 1024 * 1024) { toast('That font file is over 3 MB. Try a smaller one.'); return; }
+  try {
+    const buf = await file.arrayBuffer(), type = 'font/' + ext.toLowerCase();
+    await new FontFace('JoeyFontCheck', buf).load();   // make sure it's a real font
+    const k = id + ':font', v = Date.now();
+    await IDB.put('th:' + k, {buf, type, v, name:file.name});
+    if (thUrls[k]) URL.revokeObjectURL(thUrls[k]);
+    thUrls[k] = URL.createObjectURL(new Blob([buf], {type}));
+    t.img = Object.assign({}, t.img, {font:v}); t.noteFont = 'custom'; t.fontName = String(file.name).replace(/\.(ttf|otf|woff2?)$/i, '').slice(0, 40);
+    thSave(); thApplied = ''; thRefreshEditor(); render(); toast('Font added');
+  } catch (e) { toast('That font file couldn’t be used. Try a .ttf or .otf file.'); }
+}
 async function thStoreImage(id, slot, file){
   const t = TH.themes[id]; if (!t || !file) return;
   if (!/^image\//.test(file.type) && !/\.(png|jpe?g|gif|webp)$/i.test(file.name)) { toast('Pick a picture file.'); return; }
@@ -4114,8 +4135,22 @@ const NOTE_FONTS = {
   serif:{label:'Book', stack:'"Lora",Georgia,serif'},
   mono:{label:'Typewriter', stack:'var(--font-mono)'}
 };
+const thFontFamily = t => 'JoeyFont-' + t.id + '-' + ((t.img && t.img.font) || 0);
+const thFontsLoaded = {};
+function thFontLoad(t){
+  const fam = thFontFamily(t), url = thImg(t, 'font');
+  if (!url || thFontsLoaded[fam]) return fam;
+  thFontsLoaded[fam] = 'loading';
+  new FontFace(fam, 'url(' + url + ')').load().then(ff => { document.fonts.add(ff); thFontsLoaded[fam] = 'ok'; }).catch(() => { delete thFontsLoaded[fam]; });
+  return fam;
+}
 function noteFontApply(t){
-  const R = rootEl, f = t && NOTE_FONTS[t.noteFont];
+  const R = rootEl;
+  if (t && t.noteFont === 'custom' && thImg(t, 'font')) {
+    R.style.setProperty('--nfont', '"' + thFontLoad(t) + '",var(--font-ui)'); R.style.setProperty('--nfsize', '1'); R.classList.add('nf-on');
+    R.classList.toggle('nb-on', !!t.noteBold); return;
+  }
+  const f = t && NOTE_FONTS[t.noteFont];
   if (f && t.noteFont !== 'default') { R.style.setProperty('--nfont', f.stack); R.style.setProperty('--nfsize', String(f.size || 1)); R.classList.add('nf-on'); }
   else { R.style.removeProperty('--nfont'); R.style.removeProperty('--nfsize'); R.classList.remove('nf-on'); }
   R.classList.toggle('nb-on', !!(t && t.noteBold));
@@ -4386,9 +4421,11 @@ function thEditorHTML(id){
       '<label>Cards<input type="color" id="thCard" value="' + esc(t.card || fgDefaults(t.bg || st.bg).card) + '"></label><label>Text<input type="color" id="thInk" value="' + esc(t.ink || fgDefaults(t.card || t.bg || st.bg).ink) + '"></label>' +
       (t.card || t.ink ? '<button type="button" class="btn sm" data-action="th-fg-auto">Auto cards and text</button>' : '') +
       '<button type="button" class="btn sm" data-action="th-opt" data-k="pattern" data-v="' + (t.pattern === false ? 'true' : 'false') + '">' + (t.pattern === false ? 'Show' : 'Hide') + ' background shapes</button></div></div>' +
-    '<input type="file" id="thFile" accept="image/*" hidden>' +
+    '<input type="file" id="thFile" accept="image/*" hidden><input type="file" id="thFontFile" accept=".ttf,.otf,.woff,.woff2,font/*,application/font-sfnt,application/x-font-ttf" hidden>' +
     thSlotGroups().map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
-      (g.name === 'Note cards' ? '<div class="th-sub th-nfont"><span>Note text</span><div class="nf-pick">' + Object.entries(NOTE_FONTS).map(([k, f]) => '<button type="button" data-action="th-opt" data-k="noteFont" data-v="' + k + '" aria-pressed="' + ((t.noteFont || 'default') === k) + '" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' + f.label + '</button>').join('') + '</div>' +
+      (g.name === 'Note cards' ? '<div class="th-sub th-nfont"><span>Note text</span><div class="nf-pick">' + Object.entries(NOTE_FONTS).map(([k, f]) => '<button type="button" data-action="th-opt" data-k="noteFont" data-v="' + k + '" aria-pressed="' + ((t.noteFont || 'default') === k) + '" style="font-family:' + f.stack.replace(/"/g, '&quot;') + '">' + f.label + '</button>').join('') +
+        (thImg(Object.assign({id}, t), 'font') ? '<button type="button" data-action="th-opt" data-k="noteFont" data-v="custom" aria-pressed="' + (t.noteFont === 'custom') + '" style="font-family:&quot;' + thFontFamily(Object.assign({id}, t)) + '&quot;">' + esc(t.fontName || 'Your font') + '</button><button type="button" class="nf-x" data-action="th-font-rm" aria-label="Remove your font">' + icon('x') + '</button>'
+          : '<button type="button" class="nf-add" data-action="th-font-pick">' + icon('plus') + 'Your own font</button>') + '</div>' +
         '<span>Bold</span>' + seg('noteBold', [['false','Off'],['true','On']]) + '</div>' : '') +
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
@@ -4437,12 +4474,15 @@ Object.assign(A, {
   'th-style': t => { const th = TH.themes[thOpen]; if (!th) return; const st = TH_STYLES[t.dataset.v]; th.style = t.dataset.v; th.accent = st.accent; th.bg = st.bg; thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'th-opt': t => { const th = TH.themes[thOpen]; if (!th) return; let v = t.dataset.v; if (v === 'true' || v === 'false') v = v === 'true'; else if (/^\d+$/.test(v)) v = Number(v); th[t.dataset.k] = v; thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'th-pick': t => { thSlot = t.dataset.slot; const f = $('#thFile'); if (f) f.click(); },
+  'th-font-pick': () => { const f = $('#thFontFile'); if (f) f.click(); },
+  'th-font-rm': () => { const th = TH.themes[thOpen]; if (!th || !th.img) return; delete th.img.font; delete th.fontName; if (th.noteFont === 'custom') th.noteFont = 'default'; IDB.del('th:' + thOpen + ':font').catch(() => {}); thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'th-rm': t => thRemoveImage(thOpen, t.dataset.slot),
   'th-del': t => { if (!armAlways(t, 'Tap again to delete')) return; thDelete(t.dataset.id); thOpen = null; closeSheet(true); render(); toast('Theme deleted'); }
 });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'thFile') { const f = t.files && t.files[0]; t.value = ''; if (f && thOpen && thSlot) thStoreImage(thOpen, thSlot, f); }
+  if (t.id === 'thFontFile') { const f = t.files && t.files[0]; t.value = ''; if (f && thOpen) thStoreFont(thOpen, f); }
   else if (t.id === 'thApp') { TH.app = t.value; thSave(); thApplied = ''; render(); }
   else if (t.dataset && t.dataset.thpage) { if (t.value) TH.pages[t.dataset.thpage] = t.value; else delete TH.pages[t.dataset.thpage]; thSave(); thApplied = ''; render(); }
   else if (TH_COLOR_IDS[t.id] && TH.themes[thOpen]) { TH.themes[thOpen][TH_COLOR_IDS[t.id]] = t.value; thSave(); thApplied = ''; render(); if (t.id === 'thCard' || t.id === 'thInk') thRefreshEditor(); }
