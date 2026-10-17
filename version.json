@@ -35,12 +35,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 61,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=61"
+  "code": 62,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=62"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your weather widget now uses the font from your home page theme. Install the new phone app to get it."
+ "notes": "Fixes the weather widget not loading after the font update. Install the new phone app."
 }
