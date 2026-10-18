@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610180014;</script>
+<script>window.JOEY_WEB_VERSION = 202610180040;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4303,13 +4303,36 @@ async function buddyStill(mas, url){
     const im = new Image(); im.src = url; await im.decode();
     const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
     const g = c.getContext('2d', {willReadFrequently:true}); g.drawImage(im, 0, 0);
-    // trim see-through edges so the buddy can stand right on the bottom of the window
+    // trim see-through edges so the buddy can stand right on the bottom of the window.
+    // For a GIF, the trim covers every frame, so he never gets cut off when he stretches while talking.
     try {
-      const W = c.width, H = c.height, d = g.getImageData(0, 0, W, H).data;
-      let x0 = W, y0 = H, x1 = -1, y1 = -1;
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-      if (x1 >= 0) { const pc = (n, of) => (100 * n / of).toFixed(2) + '%';
-        mas.style.setProperty('--trim', 'inset(' + pc(y0, H) + ' ' + pc(W - 1 - x1, W) + ' ' + pc(H - 1 - y1, H) + ' ' + pc(x0, W) + ')'); }
+      const W = c.width, H = c.height, k = Math.min(1, 256 / Math.max(W, H)), sw = Math.max(1, Math.round(W * k)), sh = Math.max(1, Math.round(H * k));
+      const sc = document.createElement('canvas'); sc.width = sw; sc.height = sh;
+      const sg = sc.getContext('2d', {willReadFrequently:true});
+      const box = {x0:sw, y0:sh, x1:-1, y1:-1};
+      const scan = src => {
+        sg.clearRect(0, 0, sw, sh); sg.drawImage(src, 0, 0, sw, sh);
+        const d = sg.getImageData(0, 0, sw, sh).data;
+        for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) if (d[(y * sw + x) * 4 + 3] > 24) { if (x < box.x0) box.x0 = x; if (x > box.x1) box.x1 = x; if (y < box.y0) box.y0 = y; if (y > box.y1) box.y1 = y; }
+      };
+      scan(im);
+      let allFrames = !/gif/i.test(type);
+      if (!allFrames && typeof ImageDecoder !== 'undefined') {
+        try {
+          const dec = new ImageDecoder({data:await (await fetch(url)).arrayBuffer(), type:'image/gif'});
+          await dec.tracks.ready;
+          const n = Math.min(dec.tracks.selectedTrack.frameCount || 1, 150);
+          for (let i = 0; i < n; i++) { const fr = await dec.decode({frameIndex:i}); scan(fr.image); fr.image.close(); }
+          dec.close(); allFrames = true;
+        } catch (e) {}
+      }
+      if (box.x1 >= 0) {
+        let {x0, y0, x1, y1} = box;
+        if (!allFrames) { const mx = Math.round(sw * 0.12), my = Math.round(sh * 0.12); x0 -= mx; x1 += mx; y0 -= my; }   // couldn't read the frames: leave some room to stretch
+        x0 = Math.max(0, x0 - 1); y0 = Math.max(0, y0 - 1); x1 = Math.min(sw - 1, x1 + 1); y1 = Math.min(sh - 1, y1);
+        const pc = (n, of) => (100 * n / of).toFixed(2) + '%';
+        mas.style.setProperty('--trim', 'inset(' + pc(y0, sh) + ' ' + pc(sw - 1 - x1, sw) + ' ' + pc(sh - 1 - y1, sh) + ' ' + pc(x0, sw) + ')');
+      }
     } catch (e) {}
     if (!/gif/i.test(type)) return;
     const still = c.toDataURL('image/png');

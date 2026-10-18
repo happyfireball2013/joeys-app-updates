@@ -1,5 +1,5 @@
 {
- "web": 202610180014,
+ "web": 202610180040,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your corner buddy now stays on top of pop-up messages instead of fading behind them."
+ "notes": "Your corner buddy no longer gets cut off on the sides and top when he moves."
 }
