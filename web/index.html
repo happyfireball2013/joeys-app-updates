@@ -49,7 +49,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610191827;</script>
+<script>window.JOEY_WEB_VERSION = 202610191906;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -873,6 +873,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const DAY = 864e5;
 
 const IC = {
+  folder:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
   cake:'<path d="M4 20.5h16M5.5 20.5v-6.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6.5M5.5 15.5c1.6 1.1 3.2 1.1 4.8 0s3.2-1.1 4.8 0 2.4 1.1 3.4.4M12 12V8.5M12 4.2c.9.9 1.2 1.7.6 2.5-.3.4-.9.4-1.2 0-.6-.8-.3-1.6.6-2.5z"/>',
   home:'<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
   calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
@@ -4138,6 +4139,9 @@ function sfxNote(ev, color){
 }
 let sfxDelAt = 0;
 let sfxMute = 0;
+const sfxLast = {};
+// every stored sound for one sound effect: sfx_<ev>, then sfx_<ev>~2, sfx_<ev>~3…
+const sfxSlots = (t, ev) => Object.keys((t && t.img) || {}).filter(k => k === 'sfx_' + ev || k.startsWith('sfx_' + ev + '~'));
 const sfxBufs = {};
 function sfxNorm(buf){
   // how loud it sounds: the average of its loudest moments, so short clicks and long jingles end up alike
@@ -4161,10 +4165,15 @@ async function sfxPlay(ev, t, force){
   if (vol <= 0) return;
   const ctx = ensureCtx(); if (!ctx) return;
   try { if (ctx.state === 'suspended') await ctx.resume(); } catch (e) {}
-  const key = t.id + ':' + ev + ':' + t.img['sfx_' + ev];
+  // a slot can hold a set of sounds: one is picked at random each time (never the same one twice in a row)
+  const slots = sfxSlots(t, ev);
+  let slot = slots[Math.floor(Math.random() * slots.length)];
+  if (slots.length > 1 && slot === sfxLast[t.id + ev]) slot = slots[(slots.indexOf(slot) + 1 + Math.floor(Math.random() * (slots.length - 1))) % slots.length];
+  sfxLast[t.id + ev] = slot;
+  const key = t.id + ':' + slot + ':' + t.img[slot];
   let e = sfxBufs[key];
   if (!e) {
-    try { const r = await IDB.get('th:' + t.id + ':sfx_' + ev); if (!r || !r.buf) return; const buf = await decodeAudio(ctx, r.buf.slice(0)); e = sfxBufs[key] = {buf, norm:sfxNorm(buf)}; }
+    try { const r = await IDB.get('th:' + t.id + ':' + slot); if (!r || !r.buf) return; const buf = await decodeAudio(ctx, r.buf.slice(0)); e = sfxBufs[key] = {buf, norm:sfxNorm(buf)}; }
     catch (err) { return; }
   }
   if (window.__jmaSfxLog) window.__jmaSfxLog.push(ev + ' x' + (e.norm * vol).toFixed(2));   // for testing only
@@ -4187,34 +4196,49 @@ function sfxOnDel(coll, obj){
   if (sfxMute) return;
   if (coll === 'notes') sfxNote('noteDel', obj && obj.color); else if (coll === 'reminders') sfxPlay('remDel');
 }
-async function thStoreSfx(id, ev, file){
-  const t = TH.themes[id]; if (!t || !file) return;
-  if (!/^audio\//.test(file.type) && !/\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i.test(file.name)) { toast('Pick a sound file, like an MP3 or WAV.'); return; }
-  if (file.size > 3 * 1024 * 1024) { toast('That sound is over 3 MB. Short sound effects work best.'); return; }
+async function thStoreSfx(id, ev, files, folder){
+  const t = TH.themes[id]; if (!t || !files || !files.length) return;
+  const isAudio = f => /^audio\//.test(f.type) || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i.test(f.name);
+  let list = Array.from(files).filter(isAudio).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
+  if (!list.length) { toast(folder ? 'That folder doesn’t have any sound files in it.' : 'Pick a sound file, like an MP3 or WAV.'); return; }
+  const big = list.filter(f => f.size > 3 * 1024 * 1024).length;
+  list = list.filter(f => f.size <= 3 * 1024 * 1024).slice(0, 20);
+  if (!list.length) { toast('Those sounds are over 3 MB each. Short sound effects work best.'); return; }
   thBusy = 'sfx_' + ev; thRefreshEditor();
-  try {
-    const buf = await file.arrayBuffer(), ctx = ensureCtx();
-    if (ctx) await decodeAudio(ctx, buf.slice(0));   // make sure it plays
-    const v = Date.now();
-    await IDB.put('th:' + id + ':sfx_' + ev, {buf, type:file.type || 'audio/mpeg', v, name:file.name});
-    t.img = Object.assign({}, t.img, {['sfx_' + ev]:v});
-    t.sfxN = Object.assign({}, t.sfxN, {[ev]:String(file.name).replace(/\.[a-z0-9]+$/i, '').slice(0, 40)});
-    thSave(); thBusy = ''; thRefreshEditor();
-    sfxPlay(ev, Object.assign({id}, t), true);
-  } catch (e) { thBusy = ''; thRefreshEditor(); toast('That sound couldn’t be played. Try an MP3 or WAV file.'); }
+  const ctx = ensureCtx(), good = [];
+  for (const f of list) {
+    try { const buf = await f.arrayBuffer(); if (ctx) await decodeAudio(ctx, buf.slice(0)); good.push({f, buf}); } catch (e) {}
+  }
+  if (!good.length) { thBusy = ''; thRefreshEditor(); toast('Those sounds couldn’t be played. Try MP3 or WAV files.'); return; }
+  // the new set replaces the old one
+  sfxSlots(Object.assign({id}, t), ev).forEach(k => { delete t.img[k]; IDB.del('th:' + id + ':' + k).catch(() => {}); });
+  const v = Date.now(), img = Object.assign({}, t.img);
+  for (let i = 0; i < good.length; i++) {
+    const slot = 'sfx_' + ev + (i ? '~' + (i + 1) : '');
+    await IDB.put('th:' + id + ':' + slot, {buf:good[i].buf, type:good[i].f.type || 'audio/mpeg', v:v + i, name:good[i].f.name});
+    img[slot] = v + i;
+  }
+  t.img = img;
+  const nm = good.length > 1 ? (folder || 'Mixed') + ' · ' + good.length + ' sounds, picked at random' : String(good[0].f.name).replace(/\.[a-z0-9]+$/i, '');
+  t.sfxN = Object.assign({}, t.sfxN, {[ev]:nm.slice(0, 60)});
+  thSave(); thBusy = ''; thRefreshEditor();
+  if (big) toast('Skipped ' + big + (big === 1 ? ' sound' : ' sounds') + ' over 3 MB.');
+  if (good.length < list.length) toast((list.length - good.length) + ' file' + (list.length - good.length === 1 ? '' : 's') + ' couldn’t be played and were skipped.');
+  sfxPlay(ev, Object.assign({id}, t), true);
 }
 function thRemoveSfx(id, ev){
   const t = TH.themes[id]; if (!t || !t.img) return;
-  delete t.img['sfx_' + ev]; if (t.sfxN) delete t.sfxN[ev]; if (t.sfxV) delete t.sfxV[ev];
-  IDB.del('th:' + id + ':sfx_' + ev).catch(() => {});
-  const k = id + ':sfx_' + ev; if (thUrls[k]) { URL.revokeObjectURL(thUrls[k]); delete thUrls[k]; }
+  sfxSlots(Object.assign({id}, t), ev).forEach(k => { delete t.img[k]; IDB.del('th:' + id + ':' + k).catch(() => {}); const u = id + ':' + k; if (thUrls[u]) { URL.revokeObjectURL(thUrls[u]); delete thUrls[u]; } });
+  if (t.sfxN) delete t.sfxN[ev]; if (t.sfxV) delete t.sfxV[ev];
   thSave(); thRefreshEditor();
 }
 function thSfxRow(t, ev, label){
   const on = !!(t.img && t.img['sfx_' + ev]), busy = thBusy === 'sfx_' + ev, sv = t.sfxV && t.sfxV[ev] != null ? t.sfxV[ev] : 100;
   return '<div class="th-slot"><span class="th-prev' + (on ? '' : ' empty') + '">' + (on ? '<button type="button" class="th-sfx-play" data-action="th-sfx-play" data-ev="' + ev + '" aria-label="Play">' + icon('play') + '</button>' : icon('music')) + '</span>' +
     '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (on ? '<small>' + esc((t.sfxN && t.sfxN[ev]) || 'Your sound') + '</small>' : '') + '</span>' +
-    (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-sfx-pick" data-ev="' + ev + '">' + (on ? 'Change' : 'Add') + '</button>' + (on ? '<button type="button" class="btn sm" data-action="th-sfx-rm" data-ev="' + ev + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
+    (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-sfx-pick" data-ev="' + ev + '">' + (on ? 'Change' : 'Add') + '</button>' +
+      '<button type="button" class="btn sm" data-action="th-sfx-dir" data-ev="' + ev + '" aria-label="Add a folder of sounds" title="Add a folder: plays a random one each time">' + icon('folder') + '</button>' +
+      (on ? '<button type="button" class="btn sm" data-action="th-sfx-rm" data-ev="' + ev + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
     (on ? '<div class="th-sub th-size-row"><span>This sound</span><input type="range" class="th-sfxvol" data-ev="' + ev + '" min="0" max="200" step="10" value="' + sv + '" aria-label="' + esc(label) + ' volume"><output>' + sv + '%</output></div>' : '');
 }
 function thSfxHTML(id, noteSounds){
@@ -4222,10 +4246,10 @@ function thSfxHTML(id, noteSounds){
   const mv = t.sfxVol == null ? 70 : t.sfxVol, any = Object.keys(t.img || {}).some(k => k.startsWith('sfx_'));
   const list = SFX.filter(([ev]) => !thSecOf(t) || SFX_ALWAYS.includes(ev) || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev));
   return '<div class="fld"><span>Sound effects</span><div class="th-slots">' +
-    '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness.' + (noteSounds ? ' Note sounds are with each note color above.' : '') + '</p>' +
+    '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness. Pick several files, or tap the folder button to add a whole folder, and a random one plays each time.' + (noteSounds ? ' Note sounds are with each note color above.' : '') + '</p>' +
     (any ? '<div class="th-sub th-size-row"><span>Volume</span><input type="range" class="th-sfxvol" data-ev="" min="0" max="100" step="5" value="' + mv + '" aria-label="Sound effects volume"><output>' + mv + '%</output></div>' : '') +
     list.map(([ev, label]) => thSfxRow(t, ev, label)).join('') +
-    '<input type="file" id="thSfxFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" hidden></div></div>';
+    '<input type="file" id="thSfxFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" multiple hidden><input type="file" id="thSfxDir" webkitdirectory multiple hidden></div></div>';
 }
 let thSfxEv = '';
 document.addEventListener('input', e => {
@@ -4241,7 +4265,10 @@ document.addEventListener('change', e => {
     const th = Object.assign({id:thOpen}, TH.themes[thOpen]), ev = el.dataset.ev || (SFX.find(([k]) => th.img && th.img['sfx_' + k]) || [''])[0];
     if (ev) sfxPlay(ev, th, true);   // hear the new volume
   }
-  if (el.id === 'thSfxFile') { const f = el.files && el.files[0]; el.value = ''; if (f && thOpen && thSfxEv) thStoreSfx(thOpen, thSfxEv, f); }
+  if (el.id === 'thSfxFile' || el.id === 'thSfxDir') {
+    const fs = Array.from(el.files || []), dir = el.id === 'thSfxDir' && fs[0] && fs[0].webkitRelativePath ? fs[0].webkitRelativePath.split('/')[0] : '';
+    el.value = ''; if (fs.length && thOpen && thSfxEv) thStoreSfx(thOpen, thSfxEv, fs, dir || (el.id === 'thSfxDir' ? 'Folder' : ''));
+  }
 });
 const TH_NOTE_GROUPS = ['Note cards','Open note background','Notes'];
 const thOpenBlocks = new Set();
@@ -4859,6 +4886,7 @@ Object.assign(A, {
   'th-font-rm': () => { const th = TH.themes[thOpen]; if (!th || !th.img) return; delete th.img.font; delete th.fontName; if (th.noteFont === 'custom') th.noteFont = 'default'; IDB.del('th:' + thOpen + ':font').catch(() => {}); thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'th-rm': t => thRemoveImage(thOpen, t.dataset.slot),
   'th-sfx-pick': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxFile'); if (f) f.click(); },
+  'th-sfx-dir': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxDir'); if (f) f.click(); },
   'th-sfx-rm': t => thRemoveSfx(thOpen, t.dataset.ev),
   'th-sfx-play': t => { const th = TH.themes[thOpen]; if (th) sfxPlay(t.dataset.ev, Object.assign({id:thOpen}, th), true); },
   'th-del': t => { if (!armAlways(t, 'Tap again to delete')) return; thDelete(t.dataset.id); thOpen = null; closeSheet(true); render(); toast('Theme deleted'); }

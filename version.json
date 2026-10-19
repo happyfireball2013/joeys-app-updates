@@ -1,5 +1,5 @@
 {
- "web": 202610191827,
+ "web": 202610191906,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Notes themes are grouped by color (Blue Notes, Red Notes\u2026) with their own open/close sounds that override the All Notes ones. Slide a note's top bar down to close it."
+ "notes": "Each theme sound can now be a folder (or several files): a random one plays each time."
 }
