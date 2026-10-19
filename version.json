@@ -1,5 +1,5 @@
 {
- "web": 202610191619,
+ "web": 202610191732,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Themes can now have their own sound effects (buddy, reminders, notes and more), evened out to the same loudness with volume sliders."
+ "notes": "Each bottom button now keeps its own page's theme look (picture and font) on every page."
 }
