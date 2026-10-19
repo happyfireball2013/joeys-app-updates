@@ -49,7 +49,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610191815;</script>
+<script>window.JOEY_WEB_VERSION = 202610191818;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -482,6 +482,10 @@ textarea.in{resize:vertical;line-height:1.5}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:2px 14px}
 .rrow{display:flex;gap:12px;align-items:flex-start;padding-block:12px;border-top:1px solid var(--line)}
 .rrow:first-child{border-top:0}
+.rrow{transition:opacity 1.5s ease,transform 1.5s ease,max-height .3s ease,padding .3s ease}
+.rrow.fading{opacity:0;transform:translateX(10px)}
+.rrow.gone{max-height:0!important;padding-block:0;overflow:hidden;border-top-color:transparent}
+.calm .rrow.fading,.calm .rrow.gone{transition:opacity 1.5s ease,transform 1.5s ease,max-height .3s ease,padding .3s ease!important}
 .rtext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
 .rt{font-weight:560;overflow-wrap:anywhere}
 .rmeta{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:.78rem;color:var(--ink-2)}
@@ -1300,7 +1304,16 @@ function remMeta(r){
    then repeating reminders come back for their next day, and one-time ones move to Completed. */
 const REM_RESET_HOUR = 4;
 function remBoundary(){ const d = new Date(); if (d.getHours() < REM_RESET_HOUR) d.setDate(d.getDate() - 1); d.setHours(REM_RESET_HOUR, 0, 0, 0); return d.getTime(); }
-const remRecent = r => !!(r && r.done && (r.doneAt || 0) >= remBoundary());
+// one-time reminders fade away 5 seconds after you check them (uncheck before then to keep them); repeating ones keep their check until 4 AM
+const REM_FADE_WAIT = 5000, REM_FADE_LEN = 1500;
+const remRepeats = r => !!(r && r.repeat && r.repeat !== 'none');
+const remRecent = r => !!(r && r.done && (remRepeats(r) ? (r.doneAt || 0) >= remBoundary() : Date.now() - (r.doneAt || 0) < REM_FADE_WAIT + REM_FADE_LEN));
+function remFadeLater(id, stamp){
+  const still = () => { const r = S.reminders[id]; return r && r.done && r.doneAt === stamp && ui.screen === 'reminders'; };
+  setTimeout(() => { if (still()) $$('#main .rrow[data-rid="' + id + '"]').forEach(el => el.classList.add('fading')); }, REM_FADE_WAIT);
+  setTimeout(() => { if (!still()) return; $$('#main .rrow[data-rid="' + id + '"]').forEach(el => { el.style.maxHeight = el.offsetHeight + 'px'; void el.offsetHeight; el.classList.add('gone'); }); }, REM_FADE_WAIT + REM_FADE_LEN);
+  setTimeout(() => { const r = S.reminders[id]; if (r && r.done && r.doneAt === stamp) render(); }, REM_FADE_WAIT + REM_FADE_LEN + 350);
+}
 function remShowStatus(r){
   if (!remRecent(r)) return remStatus(r);
   const s = remStatus(Object.assign({}, r, {done:false}));
@@ -1318,7 +1331,9 @@ function toggleRem(id){
   const r = S.reminders[id]; if (!r) return;
   // tapping a checked circle unchecks it, so there's no separate undo
   if (r.done) { putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null})); return; }
-  putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:Date.now()}));
+  const stamp = Date.now();
+  putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:stamp}));
+  if (!remRepeats(r)) remFadeLater(id, stamp);
   if (r.repeat && r.repeat !== 'none') toast('Done for ' + (r.date === todayStr() || !r.date ? 'today' : fmtDay(r.date)) + '. It comes back ' + fmtDay(nextDate(r)) + '.');
 }
 /** Every upcoming time a reminder is due in the next two weeks (repeating ones included), soonest first. */
@@ -3153,7 +3168,7 @@ function remindersHTML(){
   const groups = {overdue:[], today:[], upcoming:[], someday:[], done:[]};
   all.forEach(e => groups[remShowStatus(e[1])].push(e));
   Object.keys(groups).forEach(k => groups[k].sort(k === 'done' ? (a, b) => (b[1].doneAt || 0) - (a[1].doneAt || 0) : remSort));
-  const row = ([id, r]) => '<div class="rrow ' + remStatus(r) + (r.done ? ' done' : '') + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
+  const row = ([id, r]) => '<div class="rrow ' + remStatus(r) + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
   const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card">' + groups[key].map(row).join('') + '</div>' : '';
   const open = all.filter(e => !e[1].done).length, showDone = S.settings.showDone;
   let body = block('overdue', 'Overdue', 'danger') + block('today', 'Today') + block('upcoming', 'Upcoming') + block('someday', 'No date');

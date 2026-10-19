@@ -1,5 +1,5 @@
 {
- "web": 202610191815,
+ "web": 202610191818,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "The + for a new reminder now plays your reminder open and close sounds."
+ "notes": "Checked-off one-time reminders now fade away after 5 seconds. Uncheck before then to keep it."
 }
