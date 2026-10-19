@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610191732;</script>
+<script>window.JOEY_WEB_VERSION = 202610191742;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4055,6 +4055,15 @@ const TH_STYLES = {
   night:{label:'Starry night', accent:'#8F7CF0', bg:'#0F0C1A', pattern:'stars', dark:true}
 };
 const TH_PAGES = [['home','Menu'],['calendar','Calendar'],['reminders','Reminders'],['notes','Notes'],['alarm','Alarms'],['weather','Weather'],['clock','World clock'],['stopwatch','Stopwatch'],['timer','Timer'],['settings','Settings']];
+/* themes made for one section only show the options that work there */
+const thSecName = s => (TH_PAGES.find(x => x[0] === s) || [s, 'Any page'])[1];
+const thSecOf = t => (t && t.section && TH_PAGES.some(x => x[0] === t.section)) ? t.section : '';
+const thFits = (t, page) => { const s = thSecOf(t); return !s || s === page; };
+// which picture groups each section uses ('' = a theme for any page shows all of them)
+const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons'], calendar:['Lifelog faces'], notes:['Note cards','Open note background','Notes']};
+const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','noteAdd'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel'],
+  reminders:['remAdd','remCheck','remUncheck','remDel'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
+const TH_NO_TYPING = ['clock','stopwatch','timer'];
 const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, HUE_NAMES[k].toLowerCase()]));
 /* sound effects in each theme: your own sounds for tapping the buddy, adding and checking off things, and more.
    Every sound is evened out to the same loudness, then the theme's volume (and each sound's own slider) set how loud it plays. */
@@ -4134,7 +4143,7 @@ function thSfxHTML(id){
   return '<div class="fld"><span>Sound effects</span><div class="th-slots">' +
     '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness.</p>' +
     (any ? '<div class="th-sub th-size-row"><span>Volume</span><input type="range" class="th-sfxvol" data-ev="" min="0" max="100" step="5" value="' + mv + '" aria-label="Sound effects volume"><output>' + mv + '%</output></div>' : '') +
-    SFX.map(([ev, label]) => {
+    SFX.filter(([ev]) => !thSecOf(t) || ev === 'buddy' || ev === 'tab' || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev)).map(([ev, label]) => {
       const on = !!(t.img && t.img['sfx_' + ev]), busy = thBusy === 'sfx_' + ev, sv = t.sfxV && t.sfxV[ev] != null ? t.sfxV[ev] : 100;
       return '<div class="th-slot"><span class="th-prev' + (on ? '' : ' empty') + '">' + (on ? '<button type="button" class="th-sfx-play" data-action="th-sfx-play" data-ev="' + ev + '" aria-label="Play">' + icon('play') + '</button>' : icon('music')) + '</span>' +
         '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (on ? '<small>' + esc((t.sfxN && t.sfxN[ev]) || 'Your sound') + '</small>' : '') + '</span>' +
@@ -4239,11 +4248,17 @@ function thRemoveImage(id, slot){
   if (thUrls[k]) { URL.revokeObjectURL(thUrls[k]); delete thUrls[k]; }
   thApplied = ''; thRefreshEditor(); render();
 }
-function thNew(style){
+function thNew(style, section){
   const st = TH_STYLES[style] || TH_STYLES.classic, id = 't' + uid();
   const n = Object.keys(TH.themes).length + 1;
-  TH.themes[id] = {name:'My theme ' + n, style, accent:st.accent, bg:st.bg, pattern:true, img:{}, buddyAt:'hold', buddySize:'m', buddyMove:'squish', runSpeed:'normal', bgFade:35, created:Date.now()};
+  TH.themes[id] = {name:'My theme ' + n, style, accent:st.accent, bg:st.bg, pattern:true, img:{}, buddyAt:'hold', buddySize:'m', buddyMove:'squish', runSpeed:'normal', bgFade:35, section:section || '', created:Date.now()};
   thSave(); return id;
+}
+function thSetSection(id, sec){
+  const th = TH.themes[id]; if (!th) return;
+  th.section = sec || '';
+  if (sec) TH.pages[sec] = id;   // a theme made for a page gets used on that page
+  thSave(); thApplied = '';
 }
 function thDelete(id){
   const t = TH.themes[id]; if (!t) return;
@@ -4609,7 +4624,8 @@ function thPageSheet(){
   const appT = TH.themes[TH.app];
   const html = sheetHead('Theme for ' + esc(thPageName(p))) +
     '<div class="th-list">' + row('', 'Same as the whole app' + (appT ? ' (' + esc(appT.name) + ')' : ' (no theme)'), appT ? thSwatch(appT) : '<span class="th-sw plain"><i></i></span>', !cur) +
-    ids.map(id => row(id, esc(TH.themes[id].name), thSwatch(TH.themes[id]), cur === id)).join('') + '</div>' +
+    ids.filter(id => thFits(TH.themes[id], p) || cur === id).sort((a, b) => (thSecOf(TH.themes[b]) === p) - (thSecOf(TH.themes[a]) === p))
+      .map(id => row(id, esc(TH.themes[id].name) + (thSecOf(TH.themes[id]) === p ? ' <small class="muted">· made for this page</small>' : ''), thSwatch(TH.themes[id]), cur === id)).join('') + '</div>' +
     '<div class="row-btns" style="margin-top:12px">' + (thFor(p) ? '<button type="button" class="btn sm" data-action="th-edit" data-id="' + thFor(p).id + '">Edit ' + esc(thFor(p).name) + '</button>' : '') +
     '<button type="button" class="btn sm" data-action="th-new" data-for="' + p + '">' + icon('plus') + 'New theme</button>' +
     '<button type="button" class="btn sm" data-action="th-goto-settings">Whole-app theme</button></div>';
@@ -4629,11 +4645,21 @@ function thEditorHTML(id){
       (u && TH_SIZE_RE.test(slot) ? (function(){ const mx = slot.startsWith('card_') ? 200 : 100, v = Math.min(mx, thSize(t, slot));
         return '<div class="th-sub th-size-row"><span>Size</span><input type="range" class="th-size" data-slot="' + slot + '" min="20" max="' + mx + '" step="5" value="' + v + '" aria-label="Picture size"><output>' + thSizeLabel(slot, v) + '</output></div>'; })() : '');
   };
+  const sec = thSecOf(t);
+  const groups = thSlotGroups().map(g => {
+    if (!sec) return g;
+    if (g.name === 'Bottom buttons') return Object.assign({}, g, {name:'Bottom button', slots:g.slots.filter(s => s[0] === 'dock_' + sec)});
+    if (g.name === 'Everywhere') return Object.assign({}, g, {name:'On this page'});
+    return (TH_SEC_GROUPS[sec] || []).includes(g.name) ? g : null;
+  }).filter(g => g && g.slots.length);
   const runnersUsed = Object.keys(t.img || {}).some(k => k.startsWith('run_'));
   const cardsUsed = Object.keys(t.img || {}).some(k => k.startsWith('card_'));
   const nbgUsed = Object.keys(t.img || {}).some(k => k.startsWith('nbg_'));
   return sheetHead('Edit theme') +
     '<label class="fld"><span>Name</span><input class="in" id="thName" value="' + esc(t.name) + '" maxlength="40" placeholder="Kirby, Zelda, Pikmin…"></label>' +
+    '<label class="fld"><span>Made for</span><select class="in" id="thSection"><option value=""' + (!sec ? ' selected' : '') + '>Any page (shows every option)</option>' +
+      TH_PAGES.map(([p, l]) => '<option value="' + p + '"' + (sec === p ? ' selected' : '') + '>' + esc(l) + ' only</option>').join('') + '</select>' +
+      '<small class="muted" style="display:block;margin-top:4px">' + (sec ? 'Only options that work on ' + esc(thSecName(sec)) + ' are shown, and this theme is used there.' : 'Pick a page to hide the options that page doesn’t use.') + '</small></label>' +
     '<div class="fld"><span>Starter style</span><div class="th-styles">' + Object.entries(TH_STYLES).map(([k, s]) => '<button type="button" class="th-style" data-action="th-style" data-v="' + k + '" aria-pressed="' + (t.style === k) + '"><span class="th-sw" style="background:' + s.bg + ';--sa:' + s.accent + '"><i></i></span><span>' + s.label + '</span></button>').join('') + '</div></div>' +
     '<div class="fld"><span>Colors</span><div class="th-colors"><label>Main color<input type="color" id="thAccent" value="' + esc(t.accent || st.accent) + '"></label><label>Background<input type="color" id="thBgc" value="' + esc(t.bg || st.bg) + '"></label>' +
       '<label>Cards<input type="color" id="thCard" value="' + esc(t.card || fgDefaults(t.bg || st.bg).card) + '"></label><label>Text<input type="color" id="thInk" value="' + esc(t.ink || fgDefaults(t.card || t.bg || st.bg).ink) + '"></label>' +
@@ -4645,13 +4671,13 @@ function thEditorHTML(id){
         (mine ? '<button type="button" data-action="th-opt" data-k="' + key + '" data-v="custom" aria-pressed="' + (t[key] === 'custom') + '" style="font-family:&quot;' + thFontFamily(tt) + '&quot;">' + esc(t.fontName || 'Your font') + '</button>' : '') + '</div>';
       return '<div class="fld"><span>Fonts</span><div class="th-fonts">' +
         '<div class="tf-row"><b>App text</b><small>Everything built into the app: titles, labels, buttons and menus</small>' + pick('uiFont') + '</div>' +
-        '<div class="tf-row"><b>Your text</b><small>Everything you type: notes, reminders, events and the boxes you type in</small>' + pick('noteFont') +
-          '<div class="tf-bold"><span>Bold</span>' + seg('noteBold', [['false','Off'],['true','On']]) + '</div></div>' +
+        (TH_NO_TYPING.includes(thSecOf(t)) ? '' : '<div class="tf-row"><b>Your text</b><small>Everything you type: notes, reminders, events and the boxes you type in</small>' + pick('noteFont') +
+          '<div class="tf-bold"><span>Bold</span>' + seg('noteBold', [['false','Off'],['true','On']]) + '</div></div>') +
         '<div class="tf-row">' + (mine ? '<span class="tf-mine">Your own font: <b>' + esc(t.fontName || 'Your font') + '</b></span><button type="button" class="btn sm" data-action="th-font-rm">Remove</button>' : '<button type="button" class="nf-add" data-action="th-font-pick">' + icon('plus') + 'Add your own font file</button>') + '</div>' +
         '</div></div>';
     })() +
     '<input type="file" id="thFile" accept="image/*" hidden><input type="file" id="thFontFile" accept=".ttf,.otf,.woff,.woff2,font/*,application/font-sfnt,application/x-font-ttf" hidden>' +
-    thSlotGroups().map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
+    groups.map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
@@ -4676,13 +4702,27 @@ function thRefreshEditor(){
 }
 function thSettingsHTML(){
   const ids = Object.keys(TH.themes);
-  const opts = cur => '<option value=""' + (!cur ? ' selected' : '') + '>No theme</option>' + ids.map(id => '<option value="' + id + '"' + (cur === id ? ' selected' : '') + '>' + esc(TH.themes[id].name) + '</option>').join('');
-  const popts = cur => '<option value=""' + (!cur ? ' selected' : '') + '>Same as app</option>' + ids.map(id => '<option value="' + id + '"' + (cur === id ? ' selected' : '') + '>' + esc(TH.themes[id].name) + '</option>').join('');
+  const opts = cur => '<option value=""' + (!cur ? ' selected' : '') + '>No theme</option>' + ids.filter(id => !thSecOf(TH.themes[id]) || cur === id).map(id => '<option value="' + id + '"' + (cur === id ? ' selected' : '') + '>' + esc(TH.themes[id].name) + '</option>').join('');
+  const popts = (p, cur) => '<option value=""' + (!cur ? ' selected' : '') + '>Same as app</option>' + ids.filter(id => thFits(TH.themes[id], p) || cur === id).map(id => '<option value="' + id + '"' + (cur === id ? ' selected' : '') + '>' + esc(TH.themes[id].name) + '</option>').join('');
+  // a theme that's only used on one page can be moved there in one tap
+  const onlyPage = id => { const ps = Object.keys(TH.pages).filter(p => TH.pages[p] === id); return ps.length === 1 && TH.app !== id ? ps[0] : ''; };
+  const row = id => {
+    const th = TH.themes[id], sec = thSecOf(th), mv = !sec && onlyPage(id);
+    return '<div class="srow"><span class="lbl th-lbl">' + thSwatch(th) + '<span>' + esc(th.name) + '<small>' + (sec ? 'Made for ' + esc(thSecName(sec)) : 'Any page') + '</small></span></span>' +
+      (mv ? '<button class="btn sm" data-action="th-move" data-id="' + id + '" data-v="' + mv + '">Move to ' + esc(thSecName(mv)) + '</button>' : '') +
+      '<button class="btn sm" data-action="th-edit" data-id="' + id + '">Edit</button></div>';
+  };
+  const order = ids.slice().sort((a, b) => {
+    const ia = TH_PAGES.findIndex(x => x[0] === thSecOf(TH.themes[a])), ib = TH_PAGES.findIndex(x => x[0] === thSecOf(TH.themes[b]));
+    return ia - ib;
+  });
+  const movable = ids.filter(id => !thSecOf(TH.themes[id]) && onlyPage(id));
   return '<div class="sec-title" id="set-themes"><span>Themes</span><span>Whole app or page by page</span></div><div class="group">' +
-    (ids.length ? ids.map(id => '<div class="srow"><span class="lbl th-lbl">' + thSwatch(TH.themes[id]) + esc(TH.themes[id].name) + '</span><button class="btn sm" data-action="th-edit" data-id="' + id + '">Edit</button></div>').join('') : '<div class="srow"><span class="lbl">No themes yet<small>Make one, give it your own pictures, then use it everywhere or on just one page.</small></span></div>') +
+    (ids.length ? order.map(row).join('') : '<div class="srow"><span class="lbl">No themes yet<small>Make one, give it your own pictures, then use it everywhere or on just one page.</small></span></div>') +
+    (movable.length > 1 ? '<div class="srow"><span class="lbl">Move all to their pages<small>' + movable.length + ' themes are each used on just one page. Moving them hides the options those pages don’t use.</small></span><button class="btn sm accent" data-action="th-move-all">Move all</button></div>' : '') +
     '<div class="srow"><button class="btn sm" data-action="th-new">' + icon('plus') + 'New theme</button></div>' +
     (ids.length ? '<div class="srow"><label class="lbl" for="thApp">Whole app</label><select class="in" id="thApp">' + opts(TH.app) + '</select></div>' +
-      TH_PAGES.map(([p, label]) => '<div class="srow"><label class="lbl" for="thP-' + p + '">' + label + '</label><select class="in" id="thP-' + p + '" data-thpage="' + p + '">' + popts(TH.pages[p] || '') + '</select></div>').join('') +
+      TH_PAGES.map(([p, label]) => '<div class="srow"><label class="lbl" for="thP-' + p + '">' + label + '</label><select class="in" id="thP-' + p + '" data-thpage="' + p + '">' + popts(p, TH.pages[p] || '') + '</select></div>').join('') +
       '<p class="hint" style="padding:0 4px">Tip: tap the palette button at the top of any page to change just that page.</p>' : '') +
     '</div>';
 }
@@ -4693,8 +4733,14 @@ settingsHTML = function(){
 };
 Object.assign(A, {
   'th-page': () => thPageSheet(),
+  'th-move': t => { thSetSection(t.dataset.id, t.dataset.v); render(); toast('Moved to ' + thSecName(t.dataset.v)); },
+  'th-move-all': () => {
+    let n = 0;
+    Object.keys(TH.themes).forEach(id => { if (thSecOf(TH.themes[id])) return; const ps = Object.keys(TH.pages).filter(p => TH.pages[p] === id); if (ps.length === 1 && TH.app !== id) { thSetSection(id, ps[0]); n++; } });
+    render(); toast(n + (n === 1 ? ' theme moved' : ' themes moved'));
+  },
   'th-set-page': t => { const p = ui.screen; if (t.dataset.v) TH.pages[p] = t.dataset.v; else delete TH.pages[p]; thSave(); thApplied = ''; closeSheet(true); render(); },
-  'th-new': t => { const id = thNew('puff'); if (t.dataset.for) TH.pages[t.dataset.for] = id; else if (!TH.app) TH.app = id; thSave(); thApplied = ''; closeSheet(true); render(); thOpenEditor(id); },
+  'th-new': t => { const id = thNew('puff', t.dataset.for || ''); if (t.dataset.for) TH.pages[t.dataset.for] = id; else if (!TH.app) TH.app = id; thSave(); thApplied = ''; closeSheet(true); render(); thOpenEditor(id); },
   'th-edit': t => { closeSheet(true); thOpenEditor(t.dataset.id); },
   'th-goto-settings': () => { closeSheet(true); go('settings'); setTimeout(() => jumpTo('set-themes'), 30); },
   'th-style': t => { const th = TH.themes[thOpen]; if (!th) return; const st = TH_STYLES[t.dataset.v]; th.style = t.dataset.v; th.accent = st.accent; th.bg = st.bg; thSave(); thApplied = ''; thRefreshEditor(); render(); },
@@ -4715,6 +4761,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'thApp') { TH.app = t.value; thSave(); thApplied = ''; render(); }
   else if (t.dataset && t.dataset.thpage) { if (t.value) TH.pages[t.dataset.thpage] = t.value; else delete TH.pages[t.dataset.thpage]; thSave(); thApplied = ''; render(); }
   else if (TH_COLOR_IDS[t.id] && TH.themes[thOpen]) { TH.themes[thOpen][TH_COLOR_IDS[t.id]] = t.value; thSave(); thApplied = ''; render(); if (t.id === 'thCard' || t.id === 'thInk') thRefreshEditor(); }
+  else if (t.id === 'thSection' && TH.themes[thOpen]) { thSetSection(thOpen, t.value); thRefreshEditor(); render(); }
   else if (t.id === 'thName' && TH.themes[thOpen]) { TH.themes[thOpen].name = t.value.trim().slice(0, 40) || 'My theme'; thSave(); }
 });
 document.addEventListener('input', e => {

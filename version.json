@@ -1,5 +1,5 @@
 {
- "web": 202610191732,
+ "web": 202610191742,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Each bottom button now keeps its own page's theme look (picture and font) on every page."
+ "notes": "Themes can now be made for one section (like Notes or Reminders) so they only show the options that work there. Settings \u2192 Themes has a Move all button for your page themes."
 }
