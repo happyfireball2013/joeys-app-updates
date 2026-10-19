@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610190122;</script>
+<script>window.JOEY_WEB_VERSION = 202610191610;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -995,7 +995,7 @@ function defaultSettings(){
     noteSort:'edited', noteColor:'none', notePreview:5, noteView:'grid',
     timerPresets:[1,5,10,25], hundredths:true, wakeLock:true,
     alarmVolume:90, alarmFade:false, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', phoneAi:'gemini', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
-    sound:true, tone:'chime', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
+    sound:true, tone:'chime', remSound:'', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
     widgets:[
       {id:'w-capture', type:'capture', size:'full'},
       {id:'w-today', type:'today', size:'full'},
@@ -1026,6 +1026,7 @@ function normSettings(s){
   o.alarmVolume = Math.max(10, Math.min(100, Number(o.alarmVolume))); if (isNaN(o.alarmVolume)) o.alarmVolume = d.alarmVolume;
   if (!/^(tone:(chime|beep|bell)|song:[A-Za-z0-9]+)$/.test(String(o.alarmSound))) o.alarmSound = d.alarmSound;
   if (!/^\d{2}:\d{2}$/.test(String(o.remTime))) o.remTime = d.remTime;
+  if (!/^(tone:(chime|beep|bell)|song:[A-Za-z0-9]+)$/.test(String(o.remSound))) o.remSound = 'tone:' + (o.tone || 'chime');   // starts as the old alert sound
   o.appName = String(o.appName || '').slice(0, 40) || APP_NAME;
   o.name = String(o.name || '').slice(0, 40);
   o.menu = Array.isArray(o.menu) ? Array.from(new Set(o.menu.filter(k => MENU[k]))) : d.menu;
@@ -1312,6 +1313,24 @@ function toggleRem(id){
   putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:Date.now()}));
   if (r.repeat && r.repeat !== 'none') toast('Done for ' + (r.date === todayStr() || !r.date ? 'today' : fmtDay(r.date)) + '. It comes back ' + fmtDay(nextDate(r)) + '.');
 }
+/** Every upcoming time a reminder is due in the next two weeks (repeating ones included), soonest first. */
+function remUpcoming(limit){
+  const now = Date.now(), end = now + 14 * 864e5, out = [];
+  Object.entries(S.reminders).forEach(([id, r]) => {
+    if (!r || !r.date) return;
+    const rep = r.repeat && r.repeat !== 'none';
+    if (r.done && !rep) return;
+    let d = r.done ? nextDate(r) : r.date;
+    for (let i = 0; i < 30 && d; i++) {
+      const ts = remDue(Object.assign({}, r, {date:d}));
+      if (ts > end) break;
+      if (ts > now) out.push({id, ts, title:r.text || 'Reminder', sub:r.time ? 'Due at ' + fmtHM(r.time) : 'Today'});
+      if (!rep) break;
+      d = nextDate(Object.assign({}, r, {date:d}));
+    }
+  });
+  return out.sort((a, b) => a.ts - b.ts).slice(0, limit || 60);
+}
 const openRems = () => Object.entries(S.reminders).filter(e => !e[1].done);
 const eventsOn = date => Object.entries(S.events).filter(e => e[1].date === date).sort((a, b) => (a[1].start || '').localeCompare(b[1].start || ''));
 function addMinutes(hm, mins){ const [h, m] = hm.split(':').map(Number); const t = Math.min(23 * 60 + 59, h * 60 + m + mins); return pad(Math.floor(t / 60)) + ':' + pad(t % 60); }
@@ -1385,7 +1404,23 @@ function playTone(kind){
 }
 function chime(){
   if (S.settings.vibrate) { try { if (navigator.vibrate) navigator.vibrate([140, 80, 140]); } catch (e) {} }
-  if (S.settings.sound && S.settings.volume > 0) playTone(S.settings.tone);
+  if (S.settings.sound && S.settings.volume > 0) remPlay(S.settings.remSound);
+}
+// the reminder sound: a built-in tone, or a short clip of one of your songs
+let remClip = null;
+async function remPlay(spec){
+  spec = String(spec || 'tone:chime');
+  if (!spec.startsWith('song:')) { playTone(TONE_NAMES[spec.slice(5)] ? spec.slice(5) : 'chime'); return; }
+  if (remClip) return;   // still playing the last clip
+  const ctx = ensureCtx(); if (!ctx) return;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    const buf = await getSongBuffer(spec.slice(5)), src = ctx.createBufferSource(), g = ctx.createGain(), t0 = ctx.currentTime, vol = Math.max(0.0002, S.settings.volume / 100), len = Math.min(8, buf.duration);
+    src.buffer = buf; src.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(vol, t0); g.gain.setValueAtTime(vol, t0 + len - 0.6); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
+    src.start(t0, 0, len); remClip = src;
+    src.onended = () => { if (remClip === src) remClip = null; try { g.disconnect(); } catch (e) {} };
+  } catch (e) { remClip = null; playTone('chime'); }   // song not on this device: plays Chime instead
 }
 let alerts = [], ringTimer = null, ringCount = 0;
 const fired = new Set();
@@ -1393,7 +1428,7 @@ function pushAlert(a){
   alerts = alerts.filter(x => x.id !== a.id).concat(a);
   renderAlerts(); chime();
   clearInterval(ringTimer); ringCount = 0;
-  if (S.settings.repeatAlert) ringTimer = setInterval(() => { if (!alerts.length || ++ringCount > 8) { clearInterval(ringTimer); return; } chime(); }, 3500);
+  if (S.settings.repeatAlert) ringTimer = setInterval(() => { if (!alerts.length || ++ringCount > 8) { clearInterval(ringTimer); return; } chime(); }, String(S.settings.remSound).startsWith('song:') ? 9000 : 3500);
 }
 function dropAlert(id){ alerts = alerts.filter(x => x.id !== id); if (!alerts.length) clearInterval(ringTimer); renderAlerts(); }
 function renderAlerts(){
@@ -3304,7 +3339,7 @@ function settingsHTML(){
 
     title('set-sound', 'Sounds and alerts') + '<div class="group">' +
       tgl('sound', 'Play a sound') +
-      seg('tone', 'Alert sound', [['chime','Chime'],['beep','Beep'],['bell','Bell']]) +
+      sel('remSound', 'Reminder sound', soundOpts(), 'Plays when a reminder is due: in the app, and on your phone as a notification even when the app is closed. Songs play a short clip.') +
       '<div class="srow"><label class="lbl" for="set-volume">Volume</label><span class="vol" data-live="vol">' + s.volume + '%</span></div>' +
       '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="100" step="5" id="set-volume" data-set="volume" value="' + s.volume + '" aria-label="Volume"></div>' +
       '<div class="srow"><span class="lbl">Test the sound</span><button class="btn sm" data-action="test-sound">Play</button></div>' +
@@ -3766,7 +3801,7 @@ const A = {
     if (i < 0 || j < 0 || j >= tabs.length) return;
     const x = tabs[i]; tabs[i] = tabs[j]; tabs[j] = x; saveSettings(); render();
   },
-  'test-sound': () => { setTimeout(() => playTone(S.settings.tone), 30); if (S.settings.vibrate) { try { navigator.vibrate && navigator.vibrate([140, 80, 140]); } catch (e) {} } },
+  'test-sound': () => { setTimeout(() => remPlay(S.settings.remSound), 30); if (S.settings.vibrate) { try { navigator.vibrate && navigator.vibrate([140, 80, 140]); } catch (e) {} } },
   'ai-example': t => { ui.aiText = t.dataset.v; render(); const el = $('#aiInput'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } },
   'ai-stop': () => { if (aiCtl) aiCtl.abort(); },
   'ai-undo': () => aiUndo(),
@@ -5348,6 +5383,54 @@ async function syncWidgetFont(){
     jwFontKey = key; try { localStorage.setItem('jma:jwFont', key); } catch (e) {}
   } catch (e) { syncWidgetFont.failAt = Date.now(); }
   finally { jwFontBusy = false; }
+}
+
+/* reminders on the phone: upcoming ones are handed to the phone so they notify you, with your reminder sound, even when the app is closed */
+async function remToneWav(kind){
+  const T = TONES[kind] || TONES.chime, sr = 22050, gap = (TONE_GAP[kind] || 1500) / 1000, reps = 2;
+  const len = gap * (reps - 1) + Math.max(...T.notes.map(n => n[1] + n[2])) + 0.2;
+  const oc = new OfflineAudioContext(1, Math.ceil(sr * len), sr);
+  for (let r = 0; r < reps; r++) T.notes.forEach(([f, dt, l]) => {
+    const t0 = r * gap + dt, o = oc.createOscillator(), g = oc.createGain();
+    o.type = T.type; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.7 * T.gain, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + l);
+    o.connect(g); g.connect(oc.destination); o.start(t0); o.stop(t0 + l + 0.05);
+  });
+  const d = (await oc.startRendering()).getChannelData(0), n = d.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+  return b64(buf);
+}
+let remNatKey = null, remToneSent = null; try { remToneSent = localStorage.getItem('jma:remTone'); } catch (e) {}
+async function syncRemindersNative(){
+  if (!JA || syncRemindersNative.busy || Date.now() - (syncRemindersNative.failAt || 0) < 60000) return;
+  const s = S.settings, items = remUpcoming(60), spec = String(s.remSound || 'tone:chime');
+  const sound = !s.sound || s.volume <= 0 ? 'none' : spec;
+  const key = JSON.stringify([items, sound, !!s.vibrate, s.volume]);
+  if (key === remNatKey) return;
+  syncRemindersNative.busy = true;
+  try {
+    // the built-in tone as a sound file (a song falls back to Chime if it isn't on the phone)
+    const kind = spec.startsWith('tone:') ? spec.slice(5) : 'chime';
+    const tone = remToneSent === kind ? '' : await remToneWav(kind);
+    await JA.setReminders({items, sound, vibrate:!!s.vibrate, volume:s.volume, tone});
+    remNatKey = key;
+    if (tone) { remToneSent = kind; try { localStorage.setItem('jma:remTone', kind); } catch (e) {} }
+  } catch (e) { syncRemindersNative.failAt = Date.now(); }   // an older phone app without this
+  finally { syncRemindersNative.busy = false; }
+}
+if (NATIVE && JA) {
+  const _renderRem = render;
+  render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(syncRemindersNative, 800); };
+  setInterval(syncRemindersNative, 5 * 60000);   // keeps the two-week window moving
+  // the app in the background: the phone's notification plays the sound, so the app stays quiet
+  const _chime = chime;
+  chime = function(){ if (document.hidden) return; _chime(); };
+  // ask to show notifications the first time you save a reminder
+  const _remForm = FORMS.remForm;
+  if (_remForm) FORMS.remForm = f => { _remForm(f); try { if (!localStorage.getItem('jma:remNotifAsked')) { localStorage.setItem('jma:remNotifAsked', '1'); JA.requestNotifications().catch(() => {}); } } catch (e) {} };
 }
 /* ---------- Android app: Gemini Nano (Google's AI on the phone) runs the AI bar ---------- */
 const JAI = NATIVE ? capPlugin('JoeyAI') : null;

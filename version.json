@@ -1,5 +1,5 @@
 {
- "web": 202610190122,
+ "web": 202610191610,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -35,12 +35,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 64,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=64"
+  "code": 68,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=68"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Fixes the odd gaps in calendar birthdays: after apostrophes, and between the cake and the name."
+ "notes": "Pick your reminder sound in Settings \u2192 Sounds and alerts. Reminders now also notify you with that sound when the app is closed (install the new phone app)."
 }
