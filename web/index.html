@@ -49,7 +49,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610191752;</script>
+<script>window.JOEY_WEB_VERSION = 202610191815;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3473,7 +3473,7 @@ function openSheet(html, onClose, focusId){
 }
 function closeSheet(skipHook){
   if ($('#sheet').hidden) return;
-  { const rf = $('#remForm'); if (rf && rf.dataset.id && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }
+  { const rf = $('#remForm'); if (rf && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }   // not right after deleting or adding one: that sound plays instead
   if (previewing && !alarmRing) soundStop();
   const h = sheetHook; sheetHook = null;
   if (h && !skipHook) h();
@@ -3559,7 +3559,7 @@ function saveNoteFromSheet(){
 function remSheet(id, date){
   const r = id ? S.reminders[id] : {text:'', date:date || '', time:'', repeat:'none'};
   if (!r) return;
-  if (id) sfxPlay('remOpen');
+  sfxPlay('remOpen');   // opening a reminder, or the + to make a new one
   const t = todayStr();
   openSheet('<form id="remForm" data-id="' + (id || '') + '" autocomplete="off">' + sheetHead(id ? 'Reminder' : 'New reminder') +
     '<label class="fld"><span>Remind me to</span><input class="in" id="rText" required value="' + esc(r.text) + '" placeholder="Call the bank, submit the essay…"></label>' +
@@ -4073,7 +4073,7 @@ const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, 
 /* sound effects in each theme: your own sounds for tapping the buddy, adding and checking off things, and more.
    Every sound is evened out to the same loudness, then the theme's volume (and each sound's own slider) set how loud it plays. */
 const SFX = [['buddy','Tapping your buddy'],['remAdd','Adding a reminder'],['remCheck','Checking off a reminder'],['remUncheck','Unchecking a reminder'],['remDel','Deleting a reminder'],
-  ['remOpen','Opening a reminder'],['remClose','Closing a reminder'],
+  ['remOpen','Opening a reminder (or the + for a new one)'],['remClose','Closing a reminder'],
   ['noteAdd','Adding a note'],['noteDel','Deleting a note'],['evAdd','Adding an event'],['bdayAdd','Adding a birthday'],['alarmAdd','Adding an alarm'],
   ['pageOpen','Opening this page'],['pageClose','Leaving this page'],['tab','Switching to any page']];
 const SFX_ALWAYS = ['buddy','pageOpen','pageClose','tab'];
@@ -4119,7 +4119,7 @@ async function sfxPlay(ev, t, force){
 }
 function sfxOnPut(coll, prev, obj){
   if (sfxMute || !obj) return;
-  if (coll === 'reminders') { if (!prev) sfxPlay('remAdd'); else if (!prev.done && obj.done) sfxPlay('remCheck'); else if (prev.done && !obj.done) sfxPlay('remUncheck'); }
+  if (coll === 'reminders') { if (!prev) { sfxDelAt = Date.now(); sfxPlay('remAdd'); } else if (!prev.done && obj.done) sfxPlay('remCheck'); else if (prev.done && !obj.done) sfxPlay('remUncheck'); }
   else if (!prev) sfxPlay({notes:'noteAdd', events:'evAdd', birthdays:'bdayAdd', alarms:'alarmAdd'}[coll] || '');
 }
 function sfxOnDel(coll){ if (coll === 'reminders') sfxDelAt = Date.now(); if (!sfxMute) sfxPlay({notes:'noteDel', reminders:'remDel'}[coll] || ''); }

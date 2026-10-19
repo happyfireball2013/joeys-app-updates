@@ -1,5 +1,5 @@
 {
- "web": 202610191752,
+ "web": 202610191815,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Close the update pop-up with its X or swipe it away. New theme sounds: opening and leaving a page, and opening and closing a reminder."
+ "notes": "The + for a new reminder now plays your reminder open and close sounds."
 }
