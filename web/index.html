@@ -46,7 +46,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610180040;</script>
+<script>window.JOEY_WEB_VERSION = 202610190122;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -769,6 +769,7 @@ button.wx-day:active{background:var(--surface-2)}
 .dot.bday .ic{width:9px;height:9px;stroke-width:2.4}
 .bd-ic{display:grid;place-items:center;color:#E0508F}
 .bd-ic .ic{width:22px;height:22px}
+.card:not(:has(.ev:not(.bd-row))) .ev.bd-row{grid-template-columns:4px 26px minmax(0,1fr)}   /* a list of only birthdays doesn't need room for times */
 .bd-date{display:grid;grid-template-columns:2fr 1fr 1.3fr;gap:8px}
 
 .cal-vp{position:relative;overflow:hidden;touch-action:pan-y}
@@ -4156,8 +4157,31 @@ function thFontLoad(t){
   const fam = thFontFamily(t), url = thImg(t, 'font');
   if (!url || thFontsLoaded[fam]) return fam;
   thFontsLoaded[fam] = 'loading';
-  new FontFace(fam, 'url(' + url + ')').load().then(ff => { document.fonts.add(ff); thFontsLoaded[fam] = 'ok'; }).catch(() => { delete thFontsLoaded[fam]; });
+  new FontFace(fam, 'url(' + url + ')').load().then(async ff => {
+    document.fonts.add(ff);
+    // some fonts (Japanese ones especially) draw quotes and dots extra wide, which leaves odd gaps like "Rios’ s".
+    // Those few marks come from the regular font instead.
+    try {
+      const wide = thFontWide(fam);
+      if (wide.length) {
+        const ff2 = await new FontFace(fam, 'url(' + url + ')', {unicodeRange:thRangeWithout(wide)}).load();
+        document.fonts.delete(ff); document.fonts.add(ff2);
+      }
+    } catch (e) {}
+    thFontsLoaded[fam] = 'ok'; thApplied = ''; scheduleRender();
+  }).catch(() => { delete thFontsLoaded[fam]; });
   return fam;
+}
+const TH_PUNCT = [0x2018, 0x2019, 0x201A, 0x201C, 0x201D, 0x2026, 0x2013, 0x2014, 0x2022, 0x00B7, 0x00B0, 0x2032, 0x2033];
+function thFontWide(fam){
+  const g = document.createElement('canvas').getContext('2d'); g.font = '100px "' + fam + '"';
+  return TH_PUNCT.filter(cp => g.measureText(String.fromCodePoint(cp)).width >= 80);
+}
+function thRangeWithout(cps){
+  const out = []; let from = 0;
+  [...cps].sort((a, b) => a - b).forEach(cp => { if (cp > from) out.push(from === cp - 1 ? from : [from, cp - 1]); from = cp + 1; });
+  out.push([from, 0x10FFFF]);
+  return out.map(r => Array.isArray(r) ? 'U+' + r[0].toString(16) + '-' + r[1].toString(16) : 'U+' + r.toString(16)).join(', ');
 }
 function thFontStack(t, key){
   if (!t) return null;
