@@ -44,9 +44,12 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-ic{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-weight:800}
 #updNotice .un-t{display:grid;gap:2px;min-width:0}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
+#updNotice{touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none}
+#updNotice .un-x{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--ink-2);font-size:.85rem;margin-left:2px}
+#updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610191742;</script>
+<script>window.JOEY_WEB_VERSION = 202610191752;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3381,7 +3384,7 @@ function renderDock(){
   $('#dock').innerHTML = tabs.map(t => '<button type="button" data-action="go" data-screen="' + t + '"' + (t === cur ? ' aria-current="page"' : '') + '>' + icon(TABS[t].icon) + '<span>' + TABS[t].label + '</span></button>').join('');
 }
 function go(screen){
-  if (screen !== ui.screen) sfxPlay('tab', thFor(screen));
+  if (screen !== ui.screen) { sfxPlay('pageClose', thFor(ui.screen)); sfxPlay('pageOpen', thFor(screen)); sfxPlay('tab', thFor(screen)); }
   if (!SCREENS.includes(screen)) return;
   userNavigated = true;
   if (screen !== 'home') ui.editHome = false;
@@ -3470,6 +3473,7 @@ function openSheet(html, onClose, focusId){
 }
 function closeSheet(skipHook){
   if ($('#sheet').hidden) return;
+  { const rf = $('#remForm'); if (rf && rf.dataset.id && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }
   if (previewing && !alarmRing) soundStop();
   const h = sheetHook; sheetHook = null;
   if (h && !skipHook) h();
@@ -3555,6 +3559,7 @@ function saveNoteFromSheet(){
 function remSheet(id, date){
   const r = id ? S.reminders[id] : {text:'', date:date || '', time:'', repeat:'none'};
   if (!r) return;
+  if (id) sfxPlay('remOpen');
   const t = todayStr();
   openSheet('<form id="remForm" data-id="' + (id || '') + '" autocomplete="off">' + sheetHead(id ? 'Reminder' : 'New reminder') +
     '<label class="fld"><span>Remind me to</span><input class="in" id="rText" required value="' + esc(r.text) + '" placeholder="Call the bank, submit the essay…"></label>' +
@@ -4061,14 +4066,18 @@ const thSecOf = t => (t && t.section && TH_PAGES.some(x => x[0] === t.section)) 
 const thFits = (t, page) => { const s = thSecOf(t); return !s || s === page; };
 // which picture groups each section uses ('' = a theme for any page shows all of them)
 const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons'], calendar:['Lifelog faces'], notes:['Note cards','Open note background','Notes']};
-const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','noteAdd'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel'],
-  reminders:['remAdd','remCheck','remUncheck','remDel'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
+const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','remOpen','remClose','noteAdd'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'],
+  reminders:['remAdd','remCheck','remUncheck','remDel','remOpen','remClose'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
 const TH_NO_TYPING = ['clock','stopwatch','timer'];
 const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, HUE_NAMES[k].toLowerCase()]));
 /* sound effects in each theme: your own sounds for tapping the buddy, adding and checking off things, and more.
    Every sound is evened out to the same loudness, then the theme's volume (and each sound's own slider) set how loud it plays. */
 const SFX = [['buddy','Tapping your buddy'],['remAdd','Adding a reminder'],['remCheck','Checking off a reminder'],['remUncheck','Unchecking a reminder'],['remDel','Deleting a reminder'],
-  ['noteAdd','Adding a note'],['noteDel','Deleting a note'],['evAdd','Adding an event'],['bdayAdd','Adding a birthday'],['alarmAdd','Adding an alarm'],['tab','Switching pages']];
+  ['remOpen','Opening a reminder'],['remClose','Closing a reminder'],
+  ['noteAdd','Adding a note'],['noteDel','Deleting a note'],['evAdd','Adding an event'],['bdayAdd','Adding a birthday'],['alarmAdd','Adding an alarm'],
+  ['pageOpen','Opening this page'],['pageClose','Leaving this page'],['tab','Switching to any page']];
+const SFX_ALWAYS = ['buddy','pageOpen','pageClose','tab'];
+let sfxDelAt = 0;
 let sfxMute = 0;
 const sfxBufs = {};
 function sfxNorm(buf){
@@ -4113,7 +4122,7 @@ function sfxOnPut(coll, prev, obj){
   if (coll === 'reminders') { if (!prev) sfxPlay('remAdd'); else if (!prev.done && obj.done) sfxPlay('remCheck'); else if (prev.done && !obj.done) sfxPlay('remUncheck'); }
   else if (!prev) sfxPlay({notes:'noteAdd', events:'evAdd', birthdays:'bdayAdd', alarms:'alarmAdd'}[coll] || '');
 }
-function sfxOnDel(coll){ if (!sfxMute) sfxPlay({notes:'noteDel', reminders:'remDel'}[coll] || ''); }
+function sfxOnDel(coll){ if (coll === 'reminders') sfxDelAt = Date.now(); if (!sfxMute) sfxPlay({notes:'noteDel', reminders:'remDel'}[coll] || ''); }
 async function thStoreSfx(id, ev, file){
   const t = TH.themes[id]; if (!t || !file) return;
   if (!/^audio\//.test(file.type) && !/\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i.test(file.name)) { toast('Pick a sound file, like an MP3 or WAV.'); return; }
@@ -4143,7 +4152,7 @@ function thSfxHTML(id){
   return '<div class="fld"><span>Sound effects</span><div class="th-slots">' +
     '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness.</p>' +
     (any ? '<div class="th-sub th-size-row"><span>Volume</span><input type="range" class="th-sfxvol" data-ev="" min="0" max="100" step="5" value="' + mv + '" aria-label="Sound effects volume"><output>' + mv + '%</output></div>' : '') +
-    SFX.filter(([ev]) => !thSecOf(t) || ev === 'buddy' || ev === 'tab' || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev)).map(([ev, label]) => {
+    SFX.filter(([ev]) => !thSecOf(t) || SFX_ALWAYS.includes(ev) || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev)).map(([ev, label]) => {
       const on = !!(t.img && t.img['sfx_' + ev]), busy = thBusy === 'sfx_' + ev, sv = t.sfxV && t.sfxV[ev] != null ? t.sfxV[ev] : 100;
       return '<div class="th-slot"><span class="th-prev' + (on ? '' : ' empty') + '">' + (on ? '<button type="button" class="th-sfx-play" data-action="th-sfx-play" data-ev="' + ev + '" aria-label="Play">' + icon('play') + '</button>' : icon('music')) + '</span>' +
         '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (on ? '<small>' + esc((t.sfxN && t.sfxN[ev]) || 'Your sound') + '</small>' : '') + '</span>' +
@@ -6242,22 +6251,42 @@ function updMaybeSwitch(hidden, now){
 function updNotice(title, notes){
   const old = document.getElementById('updNotice'); if (old) old.remove();
   const el = document.createElement('div'); el.id = 'updNotice'; el.setAttribute('role', 'status');
-  el.innerHTML = '<span class="un-ic">✓</span><span class="un-t"><b>' + esc(title) + '</b>' + (notes ? '<small>' + esc(notes) + '</small>' : '') + '</span>';
-  el.addEventListener('click', () => el.classList.add('out'));
+  el.innerHTML = '<span class="un-ic">✓</span><span class="un-t"><b>' + esc(title) + '</b>' + (notes ? '<small>' + esc(notes) + '</small>' : '') + '</span>' +
+    '<button type="button" class="un-x" aria-label="Close">✕</button>';
+  const gone = () => { if (el.classList.contains('gone')) return; el.classList.add('gone'); el.classList.add('out'); setTimeout(() => el.remove(), 500); };
+  el.addEventListener('click', e => { if (!el.dataset.dragged) gone(); });   // tap or click anywhere on it to close
+  // drag it away (up or to either side) on a phone
+  let sx = 0, sy = 0, dx = 0, dy = 0, drag = false;
+  el.addEventListener('pointerdown', e => { drag = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; delete el.dataset.dragged; el.style.transition = 'none'; try { el.setPointerCapture(e.pointerId); } catch (x) {} });
+  el.addEventListener('pointermove', e => {
+    if (!drag) return;
+    dx = e.clientX - sx; dy = Math.min(0, e.clientY - sy);
+    if (Math.abs(dx) > 6 || dy < -6) el.dataset.dragged = '1';
+    el.style.transform = 'translate(calc(-50% + ' + dx + 'px),' + dy + 'px)'; el.style.opacity = String(Math.max(0.2, 1 - (Math.abs(dx) + Math.abs(dy)) / 260));
+  });
+  const end = () => {
+    if (!drag) return; drag = false; el.style.transition = '';
+    if (Math.abs(dx) > 70 || dy < -36) { el.style.transform = 'translate(calc(-50% + ' + (dx > 0 ? 120 : dx < 0 ? -120 : 0) + 'vw),' + (Math.abs(dx) > 70 ? dy : -200) + 'px)'; el.style.opacity = '0'; el.classList.add('gone'); setTimeout(() => el.remove(), 400); }
+    else { el.style.transform = ''; el.style.opacity = ''; }
+    setTimeout(() => delete el.dataset.dragged, 50);
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   document.body.appendChild(el);
   requestAnimationFrame(() => el.classList.add('in'));
-  setTimeout(() => el.classList.add('out'), notes ? 9000 : 6000);
-  setTimeout(() => el.remove(), (notes ? 9000 : 6000) + 600);
+  setTimeout(gone, notes ? 9000 : 6000);
 }
 function updBannerHTML(){
-  if (UPD.apk) return '<div class="na-setup upd-banner"><div class="na-row"><span>New phone app version ready<small>Includes changes to alarms, widgets or other phone parts. Your data stays.</small></span><button class="btn sm accent" data-action="upd-apk">' + (UPD.installing ? 'Downloading…' : 'Install') + '</button></div></div>';
-  if (UPD.exe) return '<div class="na-setup upd-banner"><div class="na-row"><span>New Windows app version ready<small>The app closes, updates, and opens again. Your data stays.</small></span><button class="btn sm accent" data-action="upd-exe">' + (UPD.installing ? 'Downloading…' : 'Restart to update') + '</button></div></div>';
+  if (UPD.later) return '';
+  const x = '<button class="ib ghost sm" data-action="upd-later" aria-label="Not now">' + icon('x') + '</button>';
+  if (UPD.apk) return '<div class="na-setup upd-banner"><div class="na-row"><span>New phone app version ready<small>Includes changes to alarms, widgets or other phone parts. Your data stays.</small></span><button class="btn sm accent" data-action="upd-apk">' + (UPD.installing ? 'Downloading…' : 'Install') + '</button>' + x + '</div></div>';
+  if (UPD.exe) return '<div class="na-setup upd-banner"><div class="na-row"><span>New Windows app version ready<small>The app closes, updates, and opens again. Your data stays.</small></span><button class="btn sm accent" data-action="upd-exe">' + (UPD.installing ? 'Downloading…' : 'Restart to update') + '</button>' + x + '</div></div>';
   return '';
 }
 if (updOn()) {
   UPD.openedAt = Date.now();
   const _homeU = homeHTML;
   homeHTML = function(){ const h = _homeU(), b = updBannerHTML(); return b ? h.replace('<div class="sec-title first">', b + '<div class="sec-title first">') : h; };
+  A['upd-later'] = () => { UPD.later = true; render(); toast('You can update any time from Settings.'); };
   A['upd-apk'] = () => {
     if (!UPD.apk || UPD.installing) return;
     UPD.installing = true; render(); toast('Downloading the update…');

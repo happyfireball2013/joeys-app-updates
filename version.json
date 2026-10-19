@@ -1,5 +1,5 @@
 {
- "web": 202610191742,
+ "web": 202610191752,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Themes can now be made for one section (like Notes or Reminders) so they only show the options that work there. Settings \u2192 Themes has a Move all button for your page themes."
+ "notes": "Close the update pop-up with its X or swipe it away. New theme sounds: opening and leaving a page, and opening and closing a reminder."
 }
