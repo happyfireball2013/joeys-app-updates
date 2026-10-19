@@ -1,5 +1,5 @@
 {
- "web": 202610191610,
+ "web": 202610191619,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Pick your reminder sound in Settings \u2192 Sounds and alerts. Reminders now also notify you with that sound when the app is closed (install the new phone app)."
+ "notes": "Themes can now have their own sound effects (buddy, reminders, notes and more), evened out to the same loudness with volume sliders."
 }
