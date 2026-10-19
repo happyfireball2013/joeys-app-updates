@@ -1,5 +1,5 @@
 {
- "web": 202610191818,
+ "web": 202610191827,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Checked-off one-time reminders now fade away after 5 seconds. Uncheck before then to keep it."
+ "notes": "Notes themes are grouped by color (Blue Notes, Red Notes\u2026) with their own open/close sounds that override the All Notes ones. Slide a note's top bar down to close it."
 }

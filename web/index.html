@@ -49,7 +49,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610191818;</script>
+<script>window.JOEY_WEB_VERSION = 202610191827;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -597,6 +597,10 @@ textarea.in{resize:vertical;line-height:1.5}
 .scrim{position:absolute;inset:0;background:var(--scrim)}
 .sheet{position:relative;width:100%;max-width:560px;max-height:90%;overflow-y:auto;background:var(--surface);border-radius:22px 22px 0 0;padding:6px 16px calc(20px + env(safe-area-inset-bottom,0px));animation:rise .2s ease-out}
 .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 10px}
+.grab{box-sizing:content-box;padding:8px 48px;margin:-4px auto 2px;background-clip:content-box;cursor:grab;touch-action:none}
+.sh-hd{touch-action:none}
+#sheet .sheet.dragging{animation:none;transition:none}
+#sheet .sheet.snap{transition:transform .22s ease}
 @keyframes rise{from{transform:translateY(28px);opacity:.5}}
 .sh-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
 .sh-hd h2{margin:0;font-stretch:115%;font-weight:800;font-size:1.25rem}
@@ -689,6 +693,7 @@ body:has(#sheet:not([hidden])) #thMascot:not(.open){z-index:4}   /* but still tu
 .th-slot{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
 .th-prev{width:48px;height:48px;flex:none;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:repeating-conic-gradient(var(--surface-2) 0 25%,var(--surface) 0 50%) 0 0/12px 12px;color:var(--ink-2)}
 .th-prev img{width:100%;height:100%;object-fit:contain}
+.th-prev.empty{padding:0}
 .th-prev.empty{background:var(--surface-2)}
 .th-slot-t{flex:1;min-width:0}
 .th-slot-t b{display:block;font-size:.9rem}
@@ -794,7 +799,8 @@ button.wx-day:active{background:var(--surface-2)}
 
 .th-size-row{align-items:center}
 .th-size-row input{flex:1;min-width:120px;accent-color:var(--accent)}
-.th-sfx-play{width:100%;height:100%;display:grid;place-items:center;color:var(--accent-ink)}.th-sfx-play .ic{width:20px;height:20px}
+.th-sfx-play{width:100%;height:100%;display:grid;place-items:center;color:var(--accent-ink)}
+.th-nblock{border:1px solid var(--line);border-radius:var(--r-sm);padding:0 12px;margin-bottom:10px;background:var(--surface)}.th-nblock > summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:12px 0;font-weight:700}.th-nblock > summary::-webkit-details-marker{display:none}.th-nblock > summary::after{content:'›';position:absolute;right:26px;transform:rotate(90deg);transition:transform .2s;color:var(--ink-2)}.th-nblock{position:relative}.th-nblock:not([open]) > summary::after{transform:none}.th-nblock > summary small{font-weight:500;color:var(--ink-2);font-size:.78rem}.th-nblock > .th-slots{padding-bottom:12px}.th-sfx-h{margin:12px 0 4px;display:flex;flex-direction:column;gap:2px}.th-sfx-h small{color:var(--ink-2);font-size:.78rem}.th-sfx-play .ic{width:20px;height:20px}
 .th-size-row output{min-width:44px;text-align:right;font-size:.8rem;color:var(--ink-2);font-variant-numeric:tabular-nums}
 
 .th-ncolors{display:grid;gap:6px;margin-top:6px;padding:12px;border-radius:var(--r-sm);background:var(--surface-2)}
@@ -1129,7 +1135,7 @@ function putItem(coll, id, obj){
   scheduleRender();
 }
 function delItem(coll, id){
-  try { if (S[coll] && S[coll][id]) sfxOnDel(coll); } catch (e) {}
+  try { if (S[coll] && S[coll][id]) sfxOnDel(coll, S[coll][id]); } catch (e) {}
   const o = Object.assign({}, S[coll]); delete o[id]; S[coll] = o;
   lsSave(); if (mode === 'cloud') queueWrite(refs[coll].doc(id), null);
   scheduleRender();
@@ -3488,13 +3494,43 @@ function openSheet(html, onClose, focusId){
 }
 function closeSheet(skipHook){
   if ($('#sheet').hidden) return;
+  const nf = $('#noteForm'), nCol = nf ? (($('#nColor') || {}).value || 'none') : '';
   { const rf = $('#remForm'); if (rf && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }   // not right after deleting or adding one: that sound plays instead
   if (previewing && !alarmRing) soundStop();
   const h = sheetHook; sheetHook = null;
   if (h && !skipHook) h();
+  if (nf && Date.now() - sfxDelAt > 400) sfxNote('noteClose', nCol);   // not right after creating or deleting it: that sound plays instead
   $('#sheet').hidden = true; $('#sheetBody').innerHTML = '';
   sheetResetLook();
 }
+// slide a pop-up down by its top bar (the little handle or the title row) to close it
+(function(){
+  let sh = null, sy = 0, dy = 0, t0 = 0, lastY = 0, lastT = 0, v = 0;
+  document.addEventListener('pointerdown', e => {
+    const top = e.target.closest && e.target.closest('#sheet .grab, #sheet .sh-hd');
+    if (!top || e.target.closest('button, input, select, textarea, a') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    sh = top.closest('.sheet'); if (!sh) return;
+    sy = lastY = e.clientY; dy = 0; v = 0; t0 = lastT = performance.now();
+    sh.classList.add('dragging'); sh.classList.remove('snap');
+    try { top.setPointerCapture(e.pointerId); } catch (x) {}
+  });
+  document.addEventListener('pointermove', e => {
+    if (!sh) return;
+    const now = performance.now();
+    dy = Math.max(0, e.clientY - sy);
+    v = (e.clientY - lastY) / Math.max(1, now - lastT); lastY = e.clientY; lastT = now;
+    sh.style.transform = dy ? 'translateY(' + dy + 'px)' : '';
+  });
+  const end = () => {
+    if (!sh) return;
+    const s = sh; sh = null; s.classList.remove('dragging'); s.classList.add('snap');
+    if (dy > 110 || (dy > 30 && v > 0.6)) {
+      s.style.transform = 'translateY(100%)';
+      setTimeout(() => { closeSheet(); s.classList.remove('snap'); s.style.transform = ''; }, 200);
+    } else { s.style.transform = ''; setTimeout(() => s.classList.remove('snap'), 250); }
+  };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+})();
 // open notes color the pop-up panel; clear that so other pop-ups (themes, reminders…) look normal
 function sheetResetLook(){
   const sh = $('#sheet .sheet'); if (!sh) return;
@@ -3510,6 +3546,7 @@ function colorPicker(groupId, value, withNone){
 function noteSheet(id){
   const n = id ? S.notes[id] : {title:'', body:'', color:S.settings.noteColor, pinned:false};
   if (!n) return;
+  if (id) sfxNote('noteOpen', n.color); else sfxPlay('notePlus');
   openSheet('<form id="noteForm" data-id="' + (id || '') + '" autocomplete="off">' + sheetHead(id ? 'Note' : 'New note') +
     '<label class="fld"><span>Title</span><input class="in" id="nTitle" value="' + esc(n.title) + '" placeholder="Title"></label>' +
     '<label class="fld"><span>Note</span><textarea class="in" id="nBody" rows="9" placeholder="Start writing…">' + esc(n.body) + '</textarea></label>' +
@@ -4081,7 +4118,7 @@ const thSecOf = t => (t && t.section && TH_PAGES.some(x => x[0] === t.section)) 
 const thFits = (t, page) => { const s = thSecOf(t); return !s || s === page; };
 // which picture groups each section uses ('' = a theme for any page shows all of them)
 const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons'], calendar:['Lifelog faces'], notes:['Note cards','Open note background','Notes']};
-const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','remOpen','remClose','noteAdd'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'],
+const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','remOpen','remClose'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'],
   reminders:['remAdd','remCheck','remUncheck','remDel','remOpen','remClose'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
 const TH_NO_TYPING = ['clock','stopwatch','timer'];
 const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, HUE_NAMES[k].toLowerCase()]));
@@ -4089,9 +4126,16 @@ const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, 
    Every sound is evened out to the same loudness, then the theme's volume (and each sound's own slider) set how loud it plays. */
 const SFX = [['buddy','Tapping your buddy'],['remAdd','Adding a reminder'],['remCheck','Checking off a reminder'],['remUncheck','Unchecking a reminder'],['remDel','Deleting a reminder'],
   ['remOpen','Opening a reminder (or the + for a new one)'],['remClose','Closing a reminder'],
-  ['noteAdd','Adding a note'],['noteDel','Deleting a note'],['evAdd','Adding an event'],['bdayAdd','Adding a birthday'],['alarmAdd','Adding an alarm'],
+  ['evAdd','Adding an event'],['bdayAdd','Adding a birthday'],['alarmAdd','Adding an alarm'],
   ['pageOpen','Opening this page'],['pageClose','Leaving this page'],['tab','Switching to any page']];
 const SFX_ALWAYS = ['buddy','pageOpen','pageClose','tab'];
+// note sounds: an All Notes one, and one per note color that plays instead of it when it's set
+const NOTE_SFX = [['notePlus','Tapping + for a new note'],['noteOpen','Opening a note'],['noteClose','Closing a note'],['noteAdd','Creating a note'],['noteDel','Deleting a note']];
+const NOTE_SFX_KEYS = NOTE_SFX.map(x => x[0]);
+function sfxNote(ev, color){
+  const t = thFor(ui.screen), c = color || 'none';
+  sfxPlay(t && t.img && t.img['sfx_' + ev + '__' + c] ? ev + '__' + c : ev, t);
+}
 let sfxDelAt = 0;
 let sfxMute = 0;
 const sfxBufs = {};
@@ -4135,9 +4179,14 @@ async function sfxPlay(ev, t, force){
 function sfxOnPut(coll, prev, obj){
   if (sfxMute || !obj) return;
   if (coll === 'reminders') { if (!prev) { sfxDelAt = Date.now(); sfxPlay('remAdd'); } else if (!prev.done && obj.done) sfxPlay('remCheck'); else if (prev.done && !obj.done) sfxPlay('remUncheck'); }
-  else if (!prev) sfxPlay({notes:'noteAdd', events:'evAdd', birthdays:'bdayAdd', alarms:'alarmAdd'}[coll] || '');
+  else if (coll === 'notes') { if (!prev) { sfxDelAt = Date.now(); sfxNote('noteAdd', obj.color); } }
+  else if (!prev) sfxPlay({events:'evAdd', birthdays:'bdayAdd', alarms:'alarmAdd'}[coll] || '');
 }
-function sfxOnDel(coll){ if (coll === 'reminders') sfxDelAt = Date.now(); if (!sfxMute) sfxPlay({notes:'noteDel', reminders:'remDel'}[coll] || ''); }
+function sfxOnDel(coll, obj){
+  if (coll === 'reminders' || coll === 'notes') sfxDelAt = Date.now();
+  if (sfxMute) return;
+  if (coll === 'notes') sfxNote('noteDel', obj && obj.color); else if (coll === 'reminders') sfxPlay('remDel');
+}
 async function thStoreSfx(id, ev, file){
   const t = TH.themes[id]; if (!t || !file) return;
   if (!/^audio\//.test(file.type) && !/\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i.test(file.name)) { toast('Pick a sound file, like an MP3 or WAV.'); return; }
@@ -4161,19 +4210,21 @@ function thRemoveSfx(id, ev){
   const k = id + ':sfx_' + ev; if (thUrls[k]) { URL.revokeObjectURL(thUrls[k]); delete thUrls[k]; }
   thSave(); thRefreshEditor();
 }
-function thSfxHTML(id){
+function thSfxRow(t, ev, label){
+  const on = !!(t.img && t.img['sfx_' + ev]), busy = thBusy === 'sfx_' + ev, sv = t.sfxV && t.sfxV[ev] != null ? t.sfxV[ev] : 100;
+  return '<div class="th-slot"><span class="th-prev' + (on ? '' : ' empty') + '">' + (on ? '<button type="button" class="th-sfx-play" data-action="th-sfx-play" data-ev="' + ev + '" aria-label="Play">' + icon('play') + '</button>' : icon('music')) + '</span>' +
+    '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (on ? '<small>' + esc((t.sfxN && t.sfxN[ev]) || 'Your sound') + '</small>' : '') + '</span>' +
+    (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-sfx-pick" data-ev="' + ev + '">' + (on ? 'Change' : 'Add') + '</button>' + (on ? '<button type="button" class="btn sm" data-action="th-sfx-rm" data-ev="' + ev + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
+    (on ? '<div class="th-sub th-size-row"><span>This sound</span><input type="range" class="th-sfxvol" data-ev="' + ev + '" min="0" max="200" step="10" value="' + sv + '" aria-label="' + esc(label) + ' volume"><output>' + sv + '%</output></div>' : '');
+}
+function thSfxHTML(id, noteSounds){
   const t = TH.themes[id]; if (!t) return '';
-  const tt = Object.assign({id}, t), mv = t.sfxVol == null ? 70 : t.sfxVol, any = SFX.some(([ev]) => t.img && t.img['sfx_' + ev]);
+  const mv = t.sfxVol == null ? 70 : t.sfxVol, any = Object.keys(t.img || {}).some(k => k.startsWith('sfx_'));
+  const list = SFX.filter(([ev]) => !thSecOf(t) || SFX_ALWAYS.includes(ev) || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev));
   return '<div class="fld"><span>Sound effects</span><div class="th-slots">' +
-    '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness.</p>' +
+    '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness.' + (noteSounds ? ' Note sounds are with each note color above.' : '') + '</p>' +
     (any ? '<div class="th-sub th-size-row"><span>Volume</span><input type="range" class="th-sfxvol" data-ev="" min="0" max="100" step="5" value="' + mv + '" aria-label="Sound effects volume"><output>' + mv + '%</output></div>' : '') +
-    SFX.filter(([ev]) => !thSecOf(t) || SFX_ALWAYS.includes(ev) || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev)).map(([ev, label]) => {
-      const on = !!(t.img && t.img['sfx_' + ev]), busy = thBusy === 'sfx_' + ev, sv = t.sfxV && t.sfxV[ev] != null ? t.sfxV[ev] : 100;
-      return '<div class="th-slot"><span class="th-prev' + (on ? '' : ' empty') + '">' + (on ? '<button type="button" class="th-sfx-play" data-action="th-sfx-play" data-ev="' + ev + '" aria-label="Play">' + icon('play') + '</button>' : icon('music')) + '</span>' +
-        '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (on ? '<small>' + esc((t.sfxN && t.sfxN[ev]) || 'Your sound') + '</small>' : '') + '</span>' +
-        (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-sfx-pick" data-ev="' + ev + '">' + (on ? 'Change' : 'Add') + '</button>' + (on ? '<button type="button" class="btn sm" data-action="th-sfx-rm" data-ev="' + ev + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
-        (on ? '<div class="th-sub th-size-row"><span>This sound</span><input type="range" class="th-sfxvol" data-ev="' + ev + '" min="0" max="200" step="10" value="' + sv + '" aria-label="' + esc(label) + ' volume"><output>' + sv + '%</output></div>' : '');
-    }).join('') +
+    list.map(([ev, label]) => thSfxRow(t, ev, label)).join('') +
     '<input type="file" id="thSfxFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" hidden></div></div>';
 }
 let thSfxEv = '';
@@ -4192,6 +4243,38 @@ document.addEventListener('change', e => {
   }
   if (el.id === 'thSfxFile') { const f = el.files && el.files[0]; el.value = ''; if (f && thOpen && thSfxEv) thStoreSfx(thOpen, thSfxEv, f); }
 });
+const TH_NOTE_GROUPS = ['Note cards','Open note background','Notes'];
+const thOpenBlocks = new Set();
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.classList && d.classList.contains('th-nblock')) { if (d.open) thOpenBlocks.add(d.dataset.k); else thOpenBlocks.delete(d.dataset.k); } }, true);
+function thNotesHTML(id, slotRow, seg){
+  const t = TH.themes[id], tt = Object.assign({id}, t), st = TH_STYLES[t.style] || TH_STYLES.classic, img = t.img || {};
+  const used = p => Object.keys(img).some(k => k.startsWith(p));
+  const ncol = (k, label) => {
+    const v = t.nColors && t.nColors[k];
+    return '<div class="th-ncolors"><label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.62, 0.86) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + label + '</span><em>' + (v ? '' : 'Auto') + '</em></label></div>';
+  };
+  const block = (k, title, sub, body, open) => '<details class="fld th-nblock" data-k="' + k + '"' + (open ? ' open' : '') + '><summary><span>' + esc(title) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</summary><div class="th-slots">' + body + '</div></details>';
+  const all = slotRow(['card_all', 'Picture on the card', 'Shows behind every note. PNGs with see-through backgrounds look great with “Small in the corner”.']) +
+    '<div class="th-sub">' + (used('card_') ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) + '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') +
+      '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' +
+    slotRow(['nbg_all', 'Background when open', 'Fills the page when you open a note']) +
+    (used('nbg_') ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
+    slotRow(['run_all', 'Runner', 'Runs along the bottom of each note']) +
+    (used('run_') ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') +
+    ncol('all', 'Open note color') +
+    (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set every open note color back to Auto</button>' : '') +
+    '<div class="th-sfx-h"><b>Sounds</b></div>' + NOTE_SFX.map(([ev, l]) => thSfxRow(tt, ev, l)).join('');
+  const colors = TH_NOTE_COLORS.map(([c, n]) => {
+    const name = n.charAt(0).toUpperCase() + n.slice(1) + ' Notes';
+    const has = ['card_', 'nbg_', 'run_'].some(p => img[p + c]) || NOTE_SFX_KEYS.some(ev => img['sfx_' + ev + '__' + c]) || (t.nColors && t.nColors[c]);
+    const body = slotRow(['card_' + c, 'Picture on the card', '']) + slotRow(['nbg_' + c, 'Background when open', '']) + slotRow(['run_' + c, 'Runner', '']) +
+      ncol(c, 'Open note color') +
+      '<div class="th-sfx-h"><b>Sounds</b><small>Play instead of the All Notes sounds for ' + esc(n) + ' notes</small></div>' +
+      NOTE_SFX.filter(([ev]) => ev !== 'notePlus').map(([ev, l]) => thSfxRow(tt, ev + '__' + c, l)).join('');
+    return block(c, name, has ? 'Customized' : 'Uses All Notes', body, thOpenBlocks.has(c));
+  }).join('');
+  return block('all', 'All Notes', 'Used for every note unless a color below has its own', all, thOpenBlocks.has('all') || !thOpenBlocks.size) + colors;
+}
 function thSlotGroups(){
   return [
     {name:'Everywhere', slots:[['bg','Page background','Fills the space behind everything'],['mascot','Corner buddy','Hangs out in the bottom corner. Tap it to talk to the AI. GIFs move!'],['empty','Empty-page picture','Shows when a page has nothing on it yet']]},
@@ -4676,6 +4759,7 @@ function thEditorHTML(id){
     if (g.name === 'Everywhere') return Object.assign({}, g, {name:'On this page'});
     return (TH_SEC_GROUPS[sec] || []).includes(g.name) ? g : null;
   }).filter(g => g && g.slots.length);
+  const noteLayout = groups.some(g => TH_NOTE_GROUPS.includes(g.name));
   const runnersUsed = Object.keys(t.img || {}).some(k => k.startsWith('run_'));
   const cardsUsed = Object.keys(t.img || {}).some(k => k.startsWith('card_'));
   const nbgUsed = Object.keys(t.img || {}).some(k => k.startsWith('nbg_'));
@@ -4701,7 +4785,7 @@ function thEditorHTML(id){
         '</div></div>';
     })() +
     '<input type="file" id="thFile" accept="image/*" hidden><input type="file" id="thFontFile" accept=".ttf,.otf,.woff,.woff2,font/*,application/font-sfnt,application/x-font-ttf" hidden>' +
-    groups.map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
+    groups.filter(g => !TH_NOTE_GROUPS.includes(g.name)).map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
@@ -4711,7 +4795,8 @@ function thEditorHTML(id){
           return '<label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.62, 0.86) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + esc(n) + '</span><em>' + (v ? '' : 'Auto') + '</em></label>';
         }).join('') + '</div>' + (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set all back to Auto</button>' : '') + '</div>' : '') +
       (g.name === 'Notes' && runnersUsed ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') + '</div></div>').join('') +
-    thSfxHTML(id) +
+    (noteLayout ? thNotesHTML(id, slotRow, seg) : '') +
+    thSfxHTML(id, noteLayout) +
     '<p class="hint">Pictures and sounds sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
     '<div class="sh-actions"><button type="button" class="btn danger" data-action="th-del" data-id="' + id + '">Delete theme</button><span class="grow"></span><button type="button" class="btn accent" data-action="sheet-close">Done</button></div>';
 }
