@@ -1,5 +1,5 @@
 {
- "web": 202610201420,
+ "web": 202610201436,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "The bottom buttons' pictures and icons now change to the color of the page you're on."
+ "notes": "New trash button on Reminders: see reminders you deleted, then restore them or delete them for good."
 }

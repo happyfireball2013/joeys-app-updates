@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610201420;</script>
+<script>window.JOEY_WEB_VERSION = 202610201436;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -832,6 +832,19 @@ button.wx-day:active{background:var(--surface-2)}
 .nf-pick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
 .th-nfont{flex-wrap:wrap}
 .dock-img{width:26px;height:26px;object-fit:contain;display:block}
+.rem-trash-btn{position:relative}
+.rem-trash-btn i{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--on-accent);font:700 .625rem/17px var(--font-ui);font-style:normal;text-align:center}
+.trash-list{padding:0;margin-bottom:12px}
+.trash-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.trash-row:last-child{border-bottom:0}
+.trash-row .tt{flex:1;min-width:0;display:grid;gap:2px}
+.trash-row .tt b{font-weight:650;overflow-wrap:anywhere}
+.trash-row .tt small{font-size:.78rem;color:var(--ink-2)}
+.trash-row .tt small i{font-style:normal}
+.trash-row .tt small .ic{width:12px;height:12px;vertical-align:-2px;margin-right:2px}
+.trash-row .btn.sm{flex:none}
+.trash-none{display:grid;gap:4px;text-align:center;padding:26px 12px;color:var(--ink-2)}
+.trash-none b{color:var(--ink);font-size:1rem}
 .dock button:not([aria-current="page"]) .ic{color:var(--dk-tint,currentColor)}
 
 .nf-add{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;border:1px dashed var(--line);background:none;font-size:.9rem;font-weight:600;color:var(--accent-ink)}
@@ -910,6 +923,7 @@ const IC = {
   smile:'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14a4 4 0 0 0 7 0M9.5 9.5v.5M14.5 9.5v.5"/>',
   image:'<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17"/>',
   trash:'<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13.5h9l1-13.5"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   spark:'<path d="M11 3.5l1.9 5.1 5.1 1.9-5.1 1.9L11 17.5l-1.9-5.1L4 10.5l5.1-1.9z"/><path d="M18.5 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
   send:'<path d="M5 12h13.5M13 6.5l5.5 5.5-5.5 5.5"/>',
   stop:'<rect x="7" y="7" width="10" height="10" rx="2"/>',
@@ -1084,8 +1098,8 @@ function normSettings(s){
 }
 
 /* ---------- state + storage ---------- */
-const S = {settings:defaultSettings(), notes:{}, reminders:{}, events:{}, alarms:{}, songs:{}, lifelog:{}, birthdays:{}};
-const COLLS = ['notes','reminders','events','alarms','songs','lifelog','birthdays'];
+const S = {settings:defaultSettings(), notes:{}, reminders:{}, events:{}, alarms:{}, songs:{}, lifelog:{}, birthdays:{}, remTrash:{}};
+const COLLS = ['notes','reminders','events','alarms','songs','lifelog','birthdays','remTrash'];   // remTrash = deleted reminders you can bring back
 let mode = 'local';           // 'local' = this browser only, 'cloud' = synced to the viewer's account
 let db = null, dl = null, refs = {}, hadLocal = false, settingsDirty = false, settingsTimer = null, syncWarned = false, pendingWrites = 0, userNavigated = false;
 const LS_KEY = 'daykit:v1';
@@ -1144,6 +1158,18 @@ function putItem(coll, id, obj){
   try { sfxOnPut(coll, prev, obj); } catch (e) {}
   lsSave(); if (mode === 'cloud') queueWrite(refs[coll].doc(id), clone(obj));
   scheduleRender();
+}
+// deleting a reminder moves it to "Deleted reminders", where it can be restored or deleted for good
+function remTrash(id){
+  const r = S.reminders[id]; if (!r) return;
+  putItem('remTrash', id, Object.assign({}, r, {deletedAt:Date.now()}));
+  delItem('reminders', id);
+}
+function remRestore(id){
+  const r = S.remTrash[id]; if (!r) return;
+  const o = Object.assign({}, r); delete o.deletedAt;
+  putItem('reminders', S.reminders[id] ? uid() : id, o);
+  delItem('remTrash', id);
 }
 function delItem(coll, id){
   try { if (S[coll] && S[coll][id]) sfxOnDel(coll, S[coll][id]); } catch (e) {}
@@ -3043,7 +3069,7 @@ function applyAiActions(out){
         lines.push({icon:'alarm', text:(on ? 'Turned on: ' : 'Turned off: ') + fmtHM(al.time), sub:al.label || repeatText(al), action:'al-edit', id:id0});
       } else if (type === 'delete') {
         const coll = {reminder:'reminders', event:'events', note:'notes', alarm:'alarms', birthday:'birthdays'}[a.kind]; if (!coll || !S[coll][id0]) return;
-        const item = S[coll][id0]; remember(coll, id0); delItem(coll, id0);
+        const item = S[coll][id0]; remember(coll, id0); if (coll === 'reminders') { remember('remTrash', id0); remTrash(id0); } else delItem(coll, id0);
         lines.push({icon:'trash', text:'Deleted: ' + (coll === 'birthdays' ? bdayTitle(item) : item.text || item.title || item.label || (item.time ? 'Alarm ' + fmtHM(item.time) : 'Untitled')), sub:''});
       } else if (type === 'add_birthday') {
         const name = str(a.name, 60); const month = Math.round(Number(a.month)), day = Math.round(Number(a.day)); if (!name || !(month >= 1 && month <= 12) || !(day >= 1 && day <= new Date(2024, month, 0).getDate())) return;
@@ -3215,7 +3241,8 @@ function remindersHTML(){
     body += '<div class="sec-title' + fin('bar') + '"><button class="link" data-action="toggle-done">' + (showDone ? 'Hide' : 'Show') + ' completed (' + groups.done.length + ')</button>' + (showDone ? '<button class="link" data-action="clear-done">Clear completed</button>' : '') + '</div>';
     if (showDone) body += '<div class="card">' + groups.done.map(row).join('') + '</div>';
   }
-  return head(open + ' open', 'Reminders', '<button class="ib accent" data-action="new-rem" aria-label="New reminder">' + icon('plus') + '</button>') +
+  const nTrash = Object.keys(S.remTrash || {}).length;
+  return head(open + ' open', 'Reminders', '<button class="ib rem-trash-btn" data-action="rem-trash" aria-label="Deleted reminders" title="Deleted reminders">' + icon('trash') + (nTrash ? '<i>' + (nTrash > 99 ? '99+' : nTrash) + '</i>' : '') + '</button><button class="ib accent" data-action="new-rem" aria-label="New reminder">' + icon('plus') + '</button>') +
     '<form class="quick" id="remQuick" autocomplete="off"><input class="in" id="remQuickIn" value="' + esc(ui.remQuick) + '" placeholder="Add a reminder with no date" aria-label="New reminder text"><button class="btn" type="submit">Add</button></form>' + body;
 }
 
@@ -3659,6 +3686,17 @@ function remSheet(id, date){
     '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-rem" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">' + (id ? 'Save' : 'Add reminder') + '</button></div></form>',
     null, id ? null : 'rText');
 }
+function remTrashSheet(){
+  const items = Object.entries(S.remTrash || {}).sort((a, b) => (b[1].deletedAt || 0) - (a[1].deletedAt || 0));
+  const day = ts => { if (!ts) return ''; const d = new Date(ts), t = todayStr(), ds = ymd(d); return (ds === t ? 'Today' : ds === addDays(t, -1) ? 'Yesterday' : d.toLocaleDateString('en-US', {month:'short', day:'numeric'})) + ', ' + fmtHM(pad(d.getHours()) + ':' + pad(d.getMinutes())); };
+  const row = ([id, r]) => '<div class="trash-row"><span class="tt"><b>' + esc(r.text || 'Untitled') + '</b><small>Deleted ' + day(r.deletedAt) + (remMeta(r) ? ' · ' + remMeta(r) : '') + (r.done ? ' · was done' : '') + '</small></span>' +
+    '<button type="button" class="btn sm" data-action="rem-restore" data-id="' + id + '">' + icon('undo') + 'Restore</button>' +
+    '<button type="button" class="btn sm danger" data-action="rem-purge" data-id="' + id + '" aria-label="Delete for good">' + icon('trash') + '</button></div>';
+  openSheet('<div id="remTrashSheet">' + sheetHead('Deleted reminders') +
+    (items.length ? '<p class="hint">Bring a reminder back, or delete it for good.</p><div class="card trash-list">' + items.map(row).join('') + '</div>' +
+      '<div class="sh-actions">' + (items.length > 1 ? '<button type="button" class="btn danger" data-action="rem-purge-all">Delete all for good</button>' : '') + '<span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Done</button></div>'
+    : '<div class="trash-none"><b>Nothing here</b>Reminders you delete show up here, so you can bring them back.</div><div class="sh-actions"><span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Done</button></div>') + '</div>');
+}
 function eventSheet(id, date){
   const e = id ? S.events[id] : {title:'', date:date || ui.calSel || todayStr(), start:'', end:'', color:S.settings.eventColor, note:''};
   if (!e) return;
@@ -3827,11 +3865,15 @@ const A = {
   'del-note': t => { if (!arm(t, 'Tap again to delete')) return; delItem('notes', t.dataset.id); closeSheet(true); toast('Note deleted'); },
   'new-rem': t => remSheet(null, t.dataset.date || ''),
   'edit-rem': t => remSheet(t.dataset.id),
-  'del-rem': t => { if (!arm(t, 'Tap again to delete')) return; delItem('reminders', t.dataset.id); closeSheet(true); toast('Reminder deleted'); },
+  'del-rem': t => { if (!arm(t, 'Tap again to delete')) return; remTrash(t.dataset.id); closeSheet(true); toast('Reminder deleted. You can restore it.'); },
+  'rem-trash': () => remTrashSheet(),
+  'rem-restore': t => { remRestore(t.dataset.id); remTrashSheet(); toast('Reminder restored'); },
+  'rem-purge': t => { if (!armAlways(t, 'Tap again')) return; delItem('remTrash', t.dataset.id); remTrashSheet(); toast('Deleted for good'); },
+  'rem-purge-all': t => { if (!armAlways(t, 'Tap again to delete all for good')) return; Object.keys(S.remTrash).forEach(id => delItem('remTrash', id)); remTrashSheet(); toast('Deleted reminders cleared'); },
   'rem-toggle': t => toggleRem(t.dataset.id),
   'rem-quickdate': t => { $('#rDate').value = t.dataset.v; if (!t.dataset.v) $('#rTime').value = ''; },
   'toggle-done': () => setSetting('showDone', !S.settings.showDone),
-  'clear-done': t => { if (!arm(t, 'Tap again to clear')) return; Object.entries(S.reminders).filter(e => e[1].done).forEach(e => delItem('reminders', e[0])); toast('Completed reminders cleared'); },
+  'clear-done': t => { if (!arm(t, 'Tap again to clear')) return; Object.entries(S.reminders).filter(e => e[1].done).forEach(e => remTrash(e[0])); toast('Completed reminders cleared. You can restore them.'); },
   'new-event': t => eventSheet(null, t.dataset.date),
   'edit-event': t => eventSheet(t.dataset.id),
   'del-event': t => { if (!arm(t, 'Tap again to delete')) return; delItem('events', t.dataset.id); closeSheet(true); toast('Event deleted'); },

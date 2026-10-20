@@ -1,5 +1,11 @@
 [
  {
+  "release": 98,
+  "date": "2026-10-20",
+  "notes": "New trash button on Reminders: see reminders you deleted, then restore them or delete them for good.",
+  "app": false
+ },
+ {
   "release": 97,
   "date": "2026-10-20",
   "notes": "The bottom buttons' pictures and icons now change to the color of the page you're on.",
