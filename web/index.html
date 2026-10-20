@@ -49,7 +49,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610192352;</script>
+<script>window.JOEY_WEB_VERSION = 202610200008;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4203,7 +4203,11 @@ async function thStoreSfx(id, ev, files, folder){
   let list = Array.from(files).filter(isAudio).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
   if (!list.length) { toast(folder ? 'That folder doesn’t have any sound files in it.' : 'Pick a sound file, like an MP3 or WAV.'); return; }
   const big = list.filter(f => f.size > 3 * 1024 * 1024).length;
-  list = list.filter(f => f.size <= 3 * 1024 * 1024).slice(0, 20);
+  list = list.filter(f => f.size <= 3 * 1024 * 1024);
+  // up to 100 sounds and 40 MB per sound effect, so syncing to your other devices stays quick
+  const SFX_MAX = 100, SFX_MAX_BYTES = 40 * 1024 * 1024, total0 = list.length;
+  let bytes = 0; list = list.slice(0, SFX_MAX).filter(f => (bytes += f.size) <= SFX_MAX_BYTES);
+  if (list.length < total0) setTimeout(() => toast('Added the first ' + list.length + ' of ' + total0 + ' sounds. Each sound effect holds up to ' + SFX_MAX + ' sounds (40 MB in all).'), 1200);
   if (!list.length) { toast('Those sounds are over 3 MB each. Short sound effects work best.'); return; }
   thBusy = 'sfx_' + ev; thRefreshEditor();
   const ctx = ensureCtx(), good = [];
@@ -4247,7 +4251,7 @@ function thSfxHTML(id, noteSounds){
   const mv = t.sfxVol == null ? 70 : t.sfxVol, any = Object.keys(t.img || {}).some(k => k.startsWith('sfx_'));
   const list = SFX.filter(([ev]) => !thSecOf(t) || SFX_ALWAYS.includes(ev) || (TH_SEC_SFX[thSecOf(t)] || []).includes(ev));
   return '<div class="fld"><span>Sound effects</span><div class="th-slots">' +
-    '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness. Pick several files, or tap the folder button to add a whole folder, and a random one plays each time.' + (noteSounds ? ' Note sounds are with each note color above.' : '') + '</p>' +
+    '<p class="hint" style="margin:0 0 8px">Add your own sounds for these. They’re evened out so each one plays at about the same loudness. Pick several files, or tap the folder button to add a whole folder (up to 100 sounds), and a random one plays each time.' + (noteSounds ? ' Note sounds are with each note color above.' : '') + '</p>' +
     (any ? '<div class="th-sub th-size-row"><span>Volume</span><input type="range" class="th-sfxvol" data-ev="" min="0" max="100" step="5" value="' + mv + '" aria-label="Sound effects volume"><output>' + mv + '%</output></div>' : '') +
     list.map(([ev, label]) => thSfxRow(t, ev, label)).join('') +
     '<input type="file" id="thSfxFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" multiple hidden><input type="file" id="thSfxDir" webkitdirectory multiple hidden></div></div>';
