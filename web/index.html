@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200045;</script>
+<script>window.JOEY_WEB_VERSION = 202610200057;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1433,7 +1433,7 @@ function playTone(kind){
       g.gain.setValueAtTime(0.0001, t0 + dt);
       g.gain.exponentialRampToValueAtTime(peak, t0 + dt + 0.015);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + len);
-      o.connect(g); g.connect(actx.destination); o.start(t0 + dt); o.stop(t0 + dt + len + 0.05);
+      o.connect(g); g.connect(masterOut(actx)); o.start(t0 + dt); o.stop(t0 + dt + len + 0.05);
     });
   } catch (e) {}
 }
@@ -1453,7 +1453,7 @@ async function remPlay(spec){
   try {
     if (ctx.state === 'suspended') await ctx.resume();
     const buf = await getSongBuffer(spec.slice(5)), src = ctx.createBufferSource(), g = ctx.createGain(), t0 = ctx.currentTime, vol = Math.max(0.0002, S.settings.volume / 100), len = Math.min(8, buf.duration);
-    src.buffer = buf; src.connect(g); g.connect(ctx.destination);
+    src.buffer = buf; src.connect(g); g.connect(masterOut(ctx));
     g.gain.setValueAtTime(vol, t0); g.gain.setValueAtTime(vol, t0 + len - 0.6); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
     src.start(t0, 0, len); remClip = src;
     src.onended = () => { if (remClip === src) remClip = null; try { g.disconnect(); } catch (e) {} };
@@ -1956,6 +1956,21 @@ function timeParts(t){
 }
 
 /* sounds */
+// one volume for everything this device plays (set on the computer in Settings; it stays on this device and doesn't sync)
+let devVol = 100;
+try { const v = localStorage.getItem('jma:devVol'); if (v !== null && Number(v) >= 0) devVol = Math.min(150, Number(v)); } catch (e) {}
+function masterOut(ctx){
+  if (!ctx._jm) { ctx._jm = ctx.createGain(); ctx._jm.connect(ctx.destination); }
+  ctx._jm.gain.value = devVol / 100;
+  return ctx._jm;
+}
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'devVol') return;
+  devVol = Number(e.target.value); try { localStorage.setItem('jma:devVol', String(devVol)); } catch (x) {}
+  if (actx && actx._jm) actx._jm.gain.value = devVol / 100;
+  const o = document.getElementById('devVolOut'); if (o) o.textContent = devVol + '%';
+});
+document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol') { const t = thFor(ui.screen); const ev = t && SFX.map(x => x[0]).find(k => sfxSlots(t, k).length); if (ev) sfxPlay(ev, t, true); else { ensureCtx(); playTone('chime'); } } });
 function ensureCtx(){
   try { if (!actx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); } } catch (e) {}
   return actx;
@@ -2012,7 +2027,7 @@ async function soundStart(spec, opts){
   if (ctx.state !== 'running') return {ok:false};
   if (token !== soundToken) return {ok:false};
   const vol = Math.max(0.0001, S.settings.alarmVolume / 100), g = ctx.createGain(), t0 = ctx.currentTime;
-  g.connect(ctx.destination);
+  g.connect(masterOut(ctx));
   if (opts.fade) { g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 30); }
   else g.gain.setValueAtTime(vol, t0);
   alarmAudio.gain = g;
@@ -3382,6 +3397,8 @@ function settingsHTML(){
 
     title('set-sound', 'Sounds and alerts') + '<div class="group">' +
       tgl('sound', 'Play a sound') +
+      (document.documentElement.classList.contains('is-desk') ? '<div class="srow"><label class="lbl" for="devVol">Volume on this computer' + sub('Turns every sound in the app up or down on this computer only: theme sounds, reminders and alarms') + '</label><span class="vol" id="devVolOut">' + devVol + '%</span></div>' +
+        '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="150" step="5" id="devVol" value="' + devVol + '" aria-label="Volume on this computer"></div>' : '') +
       '<div class="srow"><span class="lbl">Reminder sound' + sub('Set it in your Reminders theme, under Sound effects → When a reminder is due') + '</span><button class="btn sm" data-action="th-goto-rem">Open</button></div>' +
       '<div class="srow"><label class="lbl" for="set-volume">Volume</label><span class="vol" data-live="vol">' + s.volume + '%</span></div>' +
       '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="100" step="5" id="set-volume" data-set="volume" value="' + s.volume + '" aria-label="Volume"></div>' +
@@ -4195,7 +4212,7 @@ async function sfxPlay(ev, t, force){
     const src = ctx.createBufferSource(), g = ctx.createGain(), t0 = ctx.currentTime, len = Math.min(e.buf.duration, 6);
     src.buffer = e.buf; g.gain.setValueAtTime(e.norm * vol, t0);
     if (e.buf.duration > 6) { g.gain.setValueAtTime(e.norm * vol, t0 + 5.6); g.gain.linearRampToValueAtTime(0.0001, t0 + 6); }
-    src.connect(g); g.connect(ctx.destination); src.start(t0, 0, len);
+    src.connect(g); g.connect(masterOut(ctx)); src.start(t0, 0, len);
     src.onended = () => { try { g.disconnect(); } catch (x) {} };
   } catch (err) {}
 }

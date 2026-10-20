@@ -1,5 +1,11 @@
 [
  {
+  "release": 83,
+  "date": "2026-10-20",
+  "notes": "Computer only: a Volume on this computer slider in Settings → Sounds and alerts that turns every app sound up or down.",
+  "app": false
+ },
+ {
   "release": 82,
   "date": "2026-10-20",
   "notes": "New reminders, new groups and the Show completed bar now fade in on the Reminders page.",
