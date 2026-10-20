@@ -1,5 +1,11 @@
 [
  {
+  "release": 101,
+  "date": "2026-10-20",
+  "notes": "Checked reminders now fade out and the gap closes smoothly (and the other way when you uncheck), and the reminder trash bin plays your open, close and delete sounds.",
+  "app": false
+ },
+ {
   "release": 100,
   "date": "2026-10-20",
   "notes": "Volume on this phone now goes up to 200%, so you can hear the app over music.",

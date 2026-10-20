@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610201502;</script>
+<script>window.JOEY_WEB_VERSION = 202610201546;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1351,16 +1351,57 @@ function remBoundary(){ const d = new Date(); if (d.getHours() < REM_RESET_HOUR)
 const REM_FADE_WAIT = 5000, REM_FADE_LEN = 1500;
 const remRepeats = r => !!(r && r.repeat && r.repeat !== 'none');
 const remRecent = r => !!(r && r.done && (remRepeats(r) ? (r.doneAt || 0) >= remBoundary() : Date.now() - (r.doneAt || 0) < REM_FADE_WAIT + REM_FADE_LEN));
+/* Moving reminders between sections smoothly: the row fades, then its space closes; where it lands, the space opens
+   and it fades in. Inline transitions marked important so they still run with Reduce motion on (like the fade). */
+const REM_CLOSE = 480;
+const remLeaving = new Set();
+function remImp(el, prop, v){ el.style.setProperty(prop, v, 'important'); }
+function remCollapse(el, ms){
+  if (!el || el.dataset.closing) return; el.dataset.closing = '1';
+  const cs = getComputedStyle(el);
+  remImp(el, 'overflow', 'hidden'); el.style.maxHeight = el.offsetHeight + 'px';
+  remImp(el, 'transition', 'max-height ' + ms + 'ms cubic-bezier(.4,0,.2,1),padding ' + ms + 'ms cubic-bezier(.4,0,.2,1),margin ' + ms + 'ms cubic-bezier(.4,0,.2,1),border-color ' + ms + 'ms ease,opacity ' + Math.round(ms * .6) + 'ms ease');
+  void el.offsetHeight;
+  remImp(el, 'max-height', '0px'); remImp(el, 'padding-top', '0px'); remImp(el, 'padding-bottom', '0px');
+  remImp(el, 'margin-top', '0px'); remImp(el, 'margin-bottom', '0px'); remImp(el, 'border-color', 'transparent'); remImp(el, 'opacity', '0');
+  if (cs.borderTopWidth !== '0px') remImp(el, 'border-top-width', cs.borderTopWidth);
+}
+// closes a row; when it's the last one in its box, the box and its heading close with it
+function remCloseRow(row, ms){
+  const card = row && row.parentElement;
+  if (card && card.classList.contains('card') && card.querySelectorAll('.rrow').length === 1) {
+    const title = card.previousElementSibling;
+    remCollapse(card, ms);
+    if (title && title.classList.contains('sec-title') && !title.querySelector('[data-action="toggle-done"]')) remCollapse(title, ms);
+  } else remCollapse(row, ms);
+}
+function remGrow(el, ms){
+  const cs = getComputedStyle(el), h = el.scrollHeight;
+  const keep = ['padding-top', 'padding-bottom', 'margin-top', 'margin-bottom'], was = {};
+  keep.forEach(k => { was[k] = cs.getPropertyValue(k); });   // read now: cs is live and changes once we zero them
+  remImp(el, 'transition', 'none'); remImp(el, 'overflow', 'hidden'); remImp(el, 'max-height', '0px');
+  keep.forEach(k => remImp(el, k, '0px'));
+  void el.offsetHeight;
+  remImp(el, 'transition', 'max-height ' + ms + 'ms cubic-bezier(.4,0,.2,1),padding ' + ms + 'ms cubic-bezier(.4,0,.2,1),margin ' + ms + 'ms cubic-bezier(.4,0,.2,1)');
+  remImp(el, 'max-height', (h + 2) + 'px');
+  keep.forEach(k => remImp(el, k, was[k]));
+  setTimeout(() => { ['transition', 'overflow', 'max-height'].concat(keep).forEach(k => el.style.removeProperty(k)); }, ms + 60);
+}
+function remGrowNew(){
+  // a whole new box grows as one; otherwise each new row grows on its own
+  $$('#main .card.fade-in').forEach(c => remGrow(c, REM_CLOSE));
+  $$('#main .sec-title.fade-in').forEach(t => remGrow(t, REM_CLOSE));
+  $$('#main .rrow.fade-in').forEach(r => { if (!r.closest('.card.fade-in')) remGrow(r, REM_CLOSE); });
+}
 function remFadeLater(id, stamp){
   const still = () => { const r = S.reminders[id]; return r && r.done && r.doneAt === stamp && ui.screen === 'reminders'; };
   setTimeout(() => { if (still()) $$('#main .rrow[data-rid="' + id + '"]').forEach(el => el.classList.add('fading')); }, REM_FADE_WAIT);
-  setTimeout(() => { if (!still()) return; $$('#main .rrow[data-rid="' + id + '"]').forEach(el => { el.style.maxHeight = el.offsetHeight + 'px'; void el.offsetHeight; el.classList.add('gone'); }); }, REM_FADE_WAIT + REM_FADE_LEN);
-  setTimeout(() => { const r = S.reminders[id]; if (r && r.done && r.doneAt === stamp) render(); }, REM_FADE_WAIT + REM_FADE_LEN + 350);
+  setTimeout(() => { if (!still()) return; $$('#main .rrow[data-rid="' + id + '"]').forEach(el => remCloseRow(el, REM_CLOSE)); }, REM_FADE_WAIT + REM_FADE_LEN);
+  setTimeout(() => { const r = S.reminders[id]; if (r && r.done && r.doneAt === stamp) render(); }, REM_FADE_WAIT + REM_FADE_LEN + REM_CLOSE + 40);
 }
 function remShowStatus(r){
   if (!remRecent(r)) return remStatus(r);
-  const s = remStatus(Object.assign({}, r, {done:false}));
-  return s === 'overdue' ? 'today' : s;
+  return remStatus(Object.assign({}, r, {done:false}));   // stays in its own section until it fades
 }
 function remRoll(){
   sfxMute++; setTimeout(() => sfxMute--, 0);   // coming back after 4 AM isn't you unchecking it
@@ -1373,7 +1414,19 @@ function remRoll(){
 function toggleRem(id){
   const r = S.reminders[id]; if (!r) return;
   // tapping a checked circle unchecks it, so there's no separate undo
-  if (r.done) { putItem('reminders', id, Object.assign({}, r, {done:false, doneAt:null})); return; }
+  if (r.done) {
+    const undone = Object.assign({}, r, {done:false, doneAt:null});
+    const el = ui.screen === 'reminders' && remShowStatus(r) === 'done' && $('#main .rrow[data-rid="' + id + '"]');
+    if (!el) { putItem('reminders', id, undone); return; }
+    // in Completed: it fades out and its space closes, then it opens up back in its own section
+    if (remLeaving.has(id)) return;
+    remLeaving.add(id); sfxPlay('remUncheck');
+    const chk = el.querySelector('.chk'); if (chk) { chk.classList.remove('on'); chk.innerHTML = ''; }
+    remImp(el, 'pointer-events', 'none'); remImp(el, 'transition', 'opacity 260ms ease'); remImp(el, 'opacity', '0');
+    setTimeout(() => remCloseRow(el, REM_CLOSE), 220);
+    setTimeout(() => { remLeaving.delete(id); sfxMute++; try { putItem('reminders', id, undone); } finally { sfxMute--; } }, 220 + REM_CLOSE + 40);   // putItem redraws once (a second redraw would cut the grow-in short)
+    return;
+  }
   const stamp = Date.now();
   putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:stamp}));
   if (!remRepeats(r)) remFadeLater(id, stamp);
@@ -3238,14 +3291,14 @@ function remindersHTML(){
   const groups = {overdue:[], today:[], upcoming:[], someday:[], done:[]};
   all.forEach(e => groups[remShowStatus(e[1])].push(e));
   Object.keys(groups).forEach(k => groups[k].sort(k === 'done' ? (a, b) => (b[1].doneAt || 0) - (a[1].doneAt || 0) : remSort));
-  const row = ([id, r]) => '<div class="rrow ' + remStatus(r) + fin('r:' + id) + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
-  const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + fin('g:' + key) + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card">' + groups[key].map(row).join('') + '</div>' : '';
+  const row = ([id, r], grp) => '<div class="rrow ' + remStatus(r) + fin('r:' + grp + ':' + id) + (remLeaving.has(id) ? ' fading gone' : '') + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
+  const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + fin('g:' + key) + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card' + fin('c:' + key) + '">' + groups[key].map(e => row(e, key)).join('') + '</div>' : '';
   const open = all.filter(e => !e[1].done).length, showDone = S.settings.showDone;
   let body = block('overdue', 'Overdue', 'danger') + block('today', 'Today') + block('upcoming', 'Upcoming') + block('someday', 'No date');
   if (!open) body += '<div class="empty' + fin('empty') + '"><b>' + (groups.done.length ? 'All done' : 'No reminders yet') + '</b>Type one above, or tap + to set a date, time and repeat.</div>';
   if (groups.done.length) {
     body += '<div class="sec-title' + fin('bar') + '"><button class="link" data-action="toggle-done">' + (showDone ? 'Hide' : 'Show') + ' completed (' + groups.done.length + ')</button>' + (showDone ? '<button class="link" data-action="clear-done">Clear completed</button>' : '') + '</div>';
-    if (showDone) body += '<div class="card">' + groups.done.map(row).join('') + '</div>';
+    if (showDone) body += '<div class="card rem-done-card' + fin('c:done') + '">' + groups.done.map(e => row(e, 'done')).join('') + '</div>';
   }
   const nTrash = Object.keys(S.remTrash || {}).length;
   return head(open + ' open', 'Reminders', '<button class="ib rem-trash-btn" data-action="rem-trash" aria-label="Deleted reminders" title="Deleted reminders">' + icon('trash') + (nTrash ? '<i>' + (nTrash > 99 ? '99+' : nTrash) + '</i>' : '') + '</button><button class="ib accent" data-action="new-rem" aria-label="New reminder">' + icon('plus') + '</button>') +
@@ -3473,6 +3526,7 @@ function render(){
   const sc = ui.screen;
   main.innerHTML = sc === 'home' ? homeHTML() : sc === 'calendar' ? calendarHTML() : sc === 'reminders' ? remindersHTML() : sc === 'notes' ? notesHTML() : sc === 'settings' ? settingsHTML() : sc === 'weather' ? weatherHTML() : timeHTML();
   renderDock(); updateSaved();
+  if (sc === 'reminders') remGrowNew();
   if (f) { const el = document.getElementById(f.id); if (el) { el.focus({preventScroll:true}); try { if (f.s != null) el.setSelectionRange(f.s, f.e); } catch (e) {} } }
 }
 function renderDock(){
@@ -3572,7 +3626,8 @@ function openSheet(html, onClose, focusId){
 function closeSheet(skipHook){
   if ($('#sheet').hidden) return;
   const nf = $('#noteForm'), nCol = nf ? (($('#nColor') || {}).value || 'none') : '';
-  { const rf = $('#remForm'); if (rf && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }   // not right after deleting or adding one: that sound plays instead
+  { const rf = $('#remForm'); if (rf && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }
+  if ($('#remTrashSheet')) sfxPlay('remClose');   // closing Deleted reminders sounds like closing a reminder   // not right after deleting or adding one: that sound plays instead
   if (previewing && !alarmRing) soundStop();
   const h = sheetHook; sheetHook = null;
   if (h && !skipHook) h();
@@ -3879,13 +3934,13 @@ const A = {
   'new-rem': t => remSheet(null, t.dataset.date || ''),
   'edit-rem': t => remSheet(t.dataset.id),
   'del-rem': t => { if (!arm(t, 'Tap again to delete')) return; remTrash(t.dataset.id); closeSheet(true); toast('Reminder deleted. You can restore it.'); },
-  'rem-trash': () => remTrashSheet(),
+  'rem-trash': () => { sfxPlay('remOpen'); remTrashSheet(); },   // same sounds as opening and closing a reminder
   'rem-restore': t => { remRestore(t.dataset.id); remTrashSheet(); toast('Reminder restored'); },
-  'rem-purge': t => { if (!armAlways(t, 'Tap again')) return; delItem('remTrash', t.dataset.id); remTrashSheet(); toast('Deleted for good'); },
-  'rem-purge-all': t => { if (!armAlways(t, 'Tap again to delete all for good')) return; Object.keys(S.remTrash).forEach(id => delItem('remTrash', id)); remTrashSheet(); toast('Deleted reminders cleared'); },
+  'rem-purge': t => { if (!armAlways(t, 'Tap again')) return; sfxPlay('remDel'); delItem('remTrash', t.dataset.id); remTrashSheet(); toast('Deleted for good'); },
+  'rem-purge-all': t => { if (!armAlways(t, 'Tap again to delete all for good')) return; sfxPlay('remDel'); Object.keys(S.remTrash).forEach(id => delItem('remTrash', id)); remTrashSheet(); toast('Deleted reminders cleared'); },
   'rem-toggle': t => toggleRem(t.dataset.id),
   'rem-quickdate': t => { $('#rDate').value = t.dataset.v; if (!t.dataset.v) $('#rTime').value = ''; },
-  'toggle-done': () => setSetting('showDone', !S.settings.showDone),
+  'toggle-done': () => { const c = S.settings.showDone && $('#main .rem-done-card'); if (!c) { setSetting('showDone', !S.settings.showDone); return; } remCollapse(c, REM_CLOSE); setTimeout(() => setSetting('showDone', false), REM_CLOSE + 40); },
   'clear-done': t => { if (!arm(t, 'Tap again to clear')) return; Object.entries(S.reminders).filter(e => e[1].done).forEach(e => remTrash(e[0])); toast('Completed reminders cleared. You can restore them.'); },
   'new-event': t => eventSheet(null, t.dataset.date),
   'edit-event': t => eventSheet(t.dataset.id),
