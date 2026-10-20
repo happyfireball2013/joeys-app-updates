@@ -1,5 +1,11 @@
 [
  {
+  "release": 85,
+  "date": "2026-10-20",
+  "notes": "Themes can color their bottom button (button and icon/text colors). Each button keeps its own page theme's colors on every page.",
+  "app": false
+ },
+ {
   "release": 84,
   "date": "2026-10-20",
   "notes": "New search bar at the top of the theme editor to find any option. Also fixes theme sections that were stacking inside each other.",
