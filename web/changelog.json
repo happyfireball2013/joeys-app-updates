@@ -1,5 +1,11 @@
 [
  {
+  "release": 90,
+  "date": "2026-10-20",
+  "notes": "New Size slider for your corner buddy in the theme editor, so you can make him smaller or bigger.",
+  "app": false
+ },
+ {
   "release": 89,
   "date": "2026-10-20",
   "notes": "The bottom buttons now use the font of the page you're on, just like their colors.",

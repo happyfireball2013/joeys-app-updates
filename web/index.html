@@ -28,7 +28,7 @@ img{max-width:100%}
 .ai-src{margin:0 0 2px;font:500 .68rem/1.2 "DM Mono",monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
 .ai-wait{margin:8px 4px 0;font-size:.85rem;color:var(--ink-2)}
 .ai-why{margin:0 0 6px;font-size:.8rem;color:var(--ink-2)}
-@media (min-width:760px){.is-desk{--bud:clamp(76px,calc((100vw - 560px) / 2 - 16px),152px)}.is-desk #thMascot{right:10px;bottom:0;width:var(--bud);height:var(--bud)}.is-desk #thMascot img{object-position:50% 100%;object-view-box:var(--trim,none);filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}.is-desk #buddyBubble{bottom:calc(var(--bud) + 4px);right:14px}.is-desk #buddyBubble::after{right:calc(var(--bud) / 2 - 13px)}.is-desk #buddyPeek{bottom:calc(var(--bud) + 4px)}}
+@media (min-width:760px){.is-desk{--bud:calc(clamp(76px,calc((100vw - 560px) / 2 - 16px),152px) * var(--bud-k,1))}.is-desk #thMascot{right:10px;bottom:0;width:var(--bud);height:var(--bud)}.is-desk #thMascot img{object-position:50% 100%;object-view-box:var(--trim,none);filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}.is-desk #buddyBubble{bottom:calc(var(--bud) + 4px);right:14px}.is-desk #buddyBubble::after{right:calc(var(--bud) / 2 - 13px)}.is-desk #buddyPeek{bottom:calc(var(--bud) + 4px)}}
 html.desk-bar .app{margin-top:36px;height:calc(100% - 36px)}
 #deskBar{position:fixed;top:0;left:0;right:0;height:36px;z-index:80;-webkit-app-region:drag;app-region:drag;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:.78rem;font-weight:600;color:var(--bar-ink,#1A1428);background:color-mix(in srgb,var(--bg) 40%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);user-select:none}
 #deskBar img{width:18px;height:18px;object-fit:contain}
@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200133;</script>
+<script>window.JOEY_WEB_VERSION = 202610200219;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -671,7 +671,7 @@ textarea.in{resize:vertical;line-height:1.5}
 .th-face{width:115%;height:115%;object-fit:contain;display:block}
 .ll-face .th-face{width:44px;height:44px}.ll-faces.big .ll-face .th-face{width:56px;height:56px}.ll-face-lg .th-face{width:52px;height:52px}.w-ll .ll-faces .ll-face .th-face{width:36px;height:36px}
 :root.th-has-empty .empty::before{content:"";display:block;width:110px;height:110px;margin:0 auto 10px;background:var(--th-empty) center/contain no-repeat}
-#thMascot{position:fixed;right:10px;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:76px;height:76px;z-index:4;pointer-events:none}
+#thMascot{position:fixed;right:10px;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:calc(76px * var(--bud-k,1));height:calc(76px * var(--bud-k,1));z-index:4;pointer-events:none}
 #thMascot img,#thMascot canvas{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
 #thMascot.open{z-index:66}
 #thMascot:not(.open){z-index:71}   /* above the little pop-up messages (they sit at 70) */
@@ -723,8 +723,8 @@ button.wx-day:active{background:var(--surface-2)}
 #thMascot{pointer-events:auto!important;cursor:pointer}
 #thMascot.talk img,#thMascot.talk canvas{animation:bbTalk .45s ease-in-out infinite alternate}
 @keyframes bbTalk{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(1.06,.94) rotate(2deg)}}
-#buddyBubble{position:fixed;right:14px;bottom:calc(172px + env(safe-area-inset-bottom,0px));z-index:65;width:min(330px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
-#buddyBubble::after{content:"";position:absolute;right:34px;bottom:-9px;width:18px;height:18px;background:var(--surface);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+#buddyBubble{position:fixed;right:14px;bottom:calc(96px + 76px * var(--bud-k,1) + env(safe-area-inset-bottom,0px));z-index:65;width:min(330px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
+#buddyBubble::after{content:"";position:absolute;right:calc(38px * var(--bud-k,1) - 4px);bottom:-9px;width:18px;height:18px;background:var(--surface);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
 @keyframes bbPop{from{transform:scale(.6) translateY(30px);opacity:0;transform-origin:85% 100%}to{transform:none;opacity:1}}
 #buddyBubble .bb-x{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
 #buddyBubble .bb-x .ic{width:16px;height:16px}
@@ -776,7 +776,7 @@ button.wx-day:active{background:var(--surface-2)}
 .ss-x[hidden]{display:none}
 
 /* the buddy's little "working on it" / "done" note while his bubble is closed */
-#buddyPeek{position:fixed;right:14px;bottom:calc(168px + env(safe-area-inset-bottom,0px));z-index:30;max-width:min(260px,calc(100vw - 28px));padding:10px 14px;border-radius:16px 16px 4px 16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 6px 20px rgba(30,15,70,.2);text-align:left;display:grid;gap:2px;animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
+#buddyPeek{position:fixed;right:14px;bottom:calc(92px + 76px * var(--bud-k,1) + env(safe-area-inset-bottom,0px));z-index:30;max-width:min(260px,calc(100vw - 28px));padding:10px 14px;border-radius:16px 16px 4px 16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 6px 20px rgba(30,15,70,.2);text-align:left;display:grid;gap:2px;animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
 #buddyPeek[hidden]{display:none}
 #buddyPeek.thinking{padding:8px 12px}
 #buddyPeek .bp-t{font-size:.9rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -4458,10 +4458,10 @@ function thPattern(kind, color){
   return svg ? 'url("data:image/svg+xml,' + svg.replace(/"/g, "'").replace(/#/g, '%23') + '")' : 'none';
 }
 // how big a background picture shows: 100 fills the space, smaller shows the whole picture smaller
-const TH_SIZE_RE = /^(bg|hero|card_|nbg_)/;
+const TH_SIZE_RE = /^(bg|hero|card_|nbg_|mascot)/;   // mascot = how big the corner buddy is (100 = normal)
 const thSize = (t, slot) => { const v = t && t.sizes && Number(t.sizes[slot]); return v >= 20 ? v : 100; };
 const thBgSize = v => v >= 100 ? 'cover' : v + '%';
-const thSizeLabel = (slot, v) => slot.startsWith('card_') ? (v === 100 ? 'Normal' : v + '%') : (v >= 100 ? 'Fill' : v + '%');
+const thSizeLabel = (slot, v) => slot.startsWith('card_') || slot === 'mascot' ? (v === 100 ? 'Normal' : v + '%') : (v >= 100 ? 'Fill' : v + '%');
 let thSizeRaf = 0;
 document.addEventListener('input', e => {
   const el = e.target; if (!el.classList || !el.classList.contains('th-size') || !TH.themes[thOpen]) return;
@@ -4537,7 +4537,7 @@ function thApply(screen){
   thApplied = sig;
   const R = rootEl, cls = ['th-on','th-round','th-wobble','th-serif','th-bgimg','th-has-empty'];
   cls.forEach(c => R.classList.remove(c));
-  ['--bg','--line','--th-pattern','--th-bg','--th-bgfade','--th-empty'].forEach(v => R.style.removeProperty(v));
+  ['--bg','--line','--th-pattern','--th-bg','--th-bgfade','--th-empty','--bud-k'].forEach(v => R.style.removeProperty(v));
   const bgEl = $('#thBg'), mas = $('#thMascot');
   noteFontApply(t);
   if (!t) {
@@ -4561,6 +4561,7 @@ function thApply(screen){
   if (bgi) R.classList.add('th-bgimg');
   const em = thImg(t, 'empty'); if (em) { R.classList.add('th-has-empty'); R.style.setProperty('--th-empty', 'url("' + em + '")'); }
   fgApply(t.card || S.settings.cCard, t.ink || S.settings.cInk, accent);
+  if (thSize(t, 'mascot') !== 100) R.style.setProperty('--bud-k', String(thSize(t, 'mascot') / 100));
   if (mas) { const m = thImg(t, 'mascot'); mas.hidden = !m; const pm = t && t.mascotPause ? '1' : ''; if (m && (mas.dataset.src !== m || (mas.dataset.pm || '') !== pm)) { budStop(); mas.dataset.pm = pm; mas.dataset.pause = ''; mas.dataset.src = m; mas.dataset.still = ''; mas.style.removeProperty('--trim'); mas.innerHTML = '<img src="' + m + '" alt="">'; buddyStill(mas, m); } if (!m) { mas.dataset.src = ''; buddyClose(); } mas.setAttribute('role', 'button'); mas.setAttribute('aria-label', 'Talk to your buddy'); }
 }
 const TH_PAL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10" cy="7.3" r="1.3" fill="currentColor"/><circle cx="14.5" cy="7.3" r="1.3" fill="currentColor"/><circle cx="17" cy="11" r="1.3" fill="currentColor"/></svg>';
@@ -4847,8 +4848,8 @@ function thEditorHTML(id){
       (slot === 'buddy' && u ? '<div class="th-sub"><span>Where</span>' + seg('buddyAt', [['hold','Under the time'],['corner','Corner']]) + '<span>Size</span>' + seg('buddySize', [['s','Small'],['m','Medium'],['l','Large']]) + '<span>Motion</span>' + seg('buddyMove', [['squish','Squish'],['bounce','Bounce'],['none','Still']]) + '</div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
-      (u && TH_SIZE_RE.test(slot) ? (function(){ const mx = slot.startsWith('card_') ? 200 : 100, v = Math.min(mx, thSize(t, slot));
-        return '<div class="th-sub th-size-row"><span>Size</span><input type="range" class="th-size" data-slot="' + slot + '" min="20" max="' + mx + '" step="5" value="' + v + '" aria-label="Picture size"><output>' + thSizeLabel(slot, v) + '</output></div>'; })() : '');
+      (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', mx = slot.startsWith('card_') || bud ? 200 : 100, mn = bud ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
+        return '<div class="th-sub th-size-row"><span>Size</span><input type="range" class="th-size" data-slot="' + slot + '" min="' + mn + '" max="' + mx + '" step="5" value="' + v + '" aria-label="' + (bud ? 'Buddy size' : 'Picture size') + '"><output>' + thSizeLabel(slot, v) + '</output></div>'; })() : '');
   };
   const sec = thSecOf(t);
   const groups = thSlotGroups().map(g => {
