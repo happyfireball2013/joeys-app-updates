@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610201546;</script>
+<script>window.JOEY_WEB_VERSION = 202610201600;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -845,6 +845,9 @@ button.wx-day:active{background:var(--surface-2)}
 .trash-row .btn.sm{flex:none}
 .trash-none{display:grid;gap:4px;text-align:center;padding:26px 12px;color:var(--ink-2)}
 .trash-none b{color:var(--ink);font-size:1rem}
+.th-bname{align-items:center}
+.th-bname label{font-weight:600}
+.th-bname .in{flex:1;min-width:0}
 .dock button:not([aria-current="page"]) .ic{color:var(--dk-tint,currentColor)}
 
 .nf-add{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;border:1px dashed var(--line);background:none;font-size:.9rem;font-weight:600;color:var(--accent-ink)}
@@ -1168,7 +1171,9 @@ function remTrash(id){
 function remRestore(id){
   const r = S.remTrash[id]; if (!r) return;
   const o = Object.assign({}, r); delete o.deletedAt;
-  putItem('reminders', S.reminders[id] ? uid() : id, o);
+  const nid = S.reminders[id] ? uid() : id;
+  if ($('#remTrashSheet')) remArrive.add(nid);   // it grows into the list when you close the bin
+  putItem('reminders', nid, o);
   delItem('remTrash', id);
 }
 function delItem(coll, id){
@@ -1355,6 +1360,20 @@ const remRecent = r => !!(r && r.done && (remRepeats(r) ? (r.doneAt || 0) >= rem
    and it fades in. Inline transitions marked important so they still run with Reduce motion on (like the fade). */
 const REM_CLOSE = 480;
 const remLeaving = new Set();
+const remArrive = new Set();   // restored from the bin while it's open: shown growing in once it closes
+function remArriveNow(){
+  const ids = [...remArrive]; remArrive.clear(); if (!ids.length || ui.screen !== 'reminders') { if (ids.length) scheduleRender(); return; }
+  const rows = ids.map(id => $('#main .rrow[data-rid="' + id + '"]')).filter(Boolean);
+  const cards = new Set(rows.map(r => r.parentElement));
+  // un-hide instantly (no built-in transition), so the grow below measures the real size
+  rows.forEach(r => { remImp(r, 'transition', 'none'); r.classList.remove('gone', 'fading', 'fade-in'); void r.offsetWidth; r.style.removeProperty('transition'); r.classList.add('fade-in'); });
+  cards.forEach(c => {
+    const mine = rows.filter(r => r.parentElement === c);
+    if (c.querySelectorAll('.rrow').length === mine.length) {   // a section that only has restored ones: the whole box opens up
+      remGrow(c, REM_CLOSE); const t = c.previousElementSibling; if (t && t.classList.contains('sec-title')) { t.classList.remove('fade-in'); void t.offsetWidth; t.classList.add('fade-in'); remGrow(t, REM_CLOSE); }
+    } else mine.forEach(r => remGrow(r, REM_CLOSE));
+  });
+}
 function remImp(el, prop, v){ el.style.setProperty(prop, v, 'important'); }
 function remCollapse(el, ms){
   if (!el || el.dataset.closing) return; el.dataset.closing = '1';
@@ -1391,7 +1410,7 @@ function remGrowNew(){
   // a whole new box grows as one; otherwise each new row grows on its own
   $$('#main .card.fade-in').forEach(c => remGrow(c, REM_CLOSE));
   $$('#main .sec-title.fade-in').forEach(t => remGrow(t, REM_CLOSE));
-  $$('#main .rrow.fade-in').forEach(r => { if (!r.closest('.card.fade-in')) remGrow(r, REM_CLOSE); });
+  $$('#main .rrow.fade-in').forEach(r => { if (!r.closest('.card.fade-in') && !remArrive.has(r.dataset.rid)) remGrow(r, REM_CLOSE); });
 }
 function remFadeLater(id, stamp){
   const still = () => { const r = S.reminders[id]; return r && r.done && r.doneAt === stamp && ui.screen === 'reminders'; };
@@ -2978,6 +2997,20 @@ const AI_ERR = {
   empty_completion:'Nothing came back. Try saying it another way.',
   upstream_error:'Claude could not be reached. Check your connection and try again.'
 };
+/* Buddies: each theme's corner buddy can have a name (theme.buddyName, synced with the theme). When you talk
+   to a buddy, aiWho says which one, so the assistant answers as him and can save a new name you give him. */
+let aiWho = null;
+const buddyName = t => t && t.buddyName ? String(t.buddyName).trim().slice(0, 30) : '';
+function buddyFor(screen){ const t = thFor(screen); return t && t.img && t.img.mascot ? {id:t.id, name:buddyName(t)} : null; }
+function buddyWhoLines(){
+  if (!aiWho) return [];
+  const t = TH.themes[aiWho.id], n = buddyName(t), who = S.settings.name || 'the user';
+  return [
+    n ? 'You are ' + n + ', ' + who + '’s buddy: the little character who lives in the corner of the app. Your name is ' + n + '. Talk as ' + n + ' in the first person, and if asked your name, say ' + n + '.'
+      : 'You are ' + who + '’s buddy: the little character who lives in the corner of the app. You don’t have a name yet.',
+    'If ' + who + ' gives you a new name or asks you to change your name, use {"type":"name_buddy","name":""} with just the name, and say you love it.'
+  ];
+}
 function aiContext(){
   const now = new Date(), t = todayStr(), s = S.settings, who = s.name || 'the user';
   const clip = (x, n) => String(x || '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -3036,6 +3069,9 @@ function aiContext(){
     '{"type":"update_event","id":""} plus only the fields that change among title, date, start, end, note',
     '{"type":"add_birthday","name":"Blake","month":10,"day":11,"year":""}',
     '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday',
+    '',
+    ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
+    ...(aiWho ? ['', ...buddyWhoLines()] : []),
     '',
     'Reply with only one JSON object: {"actions":[...],"reply":"..."}',
     'Example for "remind me tuesday at 3 to take out the dishes": {"actions":[{"type":"add_reminder","text":"Take out the dishes","date":"<the coming Tuesday>","time":"15:00","repeat":"none"}],"reply":"Got it. I’ll remind you Tuesday at 3:00 PM to take out the dishes."}'
@@ -3130,6 +3166,11 @@ function applyAiActions(out){
         const coll = {reminder:'reminders', event:'events', note:'notes', alarm:'alarms', birthday:'birthdays'}[a.kind]; if (!coll || !S[coll][id0]) return;
         const item = S[coll][id0]; remember(coll, id0); if (coll === 'reminders') { remember('remTrash', id0); remTrash(id0); } else delItem(coll, id0);
         lines.push({icon:'trash', text:'Deleted: ' + (coll === 'birthdays' ? bdayTitle(item) : item.text || item.title || item.label || (item.time ? 'Alarm ' + fmtHM(item.time) : 'Untitled')), sub:''});
+      } else if (type === 'name_buddy') {
+        const t = aiWho && TH.themes[aiWho.id], name = str(a.name, 30).replace(/^["“']|["”']$/g, ''); if (!t || !name) return;
+        undo.push({buddy:aiWho.id, before:t.buddyName || ''});
+        t.buddyName = name; thSave(); thApplied = ''; thRefreshEditorIfOpen();
+        lines.push({icon:'smile', text:'New name: ' + name, sub:'Your buddy will remember it'});
       } else if (type === 'add_birthday') {
         const name = str(a.name, 60); const month = Math.round(Number(a.month)), day = Math.round(Number(a.day)); if (!name || !(month >= 1 && month <= 12) || !(day >= 1 && day <= new Date(2024, month, 0).getDate())) return;
         const yv = String(a.year || '').trim(), year = /^\d{4}$/.test(yv) && +yv >= 1900 && +yv <= new Date().getFullYear() ? yv : '';
@@ -3169,6 +3210,7 @@ async function aiRun(text){
 function aiUndo(){
   ai.undo.slice().reverse().forEach(u => {
     if (u.timer) { Object.assign(tm, u.timer); saveClocks(); return; }
+    if (u.buddy) { const t = TH.themes[u.buddy]; if (t) { t.buddyName = u.before; thSave(); thRefreshEditorIfOpen(); } return; }
     if (u.before) putItem(u.coll, u.id, u.before); else if (S[u.coll][u.id]) delItem(u.coll, u.id);
   });
   Object.assign(ai, {undo:[], lines:[], reply:'Undone. Everything is back the way it was.'});
@@ -3291,7 +3333,7 @@ function remindersHTML(){
   const groups = {overdue:[], today:[], upcoming:[], someday:[], done:[]};
   all.forEach(e => groups[remShowStatus(e[1])].push(e));
   Object.keys(groups).forEach(k => groups[k].sort(k === 'done' ? (a, b) => (b[1].doneAt || 0) - (a[1].doneAt || 0) : remSort));
-  const row = ([id, r], grp) => '<div class="rrow ' + remStatus(r) + fin('r:' + grp + ':' + id) + (remLeaving.has(id) ? ' fading gone' : '') + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
+  const row = ([id, r], grp) => '<div class="rrow ' + remStatus(r) + fin('r:' + grp + ':' + id) + (remLeaving.has(id) || remArrive.has(id) ? ' fading gone' : '') + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
   const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + fin('g:' + key) + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card' + fin('c:' + key) + '">' + groups[key].map(e => row(e, key)).join('') + '</div>' : '';
   const open = all.filter(e => !e[1].done).length, showDone = S.settings.showDone;
   let body = block('overdue', 'Overdue', 'danger') + block('today', 'Today') + block('upcoming', 'Upcoming') + block('someday', 'No date');
@@ -3520,6 +3562,7 @@ const main = $('#main');
 let rq = 0;
 function scheduleRender(){ if (rq) return; rq = requestAnimationFrame(() => { rq = 0; render(); }); }
 function render(){
+  if (rq) { cancelAnimationFrame(rq); rq = 0; }   // drawing now covers any redraw that was queued (two in a row would cut animations short)
   setTimeout(kickFrame, 0);   // a stopwatch or timer that just started gets its smooth display
   const ae = document.activeElement; let f = null;
   if (ae && ae.id && main.contains(ae)) { f = {id:ae.id}; try { f.s = ae.selectionStart; f.e = ae.selectionEnd; } catch (e) {} }
@@ -3626,8 +3669,8 @@ function openSheet(html, onClose, focusId){
 function closeSheet(skipHook){
   if ($('#sheet').hidden) return;
   const nf = $('#noteForm'), nCol = nf ? (($('#nColor') || {}).value || 'none') : '';
-  { const rf = $('#remForm'); if (rf && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }
-  if ($('#remTrashSheet')) sfxPlay('remClose');   // closing Deleted reminders sounds like closing a reminder   // not right after deleting or adding one: that sound plays instead
+  { const rf = $('#remForm'); if (rf && Date.now() - sfxDelAt > 400) sfxPlay('remClose'); }   // not right after deleting or adding one: that sound plays instead
+  if ($('#remTrashSheet')) { sfxPlay('remClose'); setTimeout(remArriveNow, 30); }   // closing Deleted reminders sounds like closing a reminder; restored ones then grow in
   if (previewing && !alarmRing) soundStop();
   const h = sheetHook; sheetHook = null;
   if (h && !skipHook) h();
@@ -4142,7 +4185,7 @@ const FORMS = {
     putItem('reminders', uid(), {text, date:'', time:'', repeat:'none', done:false, created:Date.now()});
     ui.remQuick = ''; render(); const el = $('#remQuickIn'); if (el) el.focus();
   },
-  aiForm: () => aiRun(ui.aiText),
+  aiForm: () => { aiWho = null; aiRun(ui.aiText); },   // the AI bar is the plain assistant, not a buddy
   wxForm: () => wxSearch(($('#wxSearch') || {}).value),
   alarmForm: f => {
     const id = f.dataset.id || 'a' + uid(), old = S.alarms[id] || {}, time = $('#alTime').value;
@@ -4816,7 +4859,8 @@ function buddyBodyHTML(){
   if (ai.err) return '<p>' + esc(ai.err) + '</p>';
   if (ai.reply) return '<p>' + esc(ai.reply) + '</p>' + (ai.lines && ai.lines.length ? '<ul>' + ai.lines.map(l => '<li>' + esc(l.text) + (l.sub ? ' · <span>' + esc(l.sub) + '</span>' : '') + '</li>').join('') + '</ul>' : '') +
     (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '') + buddyNanoNote();
-  return '<p>Hi! What can I do for you?</p>';
+  const bn = buddyName(thFor(ui.screen));
+  return '<p>Hi! ' + (bn ? 'It’s me, ' + esc(bn) + '. ' : '') + 'What can I do for you?</p>';
 }
 // a GIF buddy shows its first frame and only plays while you're talking to it
 async function buddyStill(mas, url){
@@ -4972,7 +5016,7 @@ function buddyToggle(keep){
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && buddyOpen) { e.stopPropagation(); buddyClose(); } }, true);
 FORMS.buddyForm = () => {
   const i = $('#buddyInput'), text = i ? i.value.trim() : ''; if (!text || ai.busy) return;
-  i.value = ''; buddyPending = true; aiRun(text); buddyRefresh();
+  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); aiRun(text); buddyRefresh();
 };
 Object.assign(A, {
   'buddy-talk': () => buddyToggle(),
@@ -5008,6 +5052,7 @@ function thPageSheet(){
     '<button type="button" class="btn sm" data-action="th-goto-settings">Whole-app theme</button></div>';
   openSheet('<div id="thPageSheet">' + html + '</div>');
 }
+function thRefreshEditorIfOpen(){ try { if (thOpen && $('#thEditor') && !(document.activeElement && document.activeElement.id === 'thBuddyName')) thRefreshEditor(); } catch (e) {} }
 function thEditorHTML(id){
   const t = TH.themes[id]; if (!t) return '';
   const st = TH_STYLES[t.style] || TH_STYLES.classic;
@@ -5018,6 +5063,7 @@ function thEditorHTML(id){
       '<span class="th-slot-t"><b>' + esc(label) + '</b>' + (help ? '<small>' + esc(help) + '</small>' : '') + '</span>' +
       (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-pick" data-slot="' + slot + '">' + (u ? 'Change' : 'Add') + '</button>' + (u ? '<button type="button" class="btn sm" data-action="th-rm" data-slot="' + slot + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
       (slot === 'buddy' && u ? '<div class="th-sub"><span>Where</span>' + seg('buddyAt', [['hold','Under the time'],['corner','Corner']]) + '<span>Size</span>' + seg('buddySize', [['s','Small'],['m','Medium'],['l','Large']]) + '<span>Motion</span>' + seg('buddyMove', [['squish','Squish'],['bounce','Bounce'],['none','Still']]) + '</div>' : '') +
+      (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thBuddyName">Name</label><input class="in" id="thBuddyName" maxlength="30" value="' + esc(t.buddyName || '') + '" placeholder="Give your buddy a name"></div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
       (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', mx = slot.startsWith('card_') || bud ? 200 : 100, mn = bud ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
@@ -5187,6 +5233,7 @@ document.addEventListener('change', e => {
   else if (TH_COLOR_IDS[t.id] && TH.themes[thOpen]) { TH.themes[thOpen][TH_COLOR_IDS[t.id]] = t.value; thSave(); thApplied = ''; render(); if (/^th(Card|Ink|DockBg|DockInk)$/.test(t.id)) thRefreshEditor(); }
   else if (t.id === 'thSection' && TH.themes[thOpen]) { thSetSection(thOpen, t.value); thRefreshEditor(); render(); }
   else if (t.id === 'thName' && TH.themes[thOpen]) { TH.themes[thOpen].name = t.value.trim().slice(0, 40) || 'My theme'; thSave(); }
+  else if (t.id === 'thBuddyName' && TH.themes[thOpen]) { const v = t.value.trim().slice(0, 30); if (v) TH.themes[thOpen].buddyName = v; else delete TH.themes[thOpen].buddyName; thSave(); }
 });
 document.addEventListener('input', e => {
   const t = e.target;
@@ -5897,6 +5944,7 @@ window.__joeyAsk = async function(){
       for (const a of asks) {
         for (let i = 0; i < 120 && ai.busy; i++) await askSleep(500);
         Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
+        aiWho = buddyFor('home');   // the widget buddy is the menu theme's corner buddy
         try { await aiRun(String(a.text || '')); } catch (e) {}
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
@@ -6108,6 +6156,7 @@ function nanoPrompt(text){
     '"Remind me" = add_reminder. Appointments, classes, meetings, plans = add_event. Information to write down = add_note. Birthdays = add_birthday (name, month, day, year only if given). Anniversaries = add_reminder with repeat yearly and no time. "Wake me up"/"alarm" = add_alarm (days: 0=Sun..6=Sat, [] = once). How a day went or a memory = lifelog (mood happy, okay, sad or ""). Questions about the schedule, notes or weather: answer in reply using the lists, no actions. Any other question or chat: answer briefly and helpfully in reply from your own knowledge, no actions. You are Gemini Nano, Google’s on-device AI, running inside Joey’s Multipurpose App on this phone. To change or delete, use the [id] from the lists. Unclear: no actions, ask one short question.',
     'Titles are short, capitalized, and leave out date and time words. repeat is none, daily, weekdays, weekly, monthly or yearly.',
     'Action formats: {"type":"add_reminder","text":"","date":"","time":"","repeat":"none"} {"type":"add_event","title":"","date":"","start":"","end":"","note":""} {"type":"add_note","title":"","body":""} {"type":"start_timer","minutes":10,"label":""} {"type":"add_alarm","time":"07:00","days":[],"date":"","label":""} {"type":"set_alarm","id":"","enabled":false} {"type":"lifelog","date":"","mood":"","note":""} {"type":"complete_reminder","id":""} {"type":"update_reminder","id":"",...changed fields} {"type":"update_event","id":"",...changed fields} {"type":"add_birthday","name":"","month":1,"day":1,"year":""} {"type":"delete","kind":"reminder|event|note|alarm|birthday","id":""}',
+    ...(aiWho ? buddyWhoLines().concat(['Also: {"type":"name_buddy","name":""} sets your own name.']) : []),
     'Reminders: ' + (rems.join('; ') || 'none'),
     'Events: ' + (evs.join('; ') || 'none'),
     'Notes: ' + (notes.join('; ') || 'none'),
@@ -6557,7 +6606,7 @@ async function gemRun(text, fallback){
     Object.assign(ai, {busy:true, req:text, reply:'', lines:[], undo:[], err:''});
     ui.aiText = ''; render();
     aiCtl = {abort(){ gemReq++; ai.busy = false; aiCtl = null; ui.aiText = text; render(); }};
-    const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. You are Gemini, the assistant inside Joey’s Multipurpose App on his ' + (NATIVE ? 'phone' : 'computer') + '.';
+    const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. ' + (aiWho ? 'You are the buddy described above (Gemini runs you behind the scenes), inside Joey’s Multipurpose App on his ' : 'You are Gemini, the assistant inside Joey’s Multipurpose App on his ') + (NATIVE ? 'phone' : 'computer') + '.';
     const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]})).concat([{role:'user', parts:[{text:'Request: ' + text}]}]);
     let raw;
     try {

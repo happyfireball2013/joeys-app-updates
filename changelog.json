@@ -1,5 +1,11 @@
 [
  {
+  "release": 102,
+  "date": "2026-10-20",
+  "notes": "Your buddies can have names now, and they remember them (set it in the theme editor or just tell him). New and restored reminders also slide in smoothly.",
+  "app": false
+ },
+ {
   "release": 101,
   "date": "2026-10-20",
   "notes": "Checked reminders now fade out and the gap closes smoothly (and the other way when you uncheck), and the reminder trash bin plays your open, close and delete sounds.",

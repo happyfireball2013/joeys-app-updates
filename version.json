@@ -1,5 +1,5 @@
 {
- "web": 202610201546,
+ "web": 202610201600,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Checked reminders now fade out and the gap closes smoothly (and the other way when you uncheck), and the reminder trash bin plays your open, close and delete sounds."
+ "notes": "Your buddies can have names now, and they remember them (set it in the theme editor or just tell him). New and restored reminders also slide in smoothly."
 }
