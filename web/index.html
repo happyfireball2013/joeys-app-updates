@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610201614;</script>
+<script>window.JOEY_WEB_VERSION = 202610201615;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4862,8 +4862,51 @@ function buddyBodyHTML(){
   if (ai.err) return '<p>' + esc(ai.err) + '</p>';
   if (ai.reply) return '<p>' + esc(ai.reply) + '</p>' + (ai.lines && ai.lines.length ? '<ul>' + ai.lines.map(l => '<li>' + esc(l.text) + (l.sub ? ' · <span>' + esc(l.sub) + '</span>' : '') + '</li>').join('') + '</ul>' : '') +
     (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '') + buddyNanoNote();
-  const bn = buddyName(thFor(ui.screen));
-  return '<p>Hi! ' + (bn ? 'It’s me, ' + esc(bn) + '. ' : '') + 'What can I do for you?</p>';
+  return '<p>' + esc(buddyHello || 'Hi! What can I do for you?') + '</p>';
+}
+/* A different hello each time you tap the buddy. {me} = his name, {you} = your name; lines that need a name
+   only show when he has one. Picked once per tap, so it doesn't change while the bubble is open. */
+const BUDDY_HELLOS = [
+  'Hi! What can I do for you?',
+  'Hey {you}! What’s up?',
+  'Oh, hi! Need something?',
+  'You rang? 🔔',
+  'Reporting for duty! What’s the plan?',
+  'Hey hey! How can I help?',
+  'I was just thinking about you! What do you need?',
+  'Yes? I’m all ears.',
+  'Boop! What are we doing today?',
+  'Ready when you are, {you}.',
+  'Tell me what to remember and I’ll remember it.',
+  'Need a reminder, a note, or just someone to talk to?',
+  'Oh! You found me. What’s going on?',
+  'At your service! ✨',
+  'Hi again! Miss me?',
+  'Let’s get stuff done. What first?',
+  'What’s on your mind?',
+  'I’m here! Ask me anything.',
+  '{me} here! What can I do for you?',
+  'It’s me, {me}! What do you need?',
+  '{me} at your service!',
+  'Hi, it’s {me}! Got something for me?',
+  '*{me} waves* Hi {you}!'
+];
+const BUDDY_HELLOS_TIME = {
+  morning:['Good morning, {you}! ☀️ What’s first today?', 'Morning! Ready to plan the day?'],
+  afternoon:['Good afternoon! How’s the day going?', 'Afternoon, {you}! Need anything?'],
+  evening:['Good evening, {you}! Winding down?', 'Evening! Anything to remember for tomorrow?'],
+  night:['Up late, {you}? What do you need?', 'It’s late! Want me to set something for tomorrow?']
+};
+let buddyHello = '', buddyHelloLast = '';
+function buddyPickHello(){
+  const me = buddyName(thFor(ui.screen)), you = String(S.settings.name || '').trim(), h = new Date().getHours();
+  const part = h >= 5 && h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 22 ? 'evening' : 'night';
+  const pool = BUDDY_HELLOS.concat(BUDDY_HELLOS_TIME[part])
+    .filter(x => (me || !x.includes('{me}')))
+    .map(x => x.replace(/\{me\}/g, me).replace(/ ?,? ?\{you\}/g, m => you ? m.replace('{you}', you) : ''))
+    .map(x => x.replace(/\s+([!?.])/g, '$1').trim());
+  const choices = pool.filter(x => x !== buddyHelloLast);
+  buddyHello = buddyHelloLast = choices[Math.floor(Math.random() * choices.length)] || pool[0];
 }
 // a GIF buddy shows its first frame and only plays while you're talking to it
 async function buddyStill(mas, url){
@@ -5013,6 +5056,7 @@ function buddyToggle(keep){
   if (buddyOpen) { buddyClose(); return; }
   buddyOpen = true; sfxPlay('buddy');
   if (!keep && !buddyPending) Object.assign(ai, {reply:'', lines:[], undo:[], err:''});   // a fresh chat, unless he's showing what he just did
+  buddyPickHello();
   b.hidden = false; buddyRefresh();
   setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60);
 }

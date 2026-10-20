@@ -1,5 +1,11 @@
 [
  {
+  "release": 104,
+  "date": "2026-10-20",
+  "notes": "Your buddy now says a different hello each time you tap him, including ones for the time of day.",
+  "app": false
+ },
+ {
   "release": 103,
   "date": "2026-10-20",
   "notes": "Notes with titles now show before untitled ones, and reminder pop-ups on the computer no longer get cut off at the top.",
