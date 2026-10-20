@@ -1,5 +1,11 @@
 [
  {
+  "release": 84,
+  "date": "2026-10-20",
+  "notes": "New search bar at the top of the theme editor to find any option. Also fixes theme sections that were stacking inside each other.",
+  "app": false
+ },
+ {
   "release": 83,
   "date": "2026-10-20",
   "notes": "Computer only: a Volume on this computer slider in Settings → Sounds and alerts that turns every app sound up or down.",

@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200057;</script>
+<script>window.JOEY_WEB_VERSION = 202610200109;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -529,6 +529,7 @@ textarea.in{resize:vertical;line-height:1.5}
 .search{position:relative;margin-bottom:6px}
 .search .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-2)}
 .search .in{padding-left:38px}
+.th-search{position:sticky;top:-6px;z-index:2;background:var(--surface);padding:6px 0;margin:0 0 8px}.th-search .in{padding-right:40px}.th-search-x{position:absolute;right:4px;top:50%;transform:translateY(-50%)}.th-search-none{text-align:center;padding:16px 0}
 .notes-grid{columns:2;column-gap:10px}
 .notes-grid.list{columns:1}
 .note{display:block;width:100%;break-inside:avoid;margin-bottom:10px;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);text-align:left}
@@ -4307,7 +4308,7 @@ document.addEventListener('change', e => {
 });
 const TH_NOTE_GROUPS = ['Note cards','Open note background'];
 const thOpenBlocks = new Set();
-document.addEventListener('toggle', e => { const d = e.target; if (d && d.classList && d.classList.contains('th-nblock')) { if (d.open) thOpenBlocks.add(d.dataset.k); else thOpenBlocks.delete(d.dataset.k); } }, true);
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.classList && d.classList.contains('th-nblock') && !thQuery.trim()) { if (d.open) thOpenBlocks.add(d.dataset.k); else thOpenBlocks.delete(d.dataset.k); } }, true);
 function thNotesHTML(id, slotRow, seg){
   const t = TH.themes[id], tt = Object.assign({id}, t), st = TH_STYLES[t.style] || TH_STYLES.classic, img = t.img || {};
   const used = p => Object.keys(img).some(k => k.startsWith(p));
@@ -4848,6 +4849,9 @@ function thEditorHTML(id){
   const cardsUsed = Object.keys(t.img || {}).some(k => k.startsWith('card_'));
   const nbgUsed = Object.keys(t.img || {}).some(k => k.startsWith('nbg_'));
   return sheetHead('Edit theme') +
+    '<div class="search th-search">' + icon('search') + '<input class="in" id="thSearch" type="text" inputmode="search" enterkeyhint="search" value="' + esc(thQuery) + '" placeholder="Search this theme (buddy, sound, blue…)" aria-label="Search this theme" autocomplete="off">' +
+      '<button type="button" class="ib sm ghost th-search-x" id="thSearchX" data-action="th-search-clear" aria-label="Clear search"' + (thQuery ? '' : ' hidden') + '>' + icon('x') + '</button></div>' +
+    '<p class="muted th-search-none" id="thSearchNone" hidden>Nothing in this theme matches that.</p>' +
     '<label class="fld"><span>Name</span><input class="in" id="thName" value="' + esc(t.name) + '" maxlength="40" placeholder="Kirby, Zelda, Pikmin…"></label>' +
     '<label class="fld"><span>Made for</span><select class="in" id="thSection"><option value=""' + (!sec ? ' selected' : '') + '>Any page (shows every option)</option>' +
       TH_PAGES.map(([p, l]) => '<option value="' + p + '"' + (sec === p ? ' selected' : '') + '>' + esc(l) + ' only</option>').join('') + '</select>' +
@@ -4878,19 +4882,54 @@ function thEditorHTML(id){
           const v = t.nColors && t.nColors[k];
           return '<label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.62, 0.86) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + esc(n) + '</span><em>' + (v ? '' : 'Auto') + '</em></label>';
         }).join('') + '</div>' + (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set all back to Auto</button>' : '') + '</div>' : '') +
-      + '</div></div>').join('') +
+      '</div></div>').join('') +
     (noteLayout ? thNotesHTML(id, slotRow, seg) : '') +
     thSfxHTML(id, noteLayout) +
     '<p class="hint">Pictures and sounds sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
     '<div class="sh-actions"><button type="button" class="btn danger" data-action="th-del" data-id="' + id + '">Delete theme</button><span class="grow"></span><button type="button" class="btn accent" data-action="sheet-close">Done</button></div>';
 }
-function thOpenEditor(id){ thOpen = id; openSheet('<div id="thEditor" data-id="' + id + '">' + thEditorHTML(id) + '</div>', () => { thOpen = null; render(); }); }
+let thQuery = '';
+function thSearchApply(){
+  const box = $('#thEditor'); if (!box) return;
+  const q = thQuery.trim().toLowerCase(), has = el => el.textContent.toLowerCase().includes(q);
+  const x = $('#thSearchX'); if (x) x.hidden = !q;
+  let any = false;
+  box.querySelectorAll(':scope > .fld').forEach(f => {
+    const items = f.querySelectorAll('.th-slots > *, .th-fonts > *');
+    if (!q) {
+      f.hidden = false; items.forEach(c => { c.hidden = false; });
+      if (f.classList.contains('th-nblock') && f.dataset.searchOpened) { f.open = thOpenBlocks.has(f.dataset.k); delete f.dataset.searchOpened; }
+      return;
+    }
+    const head = f.querySelector(':scope > span, :scope > summary'), headHit = head ? has(head) : false;
+    let hit = headHit;
+    const list = f.querySelector('.th-slots, .th-fonts');
+    if (list) {
+      // a match shows that option and the little settings right under it
+      let show = headHit;
+      for (const c of list.children) {
+        if (c.matches('input[type=file]')) continue;
+        if (c.matches('.th-slot, .th-ncolors, .tf-row, .th-sfx-h')) show = headHit || has(c);
+        if (show && c.matches('.th-slot, .th-ncolors, .tf-row')) hit = true;
+        c.hidden = !show;
+      }
+    } else hit = hit || has(f);
+    f.hidden = !hit; if (hit) any = true;
+    if (hit && f.classList.contains('th-nblock') && !f.open) { f.dataset.searchOpened = '1'; f.open = true; }
+  });
+  const none = $('#thSearchNone'); if (none) none.hidden = !q || any;
+}
+document.addEventListener('input', e => { if (e.target && e.target.id === 'thSearch') { thQuery = e.target.value; thSearchApply(); } });
+function thOpenEditor(id){ thQuery = ''; thOpen = id; openSheet('<div id="thEditor" data-id="' + id + '">' + thEditorHTML(id) + '</div>', () => { thOpen = null; render(); }); }
 function thRefreshEditor(){
   const box = $('#thEditor'); if (!box || !thOpen) return;
   const sh = box.closest('.sheet') || box.parentElement, top = sh ? sh.scrollTop : 0;
   const nm = $('#thName'), v = nm ? nm.value : null;
+  const searching = document.activeElement && document.activeElement.id === 'thSearch';
   box.innerHTML = thEditorHTML(thOpen);
   if (v !== null && $('#thName')) $('#thName').value = v;
+  thSearchApply();
+  if (searching) { const s = $('#thSearch'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
   if (sh) sh.scrollTop = top;
 }
 function thSettingsHTML(){
@@ -4926,6 +4965,7 @@ settingsHTML = function(){
 };
 Object.assign(A, {
   'th-page': () => thPageSheet(),
+  'th-search-clear': () => { thQuery = ''; const s = $('#thSearch'); if (s) { s.value = ''; s.focus(); } thSearchApply(); },
   'th-goto-rem': () => { const t = thFor('reminders'); if (t && t.section === 'reminders') thOpenEditor(t.id); else { go('reminders'); setTimeout(() => thPageSheet(), 60); } },
   'th-move': t => { thSetSection(t.dataset.id, t.dataset.v); render(); toast('Moved to ' + thSecName(t.dataset.v)); },
   'th-move-all': () => {

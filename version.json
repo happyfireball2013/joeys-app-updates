@@ -1,5 +1,5 @@
 {
- "web": 202610200057,
+ "web": 202610200109,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Computer only: a Volume on this computer slider in Settings \u2192 Sounds and alerts that turns every app sound up or down."
+ "notes": "New search bar at the top of the theme editor to find any option. Also fixes theme sections that were stacking inside each other."
 }
