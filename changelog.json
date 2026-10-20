@@ -1,5 +1,11 @@
 [
  {
+  "release": 97,
+  "date": "2026-10-20",
+  "notes": "The bottom buttons' pictures and icons now change to the color of the page you're on.",
+  "app": false
+ },
+ {
   "release": 96,
   "date": "2026-10-20",
   "notes": "The Ditto widget now shows a purple number for reminders that are due, and it only goes away when you check them off. Tap Install to get it.",
