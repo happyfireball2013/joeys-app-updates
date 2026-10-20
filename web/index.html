@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200219;</script>
+<script>window.JOEY_WEB_VERSION = 202610200347;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -5648,7 +5648,9 @@ function widgetData(){
     .concat(Object.values(S.birthdays || {}).filter(b => b && b.month).map(b => { const ds = bdayNext(b, todayStr()), ts = parseYmd(ds).getTime(), ag = bdayAge(b, ds);
       return {t:bdayTitle(b) + (ag > 0 ? ' (turns ' + ag + ')' : ''), ts, end:ts + DAYMS - 1, allDay:true, kind:'bday'}; }))
     .sort((a, b) => a.ts - b.ts).slice(0, 40);
-  return {accent, wbg:widgetBg(accent), h24:!!s.hour24, upcoming:up, focus, events, reminders, notes, weather:wx,
+  // due times of every open reminder: the Ditto widget's badge counts the ones already due (it stays until you check them off)
+  const remDueAll = openRems().filter(([, r]) => r.date).map(([, r]) => remDue(r)).sort((a, b) => a - b).slice(0, 200);
+  return {accent, wbg:widgetBg(accent), h24:!!s.hour24, upcoming:up, focus, events, reminders, remDue:remDueAll, notes, weather:wx,
     timer:{state:tm.state, endAt:tm.endAt, remaining:tm.remaining, label:tm.label}, sw:{running:sw.running, startAt:sw.startAt, acc:sw.acc},
     clocks:(s.clocks || []).slice(0, 3).map(tz => ({tz, n:String(tz).split('/').pop().replace(/_/g, ' ')}))};
 }

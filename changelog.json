@@ -1,5 +1,11 @@
 [
  {
+  "release": 96,
+  "date": "2026-10-20",
+  "notes": "The Ditto widget now shows a purple number for reminders that are due, and it only goes away when you check them off. Tap Install to get it.",
+  "app": true
+ },
+ {
   "release": 94,
   "date": "2026-10-20",
   "notes": "Ditto now shows on your notifications, and there's a new Ditto widget with no background you can put on your home screen. Tap Install to get it.",
