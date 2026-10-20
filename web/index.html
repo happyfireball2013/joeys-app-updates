@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200013;</script>
+<script>window.JOEY_WEB_VERSION = 202610200023;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1436,7 +1436,9 @@ function playTone(kind){
 }
 function chime(){
   if (S.settings.vibrate) { try { if (navigator.vibrate) navigator.vibrate([140, 80, 140]); } catch (e) {} }
-  if (S.settings.sound && S.settings.volume > 0) remPlay(S.settings.remSound);
+  if (!S.settings.sound || S.settings.volume <= 0) return;
+  const t = thFor('reminders');   // the reminder sound lives in the Reminders theme
+  if (t && sfxSlots(t, 'remDue').length) sfxPlay('remDue', t, true); else playTone('chime');
 }
 // the reminder sound: a built-in tone, or a short clip of one of your songs
 let remClip = null;
@@ -1460,7 +1462,7 @@ function pushAlert(a){
   alerts = alerts.filter(x => x.id !== a.id).concat(a);
   renderAlerts(); chime();
   clearInterval(ringTimer); ringCount = 0;
-  if (S.settings.repeatAlert) ringTimer = setInterval(() => { if (!alerts.length || ++ringCount > 8) { clearInterval(ringTimer); return; } chime(); }, String(S.settings.remSound).startsWith('song:') ? 9000 : 3500);
+  if (S.settings.repeatAlert) ringTimer = setInterval(() => { if (!alerts.length || ++ringCount > 8) { clearInterval(ringTimer); return; } chime(); }, (thFor('reminders') && sfxSlots(thFor('reminders'), 'remDue').length) ? 7000 : 3500);
 }
 function dropAlert(id){ alerts = alerts.filter(x => x.id !== id); if (!alerts.length) clearInterval(ringTimer); renderAlerts(); }
 function renderAlerts(){
@@ -3293,6 +3295,7 @@ function settingsHTML(){
       tgl('greeting', 'Greeting on the clock', 'Good morning, good evening…') + '</div>' +
 
     title('set-look', 'Look') + '<div class="group">' +
+      (TH.themes[TH.app] ? '<div class="srow"><span class="lbl">Colors and background' + sub('Your themes set these. Change them in Themes, or set Whole app to No theme to pick colors here.') + '</span><button class="btn sm" data-action="jump" data-to="set-themes">Themes</button></div>' : (
       seg('theme', 'Theme', [['light','Light'],['dark','Dark'],['system','Match phone']]) +
       seg('background', 'Background', [['white','White'],['lavender','Lavender'],['mist','Cloud gray']], 'Used with the light theme') +
       '<div class="srow stack"><span class="lbl">Highlight color' + sub('Purple to start. Colors the big clock, buttons and highlights') + '</span><div class="swatches">' + ACCENTS.map(a => '<button class="acc" style="--sw:' + a.fill + '" data-action="set" data-k="accent" data-v="' + a.id + '" aria-pressed="' + (!s.cAccent && s.accent === a.id) + '" aria-label="' + a.name + '"></button>').join('') +
@@ -3301,7 +3304,8 @@ function settingsHTML(){
         '<div class="th-colors"><label>Page<input type="color" id="setCBg" value="' + esc(s.cBg || getComputedStyle(rootEl).getPropertyValue('--bg').trim() || '#FFFFFF') + '"></label>' +
         '<label>Cards<input type="color" id="setCCard" value="' + esc(s.cCard || fgDefaults(s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).card) + '"></label>' +
         '<label>Text<input type="color" id="setCInk" value="' + esc(s.cInk || fgDefaults(s.cCard || s.cBg || (s.theme === 'dark' ? '#110E19' : '#FFFFFF')).ink) + '"></label>' +
-        (s.cBg || s.cCard || s.cInk || s.cAccent ? '<button class="btn sm" data-action="fg-auto">Back to automatic</button>' : '') + '</div></div>' +
+        (s.cBg || s.cCard || s.cInk || s.cAccent ? '<button class="btn sm" data-action="fg-auto">Back to automatic</button>' : '') + '</div></div>'
+      )) +
 
       seg('textSize', 'Text size', [['s','Small'],['m','Default'],['l','Large'],['xl','Extra large']]) +
       seg('corners', 'Corners', [['rounded','Rounded'],['soft','Soft'],['square','Square']]) +
@@ -3371,10 +3375,10 @@ function settingsHTML(){
 
     title('set-sound', 'Sounds and alerts') + '<div class="group">' +
       tgl('sound', 'Play a sound') +
-      sel('remSound', 'Reminder sound', soundOpts(), 'Plays when a reminder is due: in the app, and on your phone as a notification even when the app is closed. Songs play a short clip.') +
+      '<div class="srow"><span class="lbl">Reminder sound' + sub('Set it in your Reminders theme, under Sound effects → When a reminder is due') + '</span><button class="btn sm" data-action="th-goto-rem">Open</button></div>' +
       '<div class="srow"><label class="lbl" for="set-volume">Volume</label><span class="vol" data-live="vol">' + s.volume + '%</span></div>' +
       '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="100" step="5" id="set-volume" data-set="volume" value="' + s.volume + '" aria-label="Volume"></div>' +
-      '<div class="srow"><span class="lbl">Test the sound</span><button class="btn sm" data-action="test-sound">Play</button></div>' +
+      '<div class="srow"><span class="lbl">Test the reminder sound</span><button class="btn sm" data-action="test-sound">Play</button></div>' +
       tgl('vibrate', 'Vibrate', 'Works on phones that allow it') +
       tgl('repeatAlert', 'Keep ringing until I respond', 'Repeats for about 30 seconds') +
       tgl('confirmDelete', 'Ask before deleting') + '</div>' +
@@ -3867,7 +3871,7 @@ const A = {
     if (i < 0 || j < 0 || j >= tabs.length) return;
     const x = tabs[i]; tabs[i] = tabs[j]; tabs[j] = x; saveSettings(); render();
   },
-  'test-sound': () => { setTimeout(() => remPlay(S.settings.remSound), 30); if (S.settings.vibrate) { try { navigator.vibrate && navigator.vibrate([140, 80, 140]); } catch (e) {} } },
+  'test-sound': () => { setTimeout(() => { const t = thFor('reminders'); if (t && sfxSlots(t, 'remDue').length) sfxPlay('remDue', t, true); else playTone('chime'); }, 30); if (S.settings.vibrate) { try { navigator.vibrate && navigator.vibrate([140, 80, 140]); } catch (e) {} } },
   'ai-example': t => { ui.aiText = t.dataset.v; render(); const el = $('#aiInput'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } },
   'ai-stop': () => { if (aiCtl) aiCtl.abort(); },
   'ai-undo': () => aiUndo(),
@@ -4122,13 +4126,13 @@ const thFits = (t, page) => { const s = thSecOf(t); return !s || s === page; };
 // which picture groups each section uses ('' = a theme for any page shows all of them)
 const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons'], calendar:['Lifelog faces'], notes:['Note cards','Open note background']};
 const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','remOpen','remClose'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'],
-  reminders:['remAdd','remCheck','remUncheck','remDel','remOpen','remClose'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
+  reminders:['remDue','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
 const TH_NO_TYPING = ['clock','stopwatch','timer'];
 const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, HUE_NAMES[k].toLowerCase()]));
 /* sound effects in each theme: your own sounds for tapping the buddy, adding and checking off things, and more.
    Every sound is evened out to the same loudness, then the theme's volume (and each sound's own slider) set how loud it plays. */
 const SFX = [['buddy','Tapping your buddy'],['remAdd','Adding a reminder'],['remCheck','Checking off a reminder'],['remUncheck','Unchecking a reminder'],['remDel','Deleting a reminder'],
-  ['remOpen','Opening a reminder (or the + for a new one)'],['remClose','Closing a reminder'],
+  ['remDue','When a reminder is due (also plays on phone notifications)'],['remOpen','Opening a reminder (or the + for a new one)'],['remClose','Closing a reminder'],
   ['evAdd','Adding an event'],['bdayAdd','Adding a birthday'],['alarmAdd','Adding an alarm'],
   ['pageOpen','Opening this page'],['pageClose','Leaving this page'],['tab','Switching to any page']];
 const SFX_ALWAYS = ['buddy','pageOpen','pageClose','tab'];
@@ -4897,6 +4901,7 @@ settingsHTML = function(){
 };
 Object.assign(A, {
   'th-page': () => thPageSheet(),
+  'th-goto-rem': () => { const t = thFor('reminders'); if (t && t.section === 'reminders') thOpenEditor(t.id); else { go('reminders'); setTimeout(() => thPageSheet(), 60); } },
   'th-move': t => { thSetSection(t.dataset.id, t.dataset.v); render(); toast('Moved to ' + thSecName(t.dataset.v)); },
   'th-move-all': () => {
     let n = 0;
@@ -5726,7 +5731,23 @@ async function remToneWav(kind){
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.7 * T.gain, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + l);
     o.connect(g); g.connect(oc.destination); o.start(t0); o.stop(t0 + l + 0.05);
   });
-  const d = (await oc.startRendering()).getChannelData(0), n = d.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  return wavB64((await oc.startRendering()).getChannelData(0), sr);
+}
+// the Reminders theme's "due" sound, evened out and set to its volume, as a short sound file the phone can play
+async function remThemeWav(t){
+  const slot = sfxSlots(t, 'remDue')[0], r = slot && await IDB.get('th:' + t.id + ':' + slot);
+  if (!r || !r.buf) return '';
+  const src = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(r.buf.slice(0));
+  const vol = (t.sfxVol == null ? 70 : t.sfxVol) / 100 * ((t.sfxV && t.sfxV.remDue != null) ? t.sfxV.remDue : 100) / 100;
+  const sr = 22050, len = Math.min(src.duration, 8), oc = new OfflineAudioContext(1, Math.max(1, Math.ceil(sr * len)), sr);
+  const s = oc.createBufferSource(), g = oc.createGain(), gain = sfxNorm(src) * vol;
+  s.buffer = src; g.gain.setValueAtTime(gain, 0);
+  if (src.duration > 8) { g.gain.setValueAtTime(gain, len - 0.4); g.gain.linearRampToValueAtTime(0.0001, len); }
+  s.connect(g); g.connect(oc.destination); s.start(0, 0, len);
+  return wavB64((await oc.startRendering()).getChannelData(0), sr);
+}
+function wavB64(d, sr){
+  const n = d.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
   const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
   str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
   v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
@@ -5736,18 +5757,20 @@ async function remToneWav(kind){
 let remNatKey = null, remToneSent = null; try { remToneSent = localStorage.getItem('jma:remTone'); } catch (e) {}
 async function syncRemindersNative(){
   if (!JA || syncRemindersNative.busy || Date.now() - (syncRemindersNative.failAt || 0) < 60000) return;
-  const s = S.settings, items = remUpcoming(60), spec = String(s.remSound || 'tone:chime');
-  const sound = !s.sound || s.volume <= 0 ? 'none' : spec;
-  const key = JSON.stringify([items, sound, !!s.vibrate, s.volume]);
+  const s = S.settings, items = remUpcoming(60), th = thFor('reminders'), slot = th && sfxSlots(th, 'remDue')[0];
+  // the sound: your Reminders theme's "due" sound, or Chime when it doesn't have one
+  const soundKey = slot ? 'theme:' + th.id + ':' + slot + ':' + th.img[slot] + ':' + (th.sfxVol == null ? 70 : th.sfxVol) + ':' + ((th.sfxV && th.sfxV.remDue) ?? 100) : 'chime';
+  const sound = !s.sound || s.volume <= 0 ? 'none' : 'tone:' + (slot ? 'theme' : 'chime');
+  const key = JSON.stringify([items, sound, soundKey, !!s.vibrate, s.volume]);
   if (key === remNatKey) return;
   syncRemindersNative.busy = true;
   try {
-    // the built-in tone as a sound file (a song falls back to Chime if it isn't on the phone)
-    const kind = spec.startsWith('tone:') ? spec.slice(5) : 'chime';
-    const tone = remToneSent === kind ? '' : await remToneWav(kind);
-    await JA.setReminders({items, sound, vibrate:!!s.vibrate, volume:s.volume, tone});
+    let tone = '';
+    if (remToneSent !== soundKey) { try { tone = slot ? await remThemeWav(th) : ''; } catch (e) {} if (!tone) tone = await remToneWav('chime'); }
+    // a theme sound is already set to its own volume; Chime follows the app's volume
+    await JA.setReminders({items, sound, vibrate:!!s.vibrate, volume:slot ? 100 : s.volume, tone});
     remNatKey = key;
-    if (tone) { remToneSent = kind; try { localStorage.setItem('jma:remTone', kind); } catch (e) {} }
+    if (tone) { remToneSent = soundKey; try { localStorage.setItem('jma:remTone', soundKey); } catch (e) {} }
   } catch (e) { syncRemindersNative.failAt = Date.now(); }   // an older phone app without this
   finally { syncRemindersNative.busy = false; }
 }
