@@ -44,12 +44,13 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-ic{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-weight:800}
 #updNotice .un-t{display:grid;gap:2px;min-width:0}
 #updNotice small{color:var(--ink-2);font-size:.8rem}
+.upd-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 0 12px}.pn-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);font-size:.8rem;font-weight:700}.pn-btn .ic{width:15px;height:15px}.pn-day{font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:14px 2px 6px}.pn-day:first-child{margin-top:0}.pn-item{display:flex;gap:10px;align-items:baseline;padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);margin-bottom:6px}.pn-item p{margin:0;font-size:.9rem;line-height:1.4}.pn-rel{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-2);flex:none}.pn-tag{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:.7rem;font-weight:700;vertical-align:1px}
 #updNotice{touch-action:none;cursor:pointer;user-select:none;-webkit-user-select:none}
 #updNotice .un-x{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--ink-2);font-size:.85rem;margin-left:2px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200008;</script>
+<script>window.JOEY_WEB_VERSION = 202610200012;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -6497,8 +6498,25 @@ function updSettingsHTML(){
     : st === 'shell' ? '<button class="btn sm accent" data-action="' + (JUP ? 'upd-apk' : 'upd-exe') + '">' + (UPD.installing ? 'Downloading…' : JUP ? 'Install' : 'Restart to update') + '</button>'
     : '<button class="btn sm" data-action="upd-check"' + (st === 'checking' || st === 'downloading' ? ' disabled' : '') + '>Check for updates</button>';
   return '<div class="sec-title" id="set-upd"><span>App updates</span><span>' + esc(UPD.verText || '') + '</span></div><div class="group">' +
-    '<div class="srow"><span class="lbl">' + esc(msg) + '</span>' + btn + '</div></div>';
+    '<div class="srow"><span class="lbl">' + esc(msg) + '</span></div>' +
+    '<div class="upd-row">' + btn + '<button class="pn-btn" data-action="patch-notes" aria-label="Patch notes">' + icon('note') + 'Patch notes</button></div></div>';
 }
+// patch notes: every update and what it changed (the online list, or the copy that came with this version when offline)
+async function patchNotesSheet(){
+  openSheet(sheetHead('Patch notes') + '<div id="pnList"><p class="muted">Loading…</p></div>');
+  let list = null;
+  try { const r = await fetch(UPD.base + 'changelog.json?t=' + Date.now(), {cache:'no-store'}); if (r.ok) list = await r.json(); } catch (e) {}
+  if (!Array.isArray(list)) { try { const r = await fetch('changelog.json'); if (r.ok) list = await r.json(); } catch (e) {} }
+  const box = $('#pnList'); if (!box) return;
+  if (!Array.isArray(list) || !list.length) { box.innerHTML = '<p class="muted">Couldn’t load the patch notes. Check your internet and try again.</p>'; return; }
+  const fmt = d => { const x = new Date(d + 'T12:00:00'); return isNaN(x) ? '' : x.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}); };
+  let lastDay = '';
+  box.innerHTML = list.slice(0, 200).map(e => {
+    const day = fmt(e.date), head = day !== lastDay ? '<div class="pn-day">' + esc(day) + '</div>' : ''; lastDay = day;
+    return head + '<div class="pn-item"><span class="pn-rel">#' + esc(String(e.release || '')) + '</span><p>' + esc(e.notes || '') + (e.app ? ' <span class="pn-tag">New ' + (JUP ? 'phone' : DESK ? 'Windows' : 'phone') + ' app</span>' : '') + '</p></div>';
+  }).join('');
+}
+A['patch-notes'] = () => patchNotesSheet();
 if (updOn()) {
   (JUP ? JUP.info().then(i => 'Version ' + (i.versionName || i.versionCode)) : DESK.info().then(i => 'Version 1.0.' + i.shell)).then(s => { UPD.verText = s; }).catch(() => {});
   const _settingsU = settingsHTML;

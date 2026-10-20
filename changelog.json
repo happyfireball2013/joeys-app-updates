@@ -1,0 +1,314 @@
+[
+ {
+  "release": 79,
+  "date": "2026-10-20",
+  "notes": "New Patch notes bubble next to Check for updates in Settings, showing what every update changed.",
+  "app": false
+ },
+ {
+  "release": 78,
+  "date": "2026-10-20",
+  "notes": "Each theme sound effect can now hold up to 100 sounds.",
+  "app": false
+ },
+ {
+  "release": 77,
+  "date": "2026-10-19",
+  "notes": "New switch under the corner buddy in themes: pause his GIF where he is instead of restarting it.",
+  "app": false
+ },
+ {
+  "release": 76,
+  "date": "2026-10-19",
+  "notes": "Each theme sound can now be a folder (or several files): a random one plays each time.",
+  "app": false
+ },
+ {
+  "release": 75,
+  "date": "2026-10-19",
+  "notes": "Notes themes are grouped by color (Blue Notes, Red Notes…) with their own open/close sounds that override the All Notes ones. Slide a note's top bar down to close it.",
+  "app": false
+ },
+ {
+  "release": 74,
+  "date": "2026-10-19",
+  "notes": "Checked-off one-time reminders now fade away after 5 seconds. Uncheck before then to keep it.",
+  "app": false
+ },
+ {
+  "release": 73,
+  "date": "2026-10-19",
+  "notes": "The + for a new reminder now plays your reminder open and close sounds.",
+  "app": false
+ },
+ {
+  "release": 72,
+  "date": "2026-10-19",
+  "notes": "Close the update pop-up with its X or swipe it away. New theme sounds: opening and leaving a page, and opening and closing a reminder.",
+  "app": false
+ },
+ {
+  "release": 71,
+  "date": "2026-10-19",
+  "notes": "Themes can now be made for one section (like Notes or Reminders) so they only show the options that work there. Settings → Themes has a Move all button for your page themes.",
+  "app": false
+ },
+ {
+  "release": 70,
+  "date": "2026-10-19",
+  "notes": "Each bottom button now keeps its own page's theme look (picture and font) on every page.",
+  "app": false
+ },
+ {
+  "release": 69,
+  "date": "2026-10-19",
+  "notes": "Themes can now have their own sound effects (buddy, reminders, notes and more), evened out to the same loudness with volume sliders.",
+  "app": false
+ },
+ {
+  "release": 68,
+  "date": "2026-10-19",
+  "notes": "Pick your reminder sound in Settings → Sounds and alerts. Reminders now also notify you with that sound when the app is closed (install the new phone app).",
+  "app": true
+ },
+ {
+  "release": 67,
+  "date": "2026-10-19",
+  "notes": "Fixes the odd gaps in calendar birthdays: after apostrophes, and between the cake and the name.",
+  "app": false
+ },
+ {
+  "release": 66,
+  "date": "2026-10-18",
+  "notes": "Your corner buddy no longer gets cut off on the sides and top when he moves.",
+  "app": false
+ },
+ {
+  "release": 65,
+  "date": "2026-10-18",
+  "notes": "Your corner buddy now stays on top of pop-up messages instead of fading behind them.",
+  "app": false
+ },
+ {
+  "release": 64,
+  "date": "2026-10-17",
+  "notes": "Weather widget: the day highs and lows no longer get cut off. Install the new phone app.",
+  "app": true
+ },
+ {
+  "release": 63,
+  "date": "2026-10-17",
+  "notes": "Weather widget: bigger text that spreads out to fill the whole widget. Install the new phone app.",
+  "app": true
+ },
+ {
+  "release": 62,
+  "date": "2026-10-17",
+  "notes": "Fixes the weather widget not loading after the font update. Install the new phone app.",
+  "app": true
+ },
+ {
+  "release": 61,
+  "date": "2026-10-17",
+  "notes": "Your weather widget now uses the font from your home page theme. Install the new phone app to get it.",
+  "app": true
+ },
+ {
+  "release": 60,
+  "date": "2026-10-17",
+  "notes": "Your own font files can now be up to 12 MB.",
+  "app": false
+ },
+ {
+  "release": 59,
+  "date": "2026-10-17",
+  "notes": "Themes now have two fonts: one for the app's own text and one for everything you type.",
+  "app": false
+ },
+ {
+  "release": 58,
+  "date": "2026-10-17",
+  "notes": "New note font: Pikmin.",
+  "app": false
+ },
+ {
+  "release": 57,
+  "date": "2026-10-17",
+  "notes": "Upload your own font file for notes in the theme editor.",
+  "app": false
+ },
+ {
+  "release": 56,
+  "date": "2026-10-16",
+  "notes": "Themes can now set a note font, bold note text, and pictures for the bottom buttons.",
+  "app": false
+ },
+ {
+  "release": 55,
+  "date": "2026-10-16",
+  "notes": "Notes open in the same color as their card, unless you pick another one in your theme.",
+  "app": false
+ },
+ {
+  "release": 54,
+  "date": "2026-10-16",
+  "notes": "Fixed: an open note's color no longer spreads to other pop-ups. The Settings color sliders are gone.",
+  "app": false
+ },
+ {
+  "release": 53,
+  "date": "2026-10-16",
+  "notes": "Pick the color each note opens in, separately from your note cards (theme editor, Open note colors).",
+  "app": false
+ },
+ {
+  "release": 52,
+  "date": "2026-10-16",
+  "notes": "Resize theme pictures, save notes without a title, and slide each note color to your own shade in Settings.",
+  "app": false
+ },
+ {
+  "release": 51,
+  "date": "2026-10-16",
+  "notes": "Install the new phone app: your widget buddy sits on the right of his chat and his GIF plays while it's open.",
+  "app": true
+ },
+ {
+  "release": 50,
+  "date": "2026-10-16",
+  "notes": "Checked reminders keep their check mark until 4 AM, with Undo. The calendar glides smoothly between months.",
+  "app": false
+ },
+ {
+  "release": 49,
+  "date": "2026-10-16",
+  "notes": "Your buddy now says so when Gemini Nano answered instead of Gemini.",
+  "app": false
+ },
+ {
+  "release": 48,
+  "date": "2026-10-16",
+  "notes": "Swipe the calendar and watch the next month slide in. Your widget buddy uses Gemini and tells you which AI answered.",
+  "app": false
+ },
+ {
+  "release": 47,
+  "date": "2026-10-16",
+  "notes": "Your widget buddy now sits bigger inside the coming-up card.",
+  "app": true
+ },
+ {
+  "release": 46,
+  "date": "2026-10-16",
+  "notes": "Birthdays on the calendar, swipe between months, and install the new phone app to ask your buddy right from the weather widget.",
+  "app": true
+ },
+ {
+  "release": 45,
+  "date": "2026-10-16",
+  "notes": "Close your buddy's bubble after asking and he keeps working, then tells you when he's done.",
+  "app": false
+ },
+ {
+  "release": 44,
+  "date": "2026-10-16",
+  "notes": "The settings search has an X to clear it.",
+  "app": false
+ },
+ {
+  "release": 43,
+  "date": "2026-10-16",
+  "notes": "Your phone now uses your Gemini key for smarter answers. Gemini Nano takes over when you're offline.",
+  "app": false
+ },
+ {
+  "release": 42,
+  "date": "2026-10-16",
+  "notes": "Notes now come in red, grey and cyan, and themes can put a picture behind open notes. Install the new phone app to give the weather widget your clock picture.",
+  "app": true
+ },
+ {
+  "release": 41,
+  "date": "2026-10-16",
+  "notes": "Notes now come in red, grey and cyan, and themes can put a picture behind open notes for each color.",
+  "app": false
+ },
+ {
+  "release": 40,
+  "date": "2026-10-16",
+  "notes": "Themes can now put pictures on note cards, one per note color, plus see-through or outline cards.",
+  "app": false
+ },
+ {
+  "release": 39,
+  "date": "2026-10-16",
+  "notes": "Calendar picture bubbles show the whole picture. The phone app uses less battery.",
+  "app": false
+ },
+ {
+  "release": 38,
+  "date": "2026-10-16",
+  "notes": "Uses far less CPU and graphics power, and pauses its moving decorations when you switch away or leave it alone for a minute.",
+  "app": false
+ },
+ {
+  "release": 37,
+  "date": "2026-10-16",
+  "notes": "New alarms start at full volume now. You can still turn on Start quiet and get louder per alarm.",
+  "app": false
+ },
+ {
+  "release": 36,
+  "date": "2026-10-16",
+  "notes": "The Windows title bar now matches your theme instead of being plain white.",
+  "app": false
+ },
+ {
+  "release": 35,
+  "date": "2026-10-16",
+  "notes": "Your PC buddy is a bit smaller now.",
+  "app": false
+ },
+ {
+  "release": 34,
+  "date": "2026-10-16",
+  "notes": "The bar at the top of every page is gone. Titles and buttons sit right on the page.",
+  "app": false
+ },
+ {
+  "release": 33,
+  "date": "2026-10-16",
+  "notes": "On the PC, your buddy now stands in the bottom-right corner, much bigger.",
+  "app": false
+ },
+ {
+  "release": 32,
+  "date": "2026-10-16",
+  "notes": "Pick any color for the page, cards and text (Settings → Look, or in a theme). Buddy GIFs play when you tap them. Swapped theme pictures sync again.",
+  "app": false
+ },
+ {
+  "release": 31,
+  "date": "2026-10-16",
+  "notes": "Pull down at the top of any page to refresh and sync. Phone and computer customizations now merge instead of overwriting each other.",
+  "app": true
+ },
+ {
+  "release": 30,
+  "date": "2026-10-15",
+  "notes": "Check for updates is now at the top of Settings. Tap your corner buddy to talk to the AI. Buddies can be GIFs.",
+  "app": false
+ },
+ {
+  "release": 29,
+  "date": "2026-10-15",
+  "notes": "Bigger Ditto icon with no background, and the bottom buttons float so pages aren't cut off.",
+  "app": true
+ },
+ {
+  "release": 28,
+  "date": "2026-10-15",
+  "notes": "New Ditto icon, and the weather now uses your real location.",
+  "app": true
+ }
+]

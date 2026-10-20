@@ -1,7 +1,8 @@
 {
- "web": 202610200008,
+ "web": 202610200012,
  "files": [
   "capacitor.js",
+  "changelog.json",
   "firebase-config.js",
   "fonts/OFL-LICENSE.txt",
   "fonts/archivo-latin-ext-wdth-normal.woff2",
@@ -42,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Each theme sound effect can now hold up to 100 sounds."
+ "notes": "New Patch notes bubble next to Check for updates in Settings, showing what every update changed."
 }
