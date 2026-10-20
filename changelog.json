@@ -1,5 +1,11 @@
 [
  {
+  "release": 82,
+  "date": "2026-10-20",
+  "notes": "New reminders, new groups and the Show completed bar now fade in on the Reminders page.",
+  "app": false
+ },
+ {
   "release": 81,
   "date": "2026-10-20",
   "notes": "The reminder sound now lives in your Reminders theme (Sound effects → When a reminder is due) and plays on phone notifications too. Settings hides the color options your themes already set.",

@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200023;</script>
+<script>window.JOEY_WEB_VERSION = 202610200045;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -486,6 +486,9 @@ textarea.in{resize:vertical;line-height:1.5}
 .rrow{transition:opacity 1.5s ease,transform 1.5s ease,max-height .3s ease,padding .3s ease}
 .rrow.fading{opacity:0;transform:translateX(10px)}
 .rrow.gone{max-height:0!important;padding-block:0;overflow:hidden;border-top-color:transparent}
+@keyframes remIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.fade-in{animation:remIn .7s ease both}
+.calm .fade-in{animation:remIn .7s ease both!important}
 .calm .rrow.fading,.calm .rrow.gone{transition:opacity 1.5s ease,transform 1.5s ease,max-height .3s ease,padding .3s ease!important}
 .rtext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
 .rt{font-weight:560;overflow-wrap:anywhere}
@@ -3174,18 +3177,22 @@ function bdaySheet(id, ds){
     '<p class="hint">The year is optional. Add it to see how old they’re turning. Birthdays show on the calendar every year, and you get a heads-up that morning.</p>' +
     '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-bday" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">Save</button></div></form>', null, id ? null : 'bdName');
 }
+// new things on the Reminders page fade in (not on first opening the page, only when something shows up while you're on it)
+let remPrev = null;
 function remindersHTML(){
+  const seen = new Set(), fin = k => { seen.add(k); return remPrev && !remPrev.has(k) ? ' fade-in' : ''; };
+  setTimeout(() => { remPrev = seen; }, 0);
   const all = Object.entries(S.reminders);
   const groups = {overdue:[], today:[], upcoming:[], someday:[], done:[]};
   all.forEach(e => groups[remShowStatus(e[1])].push(e));
   Object.keys(groups).forEach(k => groups[k].sort(k === 'done' ? (a, b) => (b[1].doneAt || 0) - (a[1].doneAt || 0) : remSort));
-  const row = ([id, r]) => '<div class="rrow ' + remStatus(r) + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
-  const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card">' + groups[key].map(row).join('') + '</div>' : '';
+  const row = ([id, r]) => '<div class="rrow ' + remStatus(r) + fin('r:' + id) + (r.done ? ' done' : '') + (r.done && !remRepeats(r) && Date.now() - (r.doneAt || 0) >= REM_FADE_WAIT && remShowStatus(r) !== 'done' ? ' fading' : '') + '" data-rid="' + id + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span>' + (remMeta(r) ? '<span class="rmeta">' + remMeta(r) + '</span>' : '') + '</button></div>';
+  const block = (key, title, cls) => groups[key].length ? '<div class="sec-title' + (cls ? ' ' + cls : '') + fin('g:' + key) + '"><span>' + title + '</span><span>' + groups[key].length + '</span></div><div class="card">' + groups[key].map(row).join('') + '</div>' : '';
   const open = all.filter(e => !e[1].done).length, showDone = S.settings.showDone;
   let body = block('overdue', 'Overdue', 'danger') + block('today', 'Today') + block('upcoming', 'Upcoming') + block('someday', 'No date');
-  if (!open) body += '<div class="empty"><b>' + (groups.done.length ? 'All done' : 'No reminders yet') + '</b>Type one above, or tap + to set a date, time and repeat.</div>';
+  if (!open) body += '<div class="empty' + fin('empty') + '"><b>' + (groups.done.length ? 'All done' : 'No reminders yet') + '</b>Type one above, or tap + to set a date, time and repeat.</div>';
   if (groups.done.length) {
-    body += '<div class="sec-title"><button class="link" data-action="toggle-done">' + (showDone ? 'Hide' : 'Show') + ' completed (' + groups.done.length + ')</button>' + (showDone ? '<button class="link" data-action="clear-done">Clear completed</button>' : '') + '</div>';
+    body += '<div class="sec-title' + fin('bar') + '"><button class="link" data-action="toggle-done">' + (showDone ? 'Hide' : 'Show') + ' completed (' + groups.done.length + ')</button>' + (showDone ? '<button class="link" data-action="clear-done">Clear completed</button>' : '') + '</div>';
     if (showDone) body += '<div class="card">' + groups.done.map(row).join('') + '</div>';
   }
   return head(open + ' open', 'Reminders', '<button class="ib accent" data-action="new-rem" aria-label="New reminder">' + icon('plus') + '</button>') +
@@ -3412,6 +3419,7 @@ function renderDock(){
   $('#dock').innerHTML = tabs.map(t => '<button type="button" data-action="go" data-screen="' + t + '"' + (t === cur ? ' aria-current="page"' : '') + '>' + icon(TABS[t].icon) + '<span>' + TABS[t].label + '</span></button>').join('');
 }
 function go(screen){
+  if (screen !== ui.screen) remPrev = null;
   if (screen !== ui.screen) { sfxPlay('pageClose', thFor(ui.screen)); sfxPlay('pageOpen', thFor(screen)); sfxPlay('tab', thFor(screen)); }
   if (!SCREENS.includes(screen)) return;
   userNavigated = true;
