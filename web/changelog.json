@@ -1,5 +1,11 @@
 [
  {
+  "release": 94,
+  "date": "2026-10-20",
+  "notes": "Ditto now shows on your notifications, and there's a new Ditto widget with no background you can put on your home screen. Tap Install to get it.",
+  "app": true
+ },
+ {
   "release": 90,
   "date": "2026-10-20",
   "notes": "New Size slider for your corner buddy in the theme editor, so you can make him smaller or bigger.",
