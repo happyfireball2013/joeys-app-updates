@@ -1,5 +1,11 @@
 [
  {
+  "release": 99,
+  "date": "2026-10-20",
+  "notes": "New Volume on this phone slider in Settings → Sounds and alerts. It only changes your phone, not your computer.",
+  "app": false
+ },
+ {
   "release": 98,
   "date": "2026-10-20",
   "notes": "New trash button on Reminders: see reminders you deleted, then restore them or delete them for good.",

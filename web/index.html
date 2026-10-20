@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610201436;</script>
+<script>window.JOEY_WEB_VERSION = 202610201500;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1987,7 +1987,7 @@ function timeParts(t){
 }
 
 /* sounds */
-// one volume for everything this device plays (set on the computer in Settings; it stays on this device and doesn't sync)
+// one volume for everything this device plays (Settings → Sounds on the computer and on the phone; it stays on this device and doesn't sync)
 let devVol = 100;
 try { const v = localStorage.getItem('jma:devVol'); if (v !== null && Number(v) >= 0) devVol = Math.min(150, Number(v)); } catch (e) {}
 function masterOut(ctx){
@@ -3429,10 +3429,17 @@ function settingsHTML(){
 
     title('set-sound', 'Sounds and alerts') + '<div class="group">' +
       tgl('sound', 'Play a sound') +
-      (document.documentElement.classList.contains('is-desk') ? '<div class="srow"><label class="lbl" for="devVol">Volume on this computer' + sub('Turns every sound in the app up or down on this computer only: theme sounds, reminders and alarms') + '</label><span class="vol" id="devVolOut">' + devVol + '%</span></div>' +
-        '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="150" step="5" id="devVol" value="' + devVol + '" aria-label="Volume on this computer"></div>' : '') +
+      (function(){   // each device has its own volume; it never syncs (saved in this device's storage only)
+        const R = document.documentElement, desk = R.classList.contains('is-desk'), phone = R.classList.contains('is-phone');
+        if (!desk && !phone) return '';
+        const name = desk ? 'Volume on this computer' : 'Volume on this phone';
+        const help = desk ? 'Turns every sound in the app up or down on this computer only: theme sounds, reminders and alarms'
+          : 'Turns the app’s sounds up or down on this phone only, without changing your computer: theme sounds and reminders. Alarms still ring at full volume so you don’t miss them.';
+        return '<div class="srow"><label class="lbl" for="devVol">' + name + sub(help) + '</label><span class="vol" id="devVolOut">' + devVol + '%</span></div>' +
+          '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="' + (desk ? 150 : 100) + '" step="5" id="devVol" value="' + (desk ? devVol : Math.min(100, devVol)) + '" aria-label="' + name + '"></div>';
+      })() +
       '<div class="srow"><span class="lbl">Reminder sound' + sub('Set it in your Reminders theme, under Sound effects → When a reminder is due') + '</span><button class="btn sm" data-action="th-goto-rem">Open</button></div>' +
-      '<div class="srow"><label class="lbl" for="set-volume">Volume</label><span class="vol" data-live="vol">' + s.volume + '%</span></div>' +
+      '<div class="srow"><label class="lbl" for="set-volume">Volume' + (document.documentElement.classList.contains('is-desk') || document.documentElement.classList.contains('is-phone') ? ' (all devices)' : '') + '</label><span class="vol" data-live="vol">' + s.volume + '%</span></div>' +
       '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="100" step="5" id="set-volume" data-set="volume" value="' + s.volume + '" aria-label="Volume"></div>' +
       '<div class="srow"><span class="lbl">Test the reminder sound</span><button class="btn sm" data-action="test-sound">Play</button></div>' +
       tgl('vibrate', 'Vibrate', 'Works on phones that allow it') +
@@ -5948,20 +5955,23 @@ async function syncRemindersNative(){
   const s = S.settings, items = remUpcoming(60), th = thFor('reminders'), slot = th && sfxSlots(th, 'remDue')[0];
   // the sound: your Reminders theme's "due" sound, or Chime when it doesn't have one
   const soundKey = slot ? 'theme:' + th.id + ':' + slot + ':' + th.img[slot] + ':' + (th.sfxVol == null ? 70 : th.sfxVol) + ':' + ((th.sfxV && th.sfxV.remDue) ?? 100) : 'chime';
-  const sound = !s.sound || s.volume <= 0 ? 'none' : 'tone:' + (slot ? 'theme' : 'chime');
-  const key = JSON.stringify([items, sound, soundKey, !!s.vibrate, s.volume]);
+  const sound = !s.sound || s.volume <= 0 || devVol <= 0 ? 'none' : 'tone:' + (slot ? 'theme' : 'chime');
+  // the phone's own volume (Settings → Volume on this phone) turns the reminder sound down too
+  const vol = Math.max(1, Math.min(100, Math.round((slot ? 100 : s.volume) * devVol / 100)));
+  const key = JSON.stringify([items, sound, soundKey, !!s.vibrate, vol]);
   if (key === remNatKey) return;
   syncRemindersNative.busy = true;
   try {
     let tone = '';
     if (remToneSent !== soundKey) { try { tone = slot ? await remThemeWav(th) : ''; } catch (e) {} if (!tone) tone = await remToneWav('chime'); }
     // a theme sound is already set to its own volume; Chime follows the app's volume
-    await JA.setReminders({items, sound, vibrate:!!s.vibrate, volume:slot ? 100 : s.volume, tone});
+    await JA.setReminders({items, sound, vibrate:!!s.vibrate, volume:vol, tone});
     remNatKey = key;
     if (tone) { remToneSent = soundKey; try { localStorage.setItem('jma:remTone', soundKey); } catch (e) {} }
   } catch (e) { syncRemindersNative.failAt = Date.now(); }   // an older phone app without this
   finally { syncRemindersNative.busy = false; }
 }
+document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol' && NATIVE && JA) syncRemindersNative(); });
 if (NATIVE && JA) {
   const _renderRem = render;
   render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(syncRemindersNative, 800); };
