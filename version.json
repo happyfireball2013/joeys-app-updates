@@ -1,5 +1,5 @@
 {
- "web": 202610191906,
+ "web": 202610192352,
  "files": [
   "capacitor.js",
   "firebase-config.js",
@@ -42,5 +42,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Each theme sound can now be a folder (or several files): a random one plays each time."
+ "notes": "New switch under the corner buddy in themes: pause his GIF where he is instead of restarting it."
 }
