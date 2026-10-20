@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200112;</script>
+<script>window.JOEY_WEB_VERSION = 202610200115;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4759,8 +4759,12 @@ function buddyNanoNote(){
   if (ai.engine !== 'Gemini Nano') return '';
   return '<small class="bb-nano">Answered by Gemini Nano, your phone’s offline AI' + (ai.engineWhy ? ', because ' + esc(ai.engineWhy) : '') + '. It can be less accurate, so double-check anything important.</small>';
 }
+let budWasBusy = false;
 function buddyRefresh(){
   const b = $('#buddyBubble'), m = $('#thMascot');
+  // his answer just came in (in the bubble, or the little note when the bubble's closed): he makes his sound again
+  if (budWasBusy && !ai.busy && (buddyOpen || buddyPending) && !document.hidden && (ai.reply || ai.err || (ai.lines && ai.lines.length))) sfxPlay('buddy');
+  budWasBusy = !!ai.busy && (buddyOpen || buddyPending);
   if (buddyPending && !ai.busy) { buddyPending = false; if (!buddyOpen) buddyPeek('done'); }
   else if (buddyPending && !buddyOpen) { const p = $('#buddyPeek'); if (!p || p.hidden || p.className !== 'thinking') buddyPeek('thinking'); }
   if (buddyOpen) buddyPeek(null);

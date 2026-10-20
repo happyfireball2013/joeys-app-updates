@@ -1,5 +1,11 @@
 [
  {
+  "release": 86,
+  "date": "2026-10-20",
+  "notes": "Your buddy plays his sound again when his answer comes in.",
+  "app": false
+ },
+ {
   "release": 85,
   "date": "2026-10-20",
   "notes": "Themes can color their bottom button (button and icon/text colors). Each button keeps its own page theme's colors on every page.",
