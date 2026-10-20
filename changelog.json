@@ -1,5 +1,11 @@
 [
  {
+  "release": 87,
+  "date": "2026-10-20",
+  "notes": "Bottom button colors now follow the page you're on instead of staying on every page.",
+  "app": false
+ },
+ {
   "release": 86,
   "date": "2026-10-20",
   "notes": "Your buddy plays his sound again when his answer comes in.",

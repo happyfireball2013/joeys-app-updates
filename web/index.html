@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200115;</script>
+<script>window.JOEY_WEB_VERSION = 202610200119;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4569,7 +4569,7 @@ function thDockDecorate(){
     const k = btn.dataset.screen, pt = thFor(k), u = thImg(pt, 'dock_' + k), img = btn.querySelector('img.dock-img');
     const f = pt ? thFontStack(pt, 'uiFont') : null, fam = f ? f.stack : 'var(--font-base)';
     if (btn.style.fontFamily !== fam) btn.style.fontFamily = fam;
-    const bgc = pt && pt.dockBg, ink = pt && (pt.dockInk || (pt.dockBg ? fgDefaults(pt.dockBg).ink : ''));
+    const ct = thFor(ui.screen), bgc = ct && ct.dockBg, ink = ct && (ct.dockInk || (ct.dockBg ? fgDefaults(ct.dockBg).ink : ''));   // colors follow the page you're on
     btn.style.background = bgc || ''; btn.style.color = ink || ''; btn.style.borderColor = bgc ? 'transparent' : '';
     btn.classList.toggle('dock-tinted', !!bgc);
     if (u) { if (img) { if (img.getAttribute('src') !== u) img.src = u; } else { const ic = btn.querySelector('svg.ic'); const im = document.createElement('img'); im.className = 'dock-img'; im.alt = ''; im.src = u; if (ic) ic.replaceWith(im); else btn.prepend(im); } }
@@ -4886,7 +4886,7 @@ function thEditorHTML(id){
     groups.filter(g => !TH_NOTE_GROUPS.includes(g.name)).map(g => '<div class="fld"><span>' + g.name + '</span><div class="th-slots">' + g.slots.map(slotRow).join('') +
       (g.name === 'Bottom button' || g.name === 'Bottom buttons' ? '<div class="th-colors th-dock-colors"><label>Button color<input type="color" id="thDockBg" value="' + esc(t.dockBg || t.card || fgDefaults(t.bg || st.bg).card) + '"></label>' +
         '<label>Icon and text<input type="color" id="thDockInk" value="' + esc(t.dockInk || fgDefaults(t.dockBg || t.card || t.bg || st.bg).ink) + '"></label>' +
-        (t.dockBg || t.dockInk ? '<button type="button" class="btn sm" data-action="th-dock-auto">Back to normal</button>' : '<small class="muted">' + (g.name === 'Bottom button' ? 'This page’s button keeps these colors on every page.' : 'Buttons for pages using this theme keep these colors on every page.') + '</small>') + '</div>' : '') +
+        (t.dockBg || t.dockInk ? '<button type="button" class="btn sm" data-action="th-dock-auto">Back to normal</button>' : '<small class="muted">Colors the whole row of bottom buttons while you’re on ' + (g.name === 'Bottom button' ? 'this page' : 'a page using this theme') + '.</small>') + '</div>' : '') +
       (g.name === 'Note cards' ? '<div class="th-sub">' + (cardsUsed ? '<span>Picture</span>' + seg('cardFit', [['fill','Fill the card'],['corner','Small in the corner']]) +
         '<span>Fade</span>' + seg('cardFade', [['0','None'],['50','Some'],['80','Lots']]) : '') + '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' : '') +
       (g.name === 'Open note background' && nbgUsed ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
