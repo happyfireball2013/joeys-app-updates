@@ -1,5 +1,11 @@
 [
  {
+  "release": 88,
+  "date": "2026-10-20",
+  "notes": "Theme sounds and pictures sync more reliably: one stuck file no longer blocks the rest, the app keeps checking while open, and the theme editor shows how many files are left.",
+  "app": false
+ },
+ {
   "release": 87,
   "date": "2026-10-20",
   "notes": "Bottom button colors now follow the page you're on instead of staying on every page.",

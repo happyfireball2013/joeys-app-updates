@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200119;</script>
+<script>window.JOEY_WEB_VERSION = 202610200122;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -529,6 +529,7 @@ textarea.in{resize:vertical;line-height:1.5}
 .search{position:relative;margin-bottom:6px}
 .search .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-2)}
 .search .in{padding-left:38px}
+.th-sync-note{color:var(--accent-ink);font-weight:650}
 .th-search{position:sticky;top:-6px;z-index:2;background:var(--surface);padding:6px 0;margin:0 0 8px}.th-search .in{padding-right:40px}.th-search-x{position:absolute;right:4px;top:50%;transform:translateY(-50%)}.th-search-none{text-align:center;padding:16px 0}
 .notes-grid{columns:2;column-gap:10px}
 .notes-grid.list{columns:1}
@@ -4898,6 +4899,7 @@ function thEditorHTML(id){
       '</div></div>').join('') +
     (noteLayout ? thNotesHTML(id, slotRow, seg) : '') +
     thSfxHTML(id, noteLayout) +
+    '<p class="hint th-sync-note" id="thSyncNote"' + (typeof fbImgStatusText === 'function' && fbImgStatusText() ? '>' + esc(fbImgStatusText()) : ' hidden>') + '</p>' +
     '<p class="hint">Pictures and sounds sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
     '<div class="sh-actions"><button type="button" class="btn danger" data-action="th-del" data-id="' + id + '">Delete theme</button><span class="grow"></span><button type="button" class="btn accent" data-action="sheet-close">Done</button></div>';
 }
@@ -6248,57 +6250,86 @@ async function fbImgSync(){
   if (FBI.busy) { FBI.again = true; return; }
   FBI.busy = true;
   const up = fbImgMap('jma:thimgup'), have = fbImgMap('jma:thimgv');
-  let pending = false;
+  let pending = 0, failed = 0;
+  const want = {};
+  Object.entries(TH.themes || {}).forEach(([id, th]) => Object.entries(th.img || {}).forEach(([slot, v]) => { want[id + ':' + slot] = v; }));
+  const keys = Object.keys(want);
+  FBI.total = keys.length; FBI.left = keys.length; FBI.dir = '';
   try {
-    const want = {};
-    Object.entries(TH.themes || {}).forEach(([id, th]) => Object.entries(th.img || {}).forEach(([slot, v]) => { want[id + ':' + slot] = v; }));
-    for (const [k, v] of Object.entries(want)) {
-      let rec = null; try { rec = await IDB.get('th:' + k); } catch (e) {}
-      const present = !!(rec && rec.buf);
-      // which version is the picture on this device?
-      let mine = null, meta = null;
-      if (present) {
-        if (rec.v !== undefined) mine = rec.v;
-        else if (have[k] === undefined || have[k] === v) mine = v;
-        else {
-          // saved before pictures knew their version: if the database doesn't have this version, the one here is it
-          // (this used to get stuck when you swapped a picture that had synced before)
-          const m = await FB.getDoc(fbImgDoc(k)); meta = m.exists() ? m.data() : null;
-          mine = meta && meta.v === v ? have[k] : v;
+    for (const k of keys) {
+      const v = want[k];
+      // each file on its own: one that's stuck (still uploading on another device, or a hiccup) doesn't hold up the rest
+      try {
+        let rec = null; try { rec = await IDB.get('th:' + k); } catch (e) {}
+        const present = !!(rec && rec.buf);
+        // which version is the file on this device?
+        let mine = null, meta = null;
+        if (present) {
+          if (rec.v !== undefined) mine = rec.v;
+          else if (have[k] === undefined || have[k] === v) mine = v;
+          else {
+            // saved before files knew their version: if the database doesn't have this version, the one here is it
+            const m = await FB.getDoc(fbImgDoc(k)); meta = m.exists() ? m.data() : null;
+            mine = meta && meta.v === v ? have[k] : v;
+          }
         }
-      }
-      if (present && mine === v && up[k] !== v) {
-        // send it up in pieces, then the little record that says it's complete
-        const s = b64(rec.buf), n = Math.max(1, Math.ceil(s.length / FBI.CH));
-        for (let i = 0; i < n; i++) await FB.setDoc(fbImgDoc(k + ':' + i), {d:s.slice(i * FBI.CH, (i + 1) * FBI.CH)});
-        await FB.setDoc(fbImgDoc(k), {v, n, type:rec.type || 'image/png'});
-        up[k] = v; have[k] = v; fbImgSave('jma:thimgup', up); fbImgSave('jma:thimgv', have);
-        if (rec.v === undefined) { try { await IDB.put('th:' + k, Object.assign({}, rec, {v})); } catch (e) {} }
-      } else if (!present || mine !== v) {
-        if (!meta) { const m = await FB.getDoc(fbImgDoc(k)); meta = m.exists() ? m.data() : null; }
-        if (!meta || meta.v !== v) { pending = true; continue; }   // not uploaded yet; tries again soon
-        let s = '';
-        for (let i = 0; i < meta.n; i++) { const c = await FB.getDoc(fbImgDoc(k + ':' + i)); if (!c.exists()) throw new Error('missing piece'); s += c.data().d; }
-        const bin = atob(s), u8 = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-        await IDB.put('th:' + k, {buf:u8.buffer, type:meta.type, v});
-        if (thUrls[k]) URL.revokeObjectURL(thUrls[k]);
-        thUrls[k] = URL.createObjectURL(new Blob([u8], {type:meta.type}));
-        have[k] = v; up[k] = v; fbImgSave('jma:thimgv', have); fbImgSave('jma:thimgup', up);
-        thApplied = ''; scheduleRender();
-      }
+        if (present && mine === v && up[k] !== v) {
+          // send it up in pieces, then the little record that says it's complete
+          FBI.dir = 'up';
+          const s = b64(rec.buf), n = Math.max(1, Math.ceil(s.length / FBI.CH));
+          for (let i = 0; i < n; i++) await FB.setDoc(fbImgDoc(k + ':' + i), {d:s.slice(i * FBI.CH, (i + 1) * FBI.CH)});
+          await FB.setDoc(fbImgDoc(k), {v, n, type:rec.type || 'image/png'});
+          up[k] = v; have[k] = v; fbImgSave('jma:thimgup', up); fbImgSave('jma:thimgv', have);
+          if (rec.v === undefined) { try { await IDB.put('th:' + k, Object.assign({}, rec, {v})); } catch (e) {} }
+        } else if (!present || mine !== v) {
+          if (!meta) { const m = await FB.getDoc(fbImgDoc(k)); meta = m.exists() ? m.data() : null; }
+          if (!meta || meta.v !== v) { pending++; continue; }   // not uploaded yet from the other device; tries again soon
+          FBI.dir = 'down';
+          let s = '';
+          for (let i = 0; i < meta.n; i++) { const c = await FB.getDoc(fbImgDoc(k + ':' + i)); if (!c.exists()) throw new Error('missing piece'); s += c.data().d; }
+          const bin = atob(s), u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          await IDB.put('th:' + k, {buf:u8.buffer, type:meta.type, v});
+          if (thUrls[k]) URL.revokeObjectURL(thUrls[k]);
+          thUrls[k] = URL.createObjectURL(new Blob([u8], {type:meta.type}));
+          have[k] = v; up[k] = v; fbImgSave('jma:thimgv', have); fbImgSave('jma:thimgup', up);
+          thApplied = ''; scheduleRender();
+        }
+      } catch (e) { failed++; FBI.err = String(e && e.message || e); window.__joeyImgErr = FBI.err; }
+      finally { FBI.left = Math.max(0, FBI.left - 1); fbImgStatus(); }
     }
-    // pictures that were removed from a theme: delete their copies
+    // files that were removed from a theme: delete their copies
     for (const k of Object.keys(up)) {
       if (want[k] !== undefined) continue;
       try { const m = await FB.getDoc(fbImgDoc(k)); if (m.exists()) { const n = m.data().n || 1; await FB.deleteDoc(fbImgDoc(k)); for (let i = 0; i < n; i++) await FB.deleteDoc(fbImgDoc(k + ':' + i)); } } catch (e) {}
       delete up[k]; delete have[k];
     }
     fbImgSave('jma:thimgup', up); fbImgSave('jma:thimgv', have);
-  } catch (e) { FBI.err = String(e && e.message || e); window.__joeyImgErr = FBI.err; setTimeout(fbImgLater, 60000); }
-  finally { FBI.busy = false; if (FBI.again) { FBI.again = false; fbImgLater(); } else if (pending) { FBI.tries = (FBI.tries || 0) + 1; if (FBI.tries < 30) setTimeout(fbImgLater, 8000); } else FBI.tries = 0; }
+  } catch (e) { failed++; FBI.err = String(e && e.message || e); window.__joeyImgErr = FBI.err; }
+  finally {
+    FBI.busy = false; FBI.waiting = pending; FBI.failed = failed; FBI.left = 0; FBI.dir = ''; fbImgStatus();
+    if (FBI.again) { FBI.again = false; fbImgLater(); }
+    else if (pending || failed) {
+      // keep checking while the app is open (a little less often as time goes on)
+      FBI.tries = (FBI.tries || 0) + 1;
+      clearTimeout(FBI.retry); FBI.retry = setTimeout(fbImgSync, Math.min(60000, 8000 + FBI.tries * 4000));
+    } else FBI.tries = 0;
+  }
 }
-
+// "syncing" note in the theme editor
+function fbImgStatus(){
+  const el = document.getElementById('thSyncNote'); if (!el) return;
+  el.textContent = fbImgStatusText(); el.hidden = !el.textContent;
+}
+function fbImgStatusText(){
+  if (!fbOn()) return '';
+  if (FBI.busy && FBI.left) return (FBI.dir === 'up' ? 'Sending' : FBI.dir === 'down' ? 'Getting' : 'Checking') + ' theme pictures and sounds… ' + FBI.left + ' left. Keep the app open until this finishes.';
+  if (FBI.waiting) return FBI.waiting + (FBI.waiting === 1 ? ' file is' : ' files are') + ' still on the way from your other device. Open the app there so it can finish sending them.';
+  if (FBI.failed) return 'A few pictures or sounds didn’t sync yet. It keeps trying while the app is open.';
+  return '';
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) fbImgLater(); });   // coming back to the app checks for new files
+setInterval(() => { if (!document.hidden && !FBI.busy) fbImgSync(); }, 5 * 60000);
 
 // start tracking changes from this point
 try { mgState("settings"); mgState("themes"); } catch (e) {}
