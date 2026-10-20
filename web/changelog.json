@@ -1,5 +1,11 @@
 [
  {
+  "release": 103,
+  "date": "2026-10-20",
+  "notes": "Notes with titles now show before untitled ones, and reminder pop-ups on the computer no longer get cut off at the top.",
+  "app": false
+ },
+ {
   "release": 102,
   "date": "2026-10-20",
   "notes": "Your buddies can have names now, and they remember them (set it in the theme editor or just tell him). New and restored reminders also slide in smoothly.",
