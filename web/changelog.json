@@ -1,5 +1,11 @@
 [
  {
+  "release": 80,
+  "date": "2026-10-20",
+  "notes": "Sound folders can now be much bigger (150 MB per sound, 5 MB each), and the label shows if any didn't fit. Removed the note runner option from themes.",
+  "app": false
+ },
+ {
   "release": 79,
   "date": "2026-10-20",
   "notes": "New Patch notes bubble next to Check for updates in Settings, showing what every update changed.",

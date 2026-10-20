@@ -1,5 +1,5 @@
 {
- "web": 202610200012,
+ "web": 202610200013,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "New Patch notes bubble next to Check for updates in Settings, showing what every update changed."
+ "notes": "Sound folders can now be much bigger (150 MB per sound, 5 MB each), and the label shows if any didn't fit. Removed the note runner option from themes."
 }

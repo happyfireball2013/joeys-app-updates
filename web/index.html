@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200012;</script>
+<script>window.JOEY_WEB_VERSION = 202610200013;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4120,7 +4120,7 @@ const thSecName = s => (TH_PAGES.find(x => x[0] === s) || [s, 'Any page'])[1];
 const thSecOf = t => (t && t.section && TH_PAGES.some(x => x[0] === t.section)) ? t.section : '';
 const thFits = (t, page) => { const s = thSecOf(t); return !s || s === page; };
 // which picture groups each section uses ('' = a theme for any page shows all of them)
-const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons'], calendar:['Lifelog faces'], notes:['Note cards','Open note background','Notes']};
+const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons'], calendar:['Lifelog faces'], notes:['Note cards','Open note background']};
 const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','remOpen','remClose'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'],
   reminders:['remAdd','remCheck','remUncheck','remDel','remOpen','remClose'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
 const TH_NO_TYPING = ['clock','stopwatch','timer'];
@@ -4203,13 +4203,13 @@ async function thStoreSfx(id, ev, files, folder){
   const isAudio = f => /^audio\//.test(f.type) || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i.test(f.name);
   let list = Array.from(files).filter(isAudio).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
   if (!list.length) { toast(folder ? 'That folder doesn’t have any sound files in it.' : 'Pick a sound file, like an MP3 or WAV.'); return; }
-  const big = list.filter(f => f.size > 3 * 1024 * 1024).length;
-  list = list.filter(f => f.size <= 3 * 1024 * 1024);
-  // up to 100 sounds and 40 MB per sound effect, so syncing to your other devices stays quick
-  const SFX_MAX = 100, SFX_MAX_BYTES = 40 * 1024 * 1024, total0 = list.length;
+  const big = list.filter(f => f.size > 5 * 1024 * 1024).length;
+  list = list.filter(f => f.size <= 5 * 1024 * 1024);
+  // up to 100 sounds and 150 MB per sound effect, so syncing to your other devices stays reasonable
+  const SFX_MAX = 100, SFX_MAX_BYTES = 150 * 1024 * 1024, total0 = list.length + big;
   let bytes = 0; list = list.slice(0, SFX_MAX).filter(f => (bytes += f.size) <= SFX_MAX_BYTES);
-  if (list.length < total0) setTimeout(() => toast('Added the first ' + list.length + ' of ' + total0 + ' sounds. Each sound effect holds up to ' + SFX_MAX + ' sounds (40 MB in all).'), 1200);
-  if (!list.length) { toast('Those sounds are over 3 MB each. Short sound effects work best.'); return; }
+  if (list.length < total0) setTimeout(() => toast('Added the first ' + list.length + ' of ' + total0 + ' sounds. Each sound effect holds up to ' + SFX_MAX + ' sounds (150 MB in all, 5 MB each).'), 1200);
+  if (!list.length) { toast('Those sounds are over 5 MB each. Short sound effects work best.'); return; }
   thBusy = 'sfx_' + ev; thRefreshEditor();
   const ctx = ensureCtx(), good = [];
   for (const f of list) {
@@ -4225,10 +4225,10 @@ async function thStoreSfx(id, ev, files, folder){
     img[slot] = v + i;
   }
   t.img = img;
-  const nm = good.length > 1 ? (folder || 'Mixed') + ' · ' + good.length + ' sounds, picked at random' : String(good[0].f.name).replace(/\.[a-z0-9]+$/i, '');
-  t.sfxN = Object.assign({}, t.sfxN, {[ev]:nm.slice(0, 60)});
+  const nm = good.length > 1 ? (folder || 'Mixed') + ' · ' + good.length + (good.length < total0 ? ' of ' + total0 : '') + ' sounds, picked at random' : String(good[0].f.name).replace(/\.[a-z0-9]+$/i, '');
+  t.sfxN = Object.assign({}, t.sfxN, {[ev]:nm.slice(0, 80)});
   thSave(); thBusy = ''; thRefreshEditor();
-  if (big) toast('Skipped ' + big + (big === 1 ? ' sound' : ' sounds') + ' over 3 MB.');
+  if (big) toast('Skipped ' + big + (big === 1 ? ' sound' : ' sounds') + ' over 5 MB.');
   if (good.length < list.length) toast((list.length - good.length) + ' file' + (list.length - good.length === 1 ? '' : 's') + ' couldn’t be played and were skipped.');
   sfxPlay(ev, Object.assign({id}, t), true);
 }
@@ -4276,7 +4276,7 @@ document.addEventListener('change', e => {
     el.value = ''; if (fs.length && thOpen && thSfxEv) thStoreSfx(thOpen, thSfxEv, fs, dir || (el.id === 'thSfxDir' ? 'Folder' : ''));
   }
 });
-const TH_NOTE_GROUPS = ['Note cards','Open note background','Notes'];
+const TH_NOTE_GROUPS = ['Note cards','Open note background'];
 const thOpenBlocks = new Set();
 document.addEventListener('toggle', e => { const d = e.target; if (d && d.classList && d.classList.contains('th-nblock')) { if (d.open) thOpenBlocks.add(d.dataset.k); else thOpenBlocks.delete(d.dataset.k); } }, true);
 function thNotesHTML(id, slotRow, seg){
@@ -4292,15 +4292,13 @@ function thNotesHTML(id, slotRow, seg){
       '<span>Cards</span>' + seg('cardLook', [['solid','Solid'],['clear','See-through'],['line','Outline only']]) + '</div>' +
     slotRow(['nbg_all', 'Background when open', 'Fills the page when you open a note']) +
     (used('nbg_') ? '<div class="th-sub"><span>Fade</span>' + seg('nbgFade', [['0','None'],['40','Some'],['70','Lots']]) + '</div>' : '') +
-    slotRow(['run_all', 'Runner', 'Runs along the bottom of each note']) +
-    (used('run_') ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') +
     ncol('all', 'Open note color') +
     (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set every open note color back to Auto</button>' : '') +
     '<div class="th-sfx-h"><b>Sounds</b></div>' + NOTE_SFX.map(([ev, l]) => thSfxRow(tt, ev, l)).join('');
   const colors = TH_NOTE_COLORS.map(([c, n]) => {
     const name = n.charAt(0).toUpperCase() + n.slice(1) + ' Notes';
-    const has = ['card_', 'nbg_', 'run_'].some(p => img[p + c]) || NOTE_SFX_KEYS.some(ev => img['sfx_' + ev + '__' + c]) || (t.nColors && t.nColors[c]);
-    const body = slotRow(['card_' + c, 'Picture on the card', '']) + slotRow(['nbg_' + c, 'Background when open', '']) + slotRow(['run_' + c, 'Runner', '']) +
+    const has = ['card_', 'nbg_'].some(p => img[p + c]) || NOTE_SFX_KEYS.some(ev => img['sfx_' + ev + '__' + c]) || (t.nColors && t.nColors[c]);
+    const body = slotRow(['card_' + c, 'Picture on the card', '']) + slotRow(['nbg_' + c, 'Background when open', '']) +
       ncol(c, 'Open note color') +
       '<div class="th-sfx-h"><b>Sounds</b><small>Play instead of the All Notes sounds for ' + esc(n) + ' notes</small></div>' +
       NOTE_SFX.filter(([ev]) => ev !== 'notePlus').map(([ev, l]) => thSfxRow(tt, ev + '__' + c, l)).join('');
@@ -4316,7 +4314,6 @@ function thSlotGroups(){
     {name:'Bottom buttons', slots:['home'].concat(TAB_OPTIONS).map(k => ['dock_' + k, (TABS[k] ? TABS[k].label : k) + ' button', ''])},
     {name:'Note cards', slots:[['card_all','Picture on every note card','Shows behind the note. PNGs with see-through backgrounds look great with “Small in the corner”.']].concat(TH_NOTE_COLORS.map(([c, n]) => ['card_' + c, 'Picture on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Open note background', slots:[['nbg_all','Behind every open note','Fills the page when you open a note to read or edit it']].concat(TH_NOTE_COLORS.map(([c, n]) => ['nbg_' + c, 'Behind open ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
-    {name:'Notes', slots:[['run_all','Runner on every note','Runs along the bottom of each note']].concat(TH_NOTE_COLORS.map(([c, n]) => ['run_' + c, 'Runner on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Lifelog faces', slots:[['mood_happy','Good day',''],['mood_okay','Okay day',''],['mood_sad','Rough day','']]}
   ];
 }
@@ -4589,19 +4586,6 @@ function thDecorate(){
         el.style.setProperty('--ncardsz', thBgSize(cs)); el.style.setProperty('--ncardh', Math.round(60 * cs / 100) + 'px');
       }
     });
-    const speed = {slow:1.5, normal:1, fast:0.6}[t.runSpeed] || 1;
-    $$('#main .note[data-id]').forEach((el, i) => {
-      const n = S.notes[el.dataset.id]; if (!n) return;
-      const u = thImg(t, 'run_' + (n.color || 'none')) || thImg(t, 'run_all');
-      if (!u || el.querySelector('.runner')) return;
-      el.classList.add('has-runner');
-      const r = document.createElement('i');
-      r.className = 'runner';
-      r.style.setProperty('--rd', (5.5 + (i * 1.7) % 3) * speed + 's');
-      r.style.animationDelay = '-' + ((i * 2.3) % 5).toFixed(1) + 's';
-      r.innerHTML = '<img src="' + u + '" alt="">';
-      el.appendChild(r);
-    });
   }
 }
 // Lifelog faces from the calendar page's theme
@@ -4832,7 +4816,6 @@ function thEditorHTML(id){
     return (TH_SEC_GROUPS[sec] || []).includes(g.name) ? g : null;
   }).filter(g => g && g.slots.length);
   const noteLayout = groups.some(g => TH_NOTE_GROUPS.includes(g.name));
-  const runnersUsed = Object.keys(t.img || {}).some(k => k.startsWith('run_'));
   const cardsUsed = Object.keys(t.img || {}).some(k => k.startsWith('card_'));
   const nbgUsed = Object.keys(t.img || {}).some(k => k.startsWith('nbg_'));
   return sheetHead('Edit theme') +
@@ -4866,7 +4849,7 @@ function thEditorHTML(id){
           const v = t.nColors && t.nColors[k];
           return '<label class="th-nc' + (v ? ' set' : '') + '"><input type="color" class="th-ncol" data-k="' + k + '" value="' + esc(v || (HUES[k] ? hslHex(hexHsl(HUES[k])[0], 0.62, 0.86) : fgDefaults(t.bg || st.bg).card)) + '"><span>' + esc(n) + '</span><em>' + (v ? '' : 'Auto') + '</em></label>';
         }).join('') + '</div>' + (t.nColors && Object.keys(t.nColors).length ? '<button type="button" class="btn sm" data-action="th-ncol-reset">Set all back to Auto</button>' : '') + '</div>' : '') +
-      (g.name === 'Notes' && runnersUsed ? '<div class="th-sub"><span>Running speed</span>' + seg('runSpeed', [['slow','Slow'],['normal','Normal'],['fast','Fast']]) + '</div>' : '') + '</div></div>').join('') +
+      + '</div></div>').join('') +
     (noteLayout ? thNotesHTML(id, slotRow, seg) : '') +
     thSfxHTML(id, noteLayout) +
     '<p class="hint">Pictures and sounds sync to your other devices when you’re signed in. GIFs keep their animation, and PNGs keep see-through backgrounds.</p>' +
