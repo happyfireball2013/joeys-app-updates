@@ -1,5 +1,5 @@
 {
- "web": 202610201500,
+ "web": 202610201502,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "New Volume on this phone slider in Settings \u2192 Sounds and alerts. It only changes your phone, not your computer."
+ "notes": "Volume on this phone now goes up to 200%, so you can hear the app over music."
 }

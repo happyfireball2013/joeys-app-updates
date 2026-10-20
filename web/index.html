@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610201500;</script>
+<script>window.JOEY_WEB_VERSION = 202610201502;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1989,9 +1989,15 @@ function timeParts(t){
 /* sounds */
 // one volume for everything this device plays (Settings → Sounds on the computer and on the phone; it stays on this device and doesn't sync)
 let devVol = 100;
-try { const v = localStorage.getItem('jma:devVol'); if (v !== null && Number(v) >= 0) devVol = Math.min(150, Number(v)); } catch (e) {}
+try { const v = localStorage.getItem('jma:devVol'); if (v !== null && Number(v) >= 0) devVol = Math.min(200, Number(v)); } catch (e) {}
 function masterOut(ctx){
-  if (!ctx._jm) { ctx._jm = ctx.createGain(); ctx._jm.connect(ctx.destination); }
+  // volume, then a limiter so turning it past 100% gets louder without crackling
+  if (!ctx._jm) {
+    ctx._jm = ctx.createGain();
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -3; lim.knee.value = 3; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12;
+    ctx._jm.connect(lim); lim.connect(ctx.destination);
+  }
   ctx._jm.gain.value = devVol / 100;
   return ctx._jm;
 }
@@ -3434,9 +3440,9 @@ function settingsHTML(){
         if (!desk && !phone) return '';
         const name = desk ? 'Volume on this computer' : 'Volume on this phone';
         const help = desk ? 'Turns every sound in the app up or down on this computer only: theme sounds, reminders and alarms'
-          : 'Turns the app’s sounds up or down on this phone only, without changing your computer: theme sounds and reminders. Alarms still ring at full volume so you don’t miss them.';
+          : 'Turns the app’s sounds up or down on this phone only, without changing your computer: theme sounds and reminders. Past 100% makes them louder than normal, to hear them over music. Alarms still ring at full volume so you don’t miss them.';
         return '<div class="srow"><label class="lbl" for="devVol">' + name + sub(help) + '</label><span class="vol" id="devVolOut">' + devVol + '%</span></div>' +
-          '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="' + (desk ? 150 : 100) + '" step="5" id="devVol" value="' + (desk ? devVol : Math.min(100, devVol)) + '" aria-label="' + name + '"></div>';
+          '<div style="padding:0 0 12px"><input class="range" type="range" min="0" max="' + (desk ? 150 : 200) + '" step="5" id="devVol" value="' + (desk ? Math.min(150, devVol) : devVol) + '" aria-label="' + name + '"></div>';
       })() +
       '<div class="srow"><span class="lbl">Reminder sound' + sub('Set it in your Reminders theme, under Sound effects → When a reminder is due') + '</span><button class="btn sm" data-action="th-goto-rem">Open</button></div>' +
       '<div class="srow"><label class="lbl" for="set-volume">Volume' + (document.documentElement.classList.contains('is-desk') || document.documentElement.classList.contains('is-phone') ? ' (all devices)' : '') + '</label><span class="vol" data-live="vol">' + s.volume + '%</span></div>' +
@@ -5916,7 +5922,7 @@ async function syncWidgetFont(){
 }
 
 /* reminders on the phone: upcoming ones are handed to the phone so they notify you, with your reminder sound, even when the app is closed */
-async function remToneWav(kind){
+async function remToneWav(kind, boost){
   const T = TONES[kind] || TONES.chime, sr = 22050, gap = (TONE_GAP[kind] || 1500) / 1000, reps = 2;
   const len = gap * (reps - 1) + Math.max(...T.notes.map(n => n[1] + n[2])) + 0.2;
   const oc = new OfflineAudioContext(1, Math.ceil(sr * len), sr);
@@ -5926,10 +5932,10 @@ async function remToneWav(kind){
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.7 * T.gain, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + l);
     o.connect(g); g.connect(oc.destination); o.start(t0); o.stop(t0 + l + 0.05);
   });
-  return wavB64((await oc.startRendering()).getChannelData(0), sr);
+  return wavB64((await oc.startRendering()).getChannelData(0), sr, boost);
 }
 // the Reminders theme's "due" sound, evened out and set to its volume, as a short sound file the phone can play
-async function remThemeWav(t){
+async function remThemeWav(t, boost){
   const slot = sfxSlots(t, 'remDue')[0], r = slot && await IDB.get('th:' + t.id + ':' + slot);
   if (!r || !r.buf) return '';
   const src = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(r.buf.slice(0));
@@ -5939,14 +5945,16 @@ async function remThemeWav(t){
   s.buffer = src; g.gain.setValueAtTime(gain, 0);
   if (src.duration > 8) { g.gain.setValueAtTime(gain, len - 0.4); g.gain.linearRampToValueAtTime(0.0001, len); }
   s.connect(g); g.connect(oc.destination); s.start(0, 0, len);
-  return wavB64((await oc.startRendering()).getChannelData(0), sr);
+  return wavB64((await oc.startRendering()).getChannelData(0), sr, boost);
 }
-function wavB64(d, sr){
+// boost > 1 (phone volume past 100%) makes the sound louder, rounding off the loudest bits instead of crackling
+function wavB64(d, sr, boost){
+  const k = boost > 1 ? boost : 1, shape = k > 1 ? x => Math.tanh(x * k) : x => x;
   const n = d.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
   const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
   str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
   v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
-  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, shape(d[i]))) * 32767, true);
   return b64(buf);
 }
 let remNatKey = null, remToneSent = null; try { remToneSent = localStorage.getItem('jma:remTone'); } catch (e) {}
@@ -5954,16 +5962,18 @@ async function syncRemindersNative(){
   if (!JA || syncRemindersNative.busy || Date.now() - (syncRemindersNative.failAt || 0) < 60000) return;
   const s = S.settings, items = remUpcoming(60), th = thFor('reminders'), slot = th && sfxSlots(th, 'remDue')[0];
   // the sound: your Reminders theme's "due" sound, or Chime when it doesn't have one
-  const soundKey = slot ? 'theme:' + th.id + ':' + slot + ':' + th.img[slot] + ':' + (th.sfxVol == null ? 70 : th.sfxVol) + ':' + ((th.sfxV && th.sfxV.remDue) ?? 100) : 'chime';
+  let soundKey = slot ? 'theme:' + th.id + ':' + slot + ':' + th.img[slot] + ':' + (th.sfxVol == null ? 70 : th.sfxVol) + ':' + ((th.sfxV && th.sfxV.remDue) ?? 100) : 'chime';
   const sound = !s.sound || s.volume <= 0 || devVol <= 0 ? 'none' : 'tone:' + (slot ? 'theme' : 'chime');
   // the phone's own volume (Settings → Volume on this phone) turns the reminder sound down too
-  const vol = Math.max(1, Math.min(100, Math.round((slot ? 100 : s.volume) * devVol / 100)));
+  const want = (slot ? 100 : s.volume) * devVol / 100, vol = Math.max(1, Math.min(100, Math.round(want)));
+  const boost = Math.round(Math.max(1, want / 100) * 20) / 20;   // past 100%: the sound file itself is made louder
+  soundKey += ':x' + boost;
   const key = JSON.stringify([items, sound, soundKey, !!s.vibrate, vol]);
   if (key === remNatKey) return;
   syncRemindersNative.busy = true;
   try {
     let tone = '';
-    if (remToneSent !== soundKey) { try { tone = slot ? await remThemeWav(th) : ''; } catch (e) {} if (!tone) tone = await remToneWav('chime'); }
+    if (remToneSent !== soundKey) { try { tone = slot ? await remThemeWav(th, boost) : ''; } catch (e) {} if (!tone) tone = await remToneWav('chime', boost); }
     // a theme sound is already set to its own volume; Chime follows the app's volume
     await JA.setReminders({items, sound, vibrate:!!s.vibrate, volume:vol, tone});
     remNatKey = key;

@@ -1,5 +1,11 @@
 [
  {
+  "release": 100,
+  "date": "2026-10-20",
+  "notes": "Volume on this phone now goes up to 200%, so you can hear the app over music.",
+  "app": false
+ },
+ {
   "release": 99,
   "date": "2026-10-20",
   "notes": "New Volume on this phone slider in Settings → Sounds and alerts. It only changes your phone, not your computer.",
