@@ -1,5 +1,5 @@
 {
- "web": 202610200122,
+ "web": 202610200133,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Theme sounds and pictures sync more reliably: one stuck file no longer blocks the rest, the app keeps checking while open, and the theme editor shows how many files are left."
+ "notes": "The bottom buttons now use the font of the page you're on, just like their colors."
 }

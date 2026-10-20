@@ -50,7 +50,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610200122;</script>
+<script>window.JOEY_WEB_VERSION = 202610200133;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -4565,12 +4565,13 @@ function thApply(screen){
 }
 const TH_PAL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10" cy="7.3" r="1.3" fill="currentColor"/><circle cx="14.5" cy="7.3" r="1.3" fill="currentColor"/><circle cx="17" cy="11" r="1.3" fill="currentColor"/></svg>';
 function thDockDecorate(){
-  // the bottom buttons: each one looks the way its own page's theme says (picture and font), whatever page you're on
+  // the bottom buttons: each one keeps its own page theme's picture, whatever page you're on;
+  // the font and colors follow the page you're on
+  const ct = thFor(ui.screen), cf = ct ? thFontStack(ct, 'uiFont') : null, fam = cf ? cf.stack : 'var(--font-base)';
   $$('#dock button[data-screen]').forEach(btn => {
     const k = btn.dataset.screen, pt = thFor(k), u = thImg(pt, 'dock_' + k), img = btn.querySelector('img.dock-img');
-    const f = pt ? thFontStack(pt, 'uiFont') : null, fam = f ? f.stack : 'var(--font-base)';
     if (btn.style.fontFamily !== fam) btn.style.fontFamily = fam;
-    const ct = thFor(ui.screen), bgc = ct && ct.dockBg, ink = ct && (ct.dockInk || (ct.dockBg ? fgDefaults(ct.dockBg).ink : ''));   // colors follow the page you're on
+    const bgc = ct && ct.dockBg, ink = ct && (ct.dockInk || (ct.dockBg ? fgDefaults(ct.dockBg).ink : ''));
     btn.style.background = bgc || ''; btn.style.color = ink || ''; btn.style.borderColor = bgc ? 'transparent' : '';
     btn.classList.toggle('dock-tinted', !!bgc);
     if (u) { if (img) { if (img.getAttribute('src') !== u) img.src = u; } else { const ic = btn.querySelector('svg.ic'); const im = document.createElement('img'); im.className = 'dock-img'; im.alt = ''; im.src = u; if (ic) ic.replaceWith(im); else btn.prepend(im); } }

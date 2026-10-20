@@ -1,5 +1,11 @@
 [
  {
+  "release": 89,
+  "date": "2026-10-20",
+  "notes": "The bottom buttons now use the font of the page you're on, just like their colors.",
+  "app": false
+ },
+ {
   "release": 88,
   "date": "2026-10-20",
   "notes": "Theme sounds and pictures sync more reliably: one stuck file no longer blocks the rest, the app keeps checking while open, and the theme editor shows how many files are left.",
