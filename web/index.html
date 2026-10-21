@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211325;</script>
+<script>window.JOEY_WEB_VERSION = 202610211327;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -536,7 +536,7 @@ textarea.rem-note-in{min-height:64px;max-height:40vh;overflow:auto;field-sizing:
 .day.sel{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .dots{display:flex;gap:3px;height:6px}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.dot.ring{background:none;border:1.5px solid var(--ink-2)}
+.dot.rem-dot{background:none;border:1.5px solid var(--ink-2)}   /* a reminder that day (not .ring: that's the full-screen alarm) */
 .ev{display:grid;grid-template-columns:4px minmax(64px,auto) minmax(0,1fr);gap:12px;align-items:start;width:100%;padding-block:12px;border-top:1px solid var(--line);text-align:left}
 .ev:first-child{border-top:0}
 .ev-bar{width:4px;align-self:stretch;min-height:22px;border-radius:2px}
@@ -3468,7 +3468,7 @@ function calCellsHTML(m){
     const d = new Date(y, mo, 1 - off + i), ds = ymd(d), out = d.getMonth() !== mo;
     const evs = evByDay[ds] || [], rc = remByDay[ds] || 0;
     const bd = bdaysOn(ds).length;
-    const dots = (bd ? '<i class="dot bday" aria-hidden="true">' + icon('cake') + '</i>' : '') + evs.slice(0, bd ? 2 : 3).map(e => '<i class="dot" style="background:' + hueOf(e.color) + '"></i>').join('') + (rc ? '<i class="dot ring"></i>' : '');
+    const dots = (bd ? '<i class="dot bday" aria-hidden="true">' + icon('cake') + '</i>' : '') + evs.slice(0, bd ? 2 : 3).map(e => '<i class="dot" style="background:' + hueOf(e.color) + '"></i>').join('') + (rc ? '<i class="dot rem-dot"></i>' : '');
     const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (bd ? ', ' + bd + (bd > 1 ? ' birthdays' : ' birthday') : '') + (evs.length ? ', ' + evs.length + (evs.length > 1 ? ' events' : ' event') : '') + (rc ? ', ' + rc + (rc > 1 ? ' reminders' : ' reminder') : '');
     cells += '<button class="day' + (out ? ' out' : '') + (ds === t ? ' today' : '') + (ds === ui.calSel ? ' sel' : '') + '" data-action="cal-sel" data-date="' + ds + '" aria-label="' + esc(label) + '" aria-pressed="' + (ds === ui.calSel) + '">' + llCellInner(ds, d.getDate()) + '<span class="dots">' + dots + '</span></button>';
   }

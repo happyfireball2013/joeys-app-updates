@@ -1,5 +1,5 @@
 {
- "web": 202610211325,
+ "web": 202610211327,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Reminders can have notes now: open a reminder to type them. The list only shows a small preview."
+ "notes": "Fixed the big circle on the calendar. Days with a reminder now show a small dot under the date."
 }

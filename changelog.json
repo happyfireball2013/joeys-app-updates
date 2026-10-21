@@ -1,5 +1,11 @@
 [
  {
+  "release": 108,
+  "date": "2026-10-21",
+  "notes": "Fixed the big circle on the calendar. Days with a reminder now show a small dot under the date.",
+  "app": false
+ },
+ {
   "release": 107,
   "date": "2026-10-21",
   "notes": "Reminders can have notes now: open a reminder to type them. The list only shows a small preview.",
