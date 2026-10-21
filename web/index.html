@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211609;</script>
+<script>window.JOEY_WEB_VERSION = 202610211619;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -861,6 +861,15 @@ button.wx-day:active{background:var(--surface-2)}
 .q-now span{display:grid;gap:2px}
 .q-now small{font-size:.8rem;color:var(--ink-2)}
 .seg.ev-type button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.ev-rep-box{display:grid;gap:10px;margin:-4px 0 12px}
+.ev-rdays{display:flex;gap:6px}
+.ev-rdays button{flex:1;min-width:0;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-weight:700;font-size:.85rem;color:var(--ink-2)}
+.ev-rdays button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.ev-series-box{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--line)}
+.ev-series-box .ic{width:16px;height:16px;color:var(--accent)}
+.ev-all{display:flex;align-items:center;gap:8px;font-size:.88rem;margin-top:8px}
+.ev-rep{display:inline-grid;vertical-align:-2px;margin-right:5px;color:var(--ink-2)}
+.ev-rep .ic{width:14px;height:14px}
 .seg.ev-type .ic{width:16px;height:16px}
 .seg.ev-type .cal-ic-img{width:18px;height:18px;object-fit:contain}
 .ev-work-row .lbl{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px}
@@ -3188,7 +3197,7 @@ function aiContext(){
   const from = addDays(t, -7), to = addDays(t, 120);
   const evs = Object.entries(S.events).filter(([, e]) => e.date >= from && e.date <= to)
     .sort((a, b) => (a[1].date + (a[1].start || '')).localeCompare(b[1].date + (b[1].start || ''))).slice(0, 150)
-    .map(([id, e]) => '[' + id + '] ' + clip(e.title, 80) + ' | ' + e.date + (e.start ? ' ' + e.start + (e.end ? '-' + e.end : '') : ' all day') + (evType(e) !== 'event' ? ' | ' + evType(e) : '') + (e.note ? ' | note: ' + clip(e.note, 60) : ''));
+    .map(([id, e]) => '[' + id + '] ' + clip(e.title, 80) + ' | ' + e.date + (e.start ? ' ' + e.start + (e.end ? '-' + e.end : '') : ' all day') + (evType(e) !== 'event' ? ' | ' + evType(e) : '') + (e.series ? ' | repeats ' + seriesText(e.series) : '') + (e.note ? ' | note: ' + clip(e.note, 60) : ''));
   const notes = Object.entries(S.notes).sort((a, b) => (b[1].updated || 0) - (a[1].updated || 0)).slice(0, 60)
     .map(([id, n]) => '[' + id + '] ' + clip(n.title || 'Untitled', 60) + (n.body ? ' | ' + clip(n.body, 80) : ''));
   const alarmsTxt = Object.entries(S.alarms).sort((a, b) => (a[1].time || '').localeCompare(b[1].time || '')).slice(0, 40)
@@ -3226,6 +3235,7 @@ function aiContext(){
     'Action types:',
     '{"type":"add_reminder","text":"","date":"","time":"","repeat":"none","note":""} (note is optional extra detail)',
     '{"type":"add_event","title":"","date":"","start":"","end":"","note":"","kind":"event"} (kind is event, work for a work shift, or class for a school class)',
+    '  A repeating event adds "repeat_days":[1,3,5] (0 = Sunday … 6 = Saturday) and "until":"YYYY-MM-DD"; "date" is the first day it happens. Example: class every Monday, Wednesday and Friday until Christmas = ONE add_event with repeat_days [1,3,5] and until the Christmas date. Never list the dates one by one.',
     '{"type":"add_note","title":"","body":""}',
     '{"type":"start_timer","minutes":10,"label":""}',
     '{"type":"add_alarm","time":"07:00","days":[1,2,3,4,5],"date":"","label":""}',
@@ -3235,7 +3245,7 @@ function aiContext(){
     '{"type":"update_reminder","id":""} plus only the fields that change among text, date, time, repeat, note',
     '{"type":"update_event","id":""} plus only the fields that change among title, date, start, end, note',
     '{"type":"add_birthday","name":"Blake","month":10,"day":11,"year":""}',
-    '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday',
+    '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday; add "all":true to delete every upcoming one of a repeating event',
     '{"type":"phone_quiet","mode":"silent","from":"","until":"YYYY-MM-DD HH:MM"} mutes (silent), vibrates (vibrate) or unmutes (normal) the phone; from "" means now, until "" means until unmuted',
     '{"type":"quiet_auto","work":"vibrate","class":"silent"} sets what the phone does during every work shift / class: off, vibrate or silent (give only what changes)',
     '',
@@ -3274,6 +3284,13 @@ function applyAiActions(out){
         const over = start && isTime(a.end) && a.end < start ? 'Ends ' + fmtHM(a.end) + ' the next day' : '';   // overnight shift
         const e = {title, date, start, end, color:S.settings.eventColor, note:[str(a.note, 500), over].filter(Boolean).join(' · '), created:Date.now()};
         if (a.kind === 'work' || a.kind === 'class') e.kind = a.kind; else if (a.work === true || a.work === 'true') e.kind = 'work';
+        const rdays = seriesDays(Array.isArray(a.repeat_days) ? a.repeat_days.map(wdNum) : []);
+        if (rdays.length) {   // repeats on these weekdays until a date: one event for each day it happens
+          const lim = addDays(date, 366), until = isDate(a.until) && a.until >= date ? (a.until > lim ? lim : a.until) : addDays(date, 12 * 7);
+          const r = addSeries(e, rdays, until, id => remember('events', id));
+          lines.push({icon:'calendar', text:(isClass(e) ? 'Class: ' : isWork(e) ? 'Work: ' : 'Event: ') + title, sub:seriesText(r.sr) + (start ? ' · ' + fmtHM(start) + (end ? '–' + fmtHM(end) : '') : '') + ' · ' + r.ids.length + ' times', action:r.ids[0] ? 'edit-event' : '', id:r.ids[0]});
+          return;
+        }
         const id = uid(); remember('events', id); putItem('events', id, e);
         lines.push({icon:'calendar', text:'Event: ' + title, sub:evWhen(e), action:'edit-event', id});
       } else if (type === 'add_note') {
@@ -3340,7 +3357,12 @@ function applyAiActions(out){
         lines.push({icon:'alarm', text:(on ? 'Turned on: ' : 'Turned off: ') + fmtHM(al.time), sub:al.label || repeatText(al), action:'al-edit', id:id0});
       } else if (type === 'delete') {
         const coll = {reminder:'reminders', event:'events', note:'notes', alarm:'alarms', birthday:'birthdays'}[a.kind]; if (!coll || !S[coll][id0]) return;
-        const item = S[coll][id0]; remember(coll, id0); if (coll === 'reminders') { remember('remTrash', id0); remTrash(id0); } else delItem(coll, id0);
+        const item = S[coll][id0];
+        if (coll === 'events' && item.series && (a.all === true || a.all === 'true')) {   // the whole repeating event, from this one on
+          const list = seriesOf(item.series.id, item.date); list.forEach(([sid]) => { remember('events', sid); delItem('events', sid); });
+          lines.push({icon:'trash', text:'Deleted: ' + item.title, sub:list.length + ' times (' + seriesText(item.series) + ')'}); return;
+        }
+        remember(coll, id0); if (coll === 'reminders') { remember('remTrash', id0); remTrash(id0); } else delItem(coll, id0);
         lines.push({icon:'trash', text:'Deleted: ' + (coll === 'birthdays' ? bdayTitle(item) : item.text || item.title || item.label || (item.time ? 'Alarm ' + fmtHM(item.time) : 'Untitled')), sub:''});
       } else if (type === 'name_buddy') {
         const t = aiWho && TH.themes[aiWho.id], name = str(a.name, 30).replace(/^["“']|["”']$/g, ''); if (!t || !name) return;
@@ -3644,6 +3666,28 @@ function quietNow(){
   const now = Date.now(), act = quietWindows().filter(w => w.start <= now && now < w.end);
   return act.reduce((b, w) => !b || ({normal:3, silent:2, vibrate:1}[w.mode] > {normal:3, silent:2, vibrate:1}[b.mode]) ? w : b, null);
 }
+/* Repeating events (a class every Mon/Wed/Fri until Christmas): one event per date it happens, linked by
+   e.series = {id, days:[0-6], until:'YYYY-MM-DD'}, so everything that reads the calendar just works. */
+const DAY3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const seriesDays = days => [...new Set((days || []).map(Number).filter(n => n >= 0 && n <= 6))].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+function seriesDates(from, days, until){
+  const out = []; let d = from;
+  for (let i = 0; i < 400 && d <= until && out.length < 200; i++) { if (days.includes(parseYmd(d).getDay())) out.push(d); d = addDays(d, 1); }
+  return out;
+}
+const seriesText = sr => seriesDays(sr.days).map(x => DAY3[x]).join(', ') + ' until ' + parseYmd(sr.until).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+// adds one event per date; skips dates that already have the same thing at the same time. each(id) runs before each add (for Undo).
+function addSeries(base, days, until, each){
+  const sr = {id:'s' + uid(), days:seriesDays(days), until}, ids = [];
+  seriesDates(base.date, sr.days, until).forEach(ds => {
+    if (Object.values(S.events).some(x => x.date === ds && (x.start || '') === (base.start || '') && String(x.title || '').toLowerCase() === String(base.title || '').toLowerCase())) return;
+    const id = uid(); if (each) each(id);
+    putItem('events', id, Object.assign({}, base, {date:ds, series:sr, created:Date.now()})); ids.push(id);
+  });
+  return {sr, ids};
+}
+const seriesOf = (sid, fromDate) => Object.entries(S.events).filter(([, x]) => x && x.series && x.series.id === sid && (!fromDate || x.date >= fromDate));
+const wdNum = v => { if (typeof v === 'number') return v; const k = String(v || '').slice(0, 3).toLowerCase(); const i = ['sun','mon','tue','wed','thu','fri','sat'].indexOf(k); return i >= 0 ? i : Number(v); };
 function calCellsHTML(m){
   const s = S.settings, y = m.getFullYear(), mo = m.getMonth();
   const wsd = s.weekStartMon ? 1 : 0;
@@ -3676,7 +3720,7 @@ function calendarHTML(){
   const rems = s.calReminders ? Object.entries(S.reminders).filter(e => e[1].date === sel).sort(remSort) : [];
   const onThisMonth = y === new Date().getFullYear() && mo === new Date().getMonth();
   let agenda = bdaysOn(sel).map(([id, b]) => '<button class="ev bd-row" data-action="edit-bday" data-id="' + id + '"><span class="ev-bar" style="background:' + HUES.berry + '"></span><span class="ev-time bd-ic">' + calIcon('bday') + '</span><span class="ev-main"><b>' + esc(bdayTitle(b)) + '</b><span class="muted">' + esc(bdaySub(b, sel)) + '</span></span></button>').join('');
-  agenda += evs.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + (e.start ? fmtHM(e.start) + (e.end ? '<br><span class="muted">' + fmtHM(e.end) + '</span>' : '') : 'All day') + '</span><span class="ev-main"><b>' + (evType(e) !== 'event' ? '<span class="wk-ic" aria-label="' + (isWork(e) ? 'Work' : 'Class') + '">' + calIcon(evType(e)) + '</span>' : '') + esc(e.title) + '</b>' + (e.note ? '<span class="muted">' + esc(e.note) + '</span>' : '') + '</span></button>').join('');
+  agenda += evs.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + (e.start ? fmtHM(e.start) + (e.end ? '<br><span class="muted">' + fmtHM(e.end) + '</span>' : '') : 'All day') + '</span><span class="ev-main"><b>' + (e.series ? '<span class="ev-rep" title="Repeats ' + esc(seriesText(e.series)) + '">' + icon('repeat') + '</span>' : '') + (evType(e) !== 'event' ? '<span class="wk-ic" aria-label="' + (isWork(e) ? 'Work' : 'Class') + '">' + calIcon(evType(e)) + '</span>' : '') + esc(e.title) + '</b>' + (e.note ? '<span class="muted">' + esc(e.note) + '</span>' : '') + '</span></button>').join('');
   agenda += rems.map(([id, r]) => '<div class="rrow' + (r.done ? ' done' : '') + ' ' + remStatus(r) + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span><span class="rmeta">' + (r.time ? '<i class="due">' + fmtHM(r.time) + '</i>' : '<i>Reminder</i>') + '</span></button></div>').join('');
   return head((!onThisMonth || sel !== t) ? '<button class="link" data-action="cal-today">Back to today</button>' : esc(fmtDate(new Date())), 'Calendar',
       '<button class="ib accent" data-action="new-event" data-date="' + sel + '" aria-label="New event">' + icon('plus') + '</button>') +
@@ -4279,11 +4323,17 @@ function eventSheet(id, date, kind){
     '<label class="fld"><span>Date</span><input class="in" type="date" id="evDate" required value="' + esc(e.date) + '"></label>' +
     '<div class="fld-row"><label class="fld"><span>Starts</span><input class="in" type="time" id="evStart" value="' + esc(e.start) + '"></label><label class="fld"><span>Ends</span><input class="in" type="time" id="evEnd" value="' + esc(e.end) + '"></label></div>' +
     '<p class="hint">Leave both times empty for an all-day event.</p>' +
+    (e.series ? '<div class="fld ev-series"><span>Repeats</span><div class="ev-series-box">' + icon('repeat') + '<b>' + esc(seriesText(e.series)) + '</b></div>' +
+        '<label class="ev-all"><input type="checkbox" id="evAll" checked> Change this and the rest of them too</label></div>'
+      : '<div class="fld"><span>Repeat</span><select class="in" id="evRepeat"><option value="">Doesn’t repeat</option><option value="weekly">Every week on…</option></select></div>' +
+        '<div class="ev-rep-box" id="evRepBox" hidden><input type="hidden" id="evRDays" value="' + parseYmd(e.date).getDay() + '"><div class="ev-rdays" role="group" aria-label="Days">' +
+          [1, 2, 3, 4, 5, 6, 0].map(n => '<button type="button" data-action="ev-rday" data-v="' + n + '" aria-pressed="' + (n === parseYmd(e.date).getDay()) + '">' + DAY3[n].slice(0, 2) + '</button>').join('') + '</div>' +
+          '<label class="fld"><span>Until</span><input class="in" type="date" id="evUntil" value="' + addDays(e.date, 12 * 7) + '"></label></div>') +
     '<div class="fld"><span>Color</span>' + colorPicker('evColor', e.color || 'accent', false) + '</div>' +
     '<div class="fld"><span>Type</span><input type="hidden" id="evType" value="' + ty + '"' + (kind ? ' data-touched="1"' : '') + '><div class="seg ev-type" role="group" aria-label="Type">' +
       [['event', icon('calendar'), 'Event'], ['work', calIcon('work'), 'Work'], ['class', calIcon('class'), 'Class']].map(([v, ic, l]) => '<button type="button" data-action="ev-type" data-v="' + v + '" aria-pressed="' + (ty === v) + '">' + ic + l + '</button>').join('') + '</div></div>' +
     '<label class="fld"><span>Notes</span><textarea class="in" id="evNote" rows="3" placeholder="Address, room number, what to bring">' + esc(e.note) + '</textarea></label>' +
-    '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-event" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">' + (id ? 'Save' : 'Add event') + '</button></div></form>',
+    '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-event" data-id="' + id + '">Delete</button>' : '') + (id && e.series ? '<button type="button" class="btn danger" data-action="del-series" data-id="' + id + '">Delete the rest</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">' + (id ? 'Save' : 'Add event') + '</button></div></form>',
     null, id ? null : 'evTitle');
 }
 let pendingWidget = null;
@@ -4451,6 +4501,9 @@ const A = {
   'clear-done': t => { if (!arm(t, 'Tap again to clear')) return; Object.entries(S.reminders).filter(e => e[1].done).forEach(e => remTrash(e[0])); toast('Completed reminders cleared. You can restore them.'); },
   'new-event': t => eventSheet(null, t.dataset.date),
   'edit-event': t => eventSheet(t.dataset.id),
+  'del-series': t => { const e = S.events[t.dataset.id]; if (!e || !e.series) return; if (!armAlways(t, 'Tap again')) return;
+    const list = seriesOf(e.series.id, e.date); list.forEach(([sid]) => delItem('events', sid)); closeSheet(true); toast('Deleted ' + list.length + ' of them'); },
+  'ev-rday': t => { t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true')); const h = $('#evRDays'); if (h) h.value = [...t.parentNode.querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.v).join(','); },
   'del-event': t => { if (!arm(t, 'Tap again to delete')) return; delItem('events', t.dataset.id); closeSheet(true); toast('Event deleted'); },
   'ev-type': t => { const h = $('#evType'); if (!h) return; h.value = t.dataset.v; h.dataset.touched = '1'; t.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === t))); },
   'cal-sel': t => { ui.calSel = t.dataset.date; const d = parseYmd(t.dataset.date); if (d.getMonth() !== ui.calMonth.getMonth() || d.getFullYear() !== ui.calMonth.getFullYear()) ui.calMonth = new Date(d.getFullYear(), d.getMonth(), 1); render(); },
@@ -4692,8 +4745,24 @@ const FORMS = {
     if (!start) end = ''; if (start && end && end < start) end = '';
     const ne = Object.assign({}, old, {title, date, start, end, color:$('#evColor').value, note:$('#evNote').value.trim(), created:old.created || Date.now()});
     const tb = $('#evType'); if (tb && tb.dataset.touched) { ne.kind = tb.value; delete ne.work; }   // untouched: decided by the title (Work…, Class…)
-    putItem('events', id, ne);
     ui.calSel = date; const d = parseYmd(date); ui.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    // a new repeating event: one for each day it happens
+    const rp = $('#evRepeat');
+    if (!f.dataset.id && rp && rp.value === 'weekly') {
+      const days = String(($('#evRDays') || {}).value || '').split(',').filter(x => x !== '').map(Number), until = ($('#evUntil') || {}).value;
+      if (!days.length) { toast('Pick at least one day.'); return; }
+      if (!until || until < date) { toast('Pick an “Until” date after the first day.'); return; }
+      const r = addSeries(ne, days, until);
+      closeSheet(true); toast('Added ' + r.ids.length + ' times: ' + seriesText(r.sr)); return;
+    }
+    putItem('events', id, ne);
+    // changing one of a repeating event: the rest of them too (each keeps its own date)
+    const all = $('#evAll');
+    if (f.dataset.id && old.series && all && all.checked) {
+      const upd = {title:ne.title, start:ne.start, end:ne.end, color:ne.color, note:ne.note}; if ('kind' in ne) upd.kind = ne.kind;
+      seriesOf(old.series.id, old.date).forEach(([sid, x]) => { if (sid !== id) { const n = Object.assign({}, x, upd); if (!('kind' in ne)) delete n.kind; putItem('events', sid, n); } });
+      closeSheet(true); toast('Changed this one and the rest'); return;
+    }
     closeSheet(true); toast(f.dataset.id ? 'Event saved' : 'Event added');
   },
   cfgForm: f => {
@@ -5596,6 +5665,7 @@ async function buddyPicLoad(file){
     const i = $('#buddyInput'); if (i) { i.placeholder = 'Add a message, or just send it'; i.focus(); }
   } catch (e) { toast('That picture couldn’t be opened.'); }
 }
+document.addEventListener('change', e => { if (e.target && e.target.id === 'evRepeat') { const b = $('#evRepBox'); if (b) b.hidden = e.target.value !== 'weekly'; } });
 document.addEventListener('change', e => { if (e.target && e.target.id === 'buddyPicFile') buddyPicLoad(e.target.files && e.target.files[0]); });
 // pasting a picture (Ctrl+V) or dropping one on the bubble works too
 document.addEventListener('paste', e => { if (!buddyOpen || !e.clipboardData) return; const f = [...e.clipboardData.files].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); buddyPicLoad(f); } });
@@ -6808,7 +6878,7 @@ function nanoPrompt(text){
     'Rules: dates are YYYY-MM-DD and must come from the calendar above (a weekday means its next date). Times are 24-hour HH:MM; a time without AM/PM means daytime (3 = 15:00, 9 = 09:00).',
     '"Remind me" = add_reminder. Appointments, classes, meetings, plans = add_event. Information to write down = add_note. Birthdays = add_birthday (name, month, day, year only if given). Anniversaries = add_reminder with repeat yearly and no time. "Wake me up"/"alarm" = add_alarm (days: 0=Sun..6=Sat, [] = once). How a day went or a memory = lifelog (mood happy, okay, sad or ""). Questions about the schedule, notes or weather: answer in reply using the lists, no actions. Any other question or chat: answer briefly and helpfully in reply from your own knowledge, no actions. You are Gemini Nano, Google’s on-device AI, running inside Joey’s Multipurpose App on this phone. To change or delete, use the [id] from the lists. Unclear: no actions, ask one short question.',
     'Titles are short, capitalized, and leave out date and time words. repeat is none, daily, weekdays, weekly, monthly or yearly.',
-    'Action formats: {"type":"add_reminder","text":"","date":"","time":"","repeat":"none"} {"type":"add_event","title":"","date":"","start":"","end":"","note":""} {"type":"add_note","title":"","body":""} {"type":"start_timer","minutes":10,"label":""} {"type":"add_alarm","time":"07:00","days":[],"date":"","label":""} {"type":"set_alarm","id":"","enabled":false} {"type":"lifelog","date":"","mood":"","note":""} {"type":"complete_reminder","id":""} {"type":"update_reminder","id":"",...changed fields} {"type":"update_event","id":"",...changed fields} {"type":"add_birthday","name":"","month":1,"day":1,"year":""} {"type":"delete","kind":"reminder|event|note|alarm|birthday","id":""}',
+    'Action formats: {"type":"add_reminder","text":"","date":"","time":"","repeat":"none"} {"type":"add_event","title":"","date":"","start":"","end":"","note":""} (a repeating event adds "repeat_days":[1,3,5] with 0 = Sunday and "until":"YYYY-MM-DD"; one action, not one per date) {"type":"add_note","title":"","body":""} {"type":"start_timer","minutes":10,"label":""} {"type":"add_alarm","time":"07:00","days":[],"date":"","label":""} {"type":"set_alarm","id":"","enabled":false} {"type":"lifelog","date":"","mood":"","note":""} {"type":"complete_reminder","id":""} {"type":"update_reminder","id":"",...changed fields} {"type":"update_event","id":"",...changed fields} {"type":"add_birthday","name":"","month":1,"day":1,"year":""} {"type":"delete","kind":"reminder|event|note|alarm|birthday","id":""}',
     ...(aiWho ? buddyWhoLines().concat(['Also: {"type":"name_buddy","name":""} sets your own name.']) : []),
     'Phone: {"type":"phone_quiet","mode":"silent|vibrate|normal","from":"","until":"HH:MM"} mutes, vibrates or unmutes now ("from" empty = now); {"type":"quiet_auto","work":"off|vibrate|silent","class":"off|vibrate|silent"} for every shift/class.',
     'Reminders: ' + (rems.join('; ') || 'none'),

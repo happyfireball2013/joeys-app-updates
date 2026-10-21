@@ -1,5 +1,11 @@
 [
  {
+  "release": 140,
+  "date": "2026-10-21",
+  "notes": "Events can repeat now: tell your buddy you have class every Monday, Wednesday and Friday until Christmas, or pick Repeat when adding an event.",
+  "app": false
+ },
+ {
   "release": 139,
   "date": "2026-10-21",
   "notes": "Your buddy now makes his sound when you call him by voice, and Settings shows a battery tracker for hands-free listening. Tap Install to get it.",
