@@ -1,5 +1,11 @@
 [
  {
+  "release": 153,
+  "date": "2026-10-21",
+  "notes": "What you ask your buddy out loud is now written down by Google's voice typing (much more accurate, still no beep), and just saying his name can wake him once he knows your voice.",
+  "app": true
+ },
+ {
   "release": 151,
   "date": "2026-10-21",
   "notes": "New crash log in Settings → App updates, and the Work and Classes lists let you set your phone to vibrate or mute during every shift or class.",
