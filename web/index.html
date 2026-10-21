@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211406;</script>
+<script>window.JOEY_WEB_VERSION = 202610211414;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1088,6 +1088,7 @@ function defaultSettings(){
     noteSort:'edited', noteColor:'none', notePreview:5, noteView:'grid',
     timerPresets:[1,5,10,25], hundredths:true, wakeLock:true,
     alarmVolume:90, alarmFade:false, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', phoneAi:'gemini', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
+    quietWork:'off', quietClass:'off', quietWins:[],
     sound:true, tone:'chime', remSound:'', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
     widgets:[
       {id:'w-capture', type:'capture', size:'full'},
@@ -1100,6 +1101,7 @@ function defaultSettings(){
 const DEF = defaultSettings();
 const BOOLS = ['alarmFade','aiBar','greeting','calm','tileInfo','showWidgets','showDock','hour24','showSeconds','showWeek','weekStartMon','calReminders','calLifelog','calWeather','weatherOn','showDone','hundredths','wakeLock','sound','vibrate','repeatAlert','confirmDelete'];
 const ENUMS = {
+  quietWork:['off','vibrate','silent'], quietClass:['off','vibrate','silent'],
   theme:['light','dark','system'], accent:ACCENTS.map(a => a.id), background:['white','lavender','mist'], textSize:['s','m','l','xl'], corners:['rounded','soft','square'],
   wxUnit:['imperial','metric'], menuLayout:['tiles','list'], startScreen:['home','calendar','reminders','notes','alarm','weather','clock','stopwatch','timer','last'],
   dateStyle:['long','medium','us','intl','iso'], noteSort:['edited','created','title'], noteView:['grid','list'],
@@ -1121,6 +1123,8 @@ function normSettings(s){
   if (!/^\d{2}:\d{2}$/.test(String(o.remTime))) o.remTime = d.remTime;
   if (!/^(tone:(chime|beep|bell)|song:[A-Za-z0-9]+)$/.test(String(o.remSound))) o.remSound = 'tone:' + (o.tone || 'chime');   // starts as the old alert sound
   o.appName = String(o.appName || '').slice(0, 40) || APP_NAME;
+  // quiet times you asked for: [{id, from, until, mode}] (old ones drop off)
+  o.quietWins = (Array.isArray(o.quietWins) ? o.quietWins : []).filter(w => w && w.until > Date.now() && w.until > w.from && ['silent','vibrate','normal'].includes(w.mode)).slice(0, 50);
   o.name = String(o.name || '').slice(0, 40);
   o.menu = Array.isArray(o.menu) ? Array.from(new Set(o.menu.filter(k => MENU[k]))) : d.menu;
   if (!(Number(o.v) >= 3)) { // version 3 added the alarm: put it in the menu once
@@ -3122,6 +3126,8 @@ function aiContext(){
     'Alarms:', alarmsTxt.join('\n') || '(none)',
     'Birthdays:', Object.entries(S.birthdays || {}).map(([id, b]) => '[' + id + '] ' + clip(b.name, 40) + ' | ' + MONTH_NAMES[b.month - 1] + ' ' + b.day + (b.year ? ' | born ' + b.year : '') + ' | next ' + bdayNext(b, t)).join('\n') || '(none)',
     'Weather forecast (' + (S.settings.wxName || 'local') + '):', wxAiLines().join('\n') || '(not available)',
+    'Phone quiet: during work ' + QUIET_NAMES[s.quietWork] + ', during classes ' + QUIET_NAMES[s.quietClass] + (quietNow() ? '; right now: ' + QUIET_NAMES[quietNow().mode] + ' until ' + new Date(quietNow().end).toTimeString().slice(0, 5) : '; right now: normal') +
+      ((s.quietWins || []).length ? '; asked for: ' + s.quietWins.map(w => QUIET_NAMES[w.mode] + ' ' + new Date(w.from).toISOString().slice(0, 16) + ' to ' + new Date(w.until).toTimeString().slice(0, 5)).join(', ') : ''),
     '',
     'Action types:',
     '{"type":"add_reminder","text":"","date":"","time":"","repeat":"none","note":""} (note is optional extra detail)',
@@ -3136,6 +3142,8 @@ function aiContext(){
     '{"type":"update_event","id":""} plus only the fields that change among title, date, start, end, note',
     '{"type":"add_birthday","name":"Blake","month":10,"day":11,"year":""}',
     '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday',
+    '{"type":"phone_quiet","mode":"silent","from":"","until":"YYYY-MM-DD HH:MM"} mutes (silent), vibrates (vibrate) or unmutes (normal) the phone; from "" means now, until "" means until unmuted',
+    '{"type":"quiet_auto","work":"vibrate","class":"silent"} sets what the phone does during every work shift / class: off, vibrate or silent (give only what changes)',
     '',
     ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
     ...(aiWho ? ['', ...buddyWhoLines()] : []),
@@ -3245,6 +3253,26 @@ function applyAiActions(out){
         undo.push({buddy:aiWho.id, before:t.buddyName || ''});
         t.buddyName = name; thSave(); thApplied = ''; thRefreshEditorIfOpen();
         lines.push({icon:'smile', text:'New name: ' + name, sub:'Your buddy will remember it'});
+      } else if (type === 'phone_quiet') {
+        const mode = ['silent', 'vibrate', 'normal'].includes(a.mode) ? a.mode : (a.mode === 'mute' ? 'silent' : a.mode === 'unmute' ? 'normal' : ''); if (!mode) return;
+        const when = v => { v = String(v || '').trim(); if (!v) return 0; const m = /^(\d{4}-\d{2}-\d{2})?[ T]?(\d{2}):(\d{2})$/.exec(v); if (!m) return 0;
+          const d = parseYmd(m[1] || todayStr()); d.setHours(+m[2], +m[3], 0, 0); let t = d.getTime(); if (!m[1] && t < Date.now() - 6e4) t += 864e5; return t; };
+        const now = Date.now(), from = Math.max(now, when(a.from) || now);
+        const cur = quietNow();
+        let until = when(a.until);
+        if (!until || until <= from) until = mode === 'normal' ? (cur ? cur.end : from + 6e4) : from + 12 * 36e5;
+        undo.push({setting:'quietWins', before:clone(S.settings.quietWins || [])});
+        let wins = (S.settings.quietWins || []).slice();
+        if (mode === 'normal' && from <= now + 6e4) wins = wins.filter(w => !(w.from <= now && now < w.until));   // unmute now: drop what you asked for that's on now
+        wins.push({id:uid(), from, until, mode});
+        S.settings.quietWins = wins.slice(-50); saveSettings();
+        const at = ts => fmtHM(pad(new Date(ts).getHours()) + ':' + pad(new Date(ts).getMinutes()));
+        lines.push({icon:'moon', text:mode === 'normal' ? 'Phone back to ringing' : 'Phone on ' + QUIET_NAMES[mode].toLowerCase(), sub:(from <= now + 6e4 ? 'Now' : fmtDay(ymd(new Date(from))) + ' ' + at(from)) + ' until ' + (mode === 'normal' && !cur && !when(a.until) ? 'you mute it again' : at(until))});
+      } else if (type === 'quiet_auto') {
+        const ok = v => ['off', 'vibrate', 'silent'].includes(v) ? v : v === 'mute' ? 'silent' : '';
+        [['work', 'quietWork', 'work'], ['class', 'quietClass', 'classes']].forEach(([k, key, nm]) => { const v = ok(a[k]); if (!v || v === S.settings[key]) return;
+          undo.push({setting:key, before:S.settings[key]}); S.settings[key] = v; saveSettings();
+          lines.push({icon:'moon', text:'During ' + nm + ': ' + (v === 'off' ? 'phone left alone' : QUIET_NAMES[v].toLowerCase()), sub:'Every ' + (k === 'work' ? 'shift' : 'class') + ' on your calendar'}); });
       } else if (type === 'add_birthday') {
         const name = str(a.name, 60); const month = Math.round(Number(a.month)), day = Math.round(Number(a.day)); if (!name || !(month >= 1 && month <= 12) || !(day >= 1 && day <= new Date(2024, month, 0).getDate())) return;
         const yv = String(a.year || '').trim(), year = /^\d{4}$/.test(yv) && +yv >= 1900 && +yv <= new Date().getFullYear() ? yv : '';
@@ -3285,6 +3313,7 @@ function aiUndo(){
   ai.undo.slice().reverse().forEach(u => {
     if (u.timer) { Object.assign(tm, u.timer); saveClocks(); return; }
     if (u.buddy) { const t = TH.themes[u.buddy]; if (t) { t.buddyName = u.before; thSave(); thRefreshEditorIfOpen(); } return; }
+    if (u.setting) { S.settings[u.setting] = u.before; saveSettings(); return; }
     if (u.before) putItem(u.coll, u.id, u.before); else if (S[u.coll][u.id]) delItem(u.coll, u.id);
   });
   Object.assign(ai, {undo:[], lines:[], reply:'Undone. Everything is back the way it was.'});
@@ -3492,6 +3521,34 @@ const isWork = e => evType(e) === 'work', isClass = e => evType(e) === 'class';
 function calIcon(kind){
   const slot = 'calic_' + kind, t = thImg(thFor(ui.screen), slot) ? thFor(ui.screen) : thFor('calendar'), u = thImg(t, slot);
   return u ? '<img class="cal-ic-img" src="' + u + '" alt="" style="--k:' + (thSize(t, slot) / 100) + '">' : icon(kind === 'bday' ? 'cake' : kind === 'class' ? 'school' : kind);   // --k: its Size slider
+}
+/* Quiet phone: during work shifts and classes (Settings → Sounds → Quiet phone), plus times you ask your buddy for.
+   Turned into windows {start, end, mode} for the phone app, which switches the ringer itself (QuietTimes.java). */
+const QUIET_NAMES = {off:'Off', vibrate:'Vibrate', silent:'Mute', normal:'Ring'};
+let quietCanMute = null;   // the phone tells us if it has Do Not Disturb access (needed to mute; vibrate works without)
+function evTimes(e){
+  if (!e || !e.start) return null;   // all-day events don't mute the phone
+  const d = parseYmd(e.date), [h, m] = e.start.split(':').map(Number), st = new Date(d); st.setHours(h, m, 0, 0);
+  let en;
+  if (e.end) { const [h2, m2] = e.end.split(':').map(Number); en = new Date(d); en.setHours(h2, m2, 0, 0); }
+  else { const over = /Ends (\d{1,2}):(\d{2}) (AM|PM) the next day/.exec(e.note || '');   // overnight shift from a schedule picture
+    if (over) { en = new Date(d); en.setDate(en.getDate() + 1); en.setHours((+over[1] % 12) + (over[3] === 'PM' ? 12 : 0), +over[2], 0, 0); }
+    else en = new Date(st.getTime() + (isWork(e) ? 8 : 1) * 36e5); }
+  return en > st ? [st.getTime(), en.getTime()] : null;
+}
+function quietWindows(){
+  const s = S.settings, now = Date.now(), lim = now + 31 * 864e5, out = [];
+  Object.values(S.events).forEach(e => {
+    const ty = evType(e), mode = ty === 'work' ? s.quietWork : ty === 'class' ? s.quietClass : 'off';
+    if (mode === 'off') return;
+    const tt = evTimes(e); if (tt && tt[1] > now && tt[0] < lim) out.push({start:tt[0], end:tt[1], mode, why:e.title || ''});
+  });
+  (s.quietWins || []).forEach(w => { if (w.until > now) out.push({start:w.from, end:w.until, mode:w.mode, why:'asked'}); });
+  return out.sort((a, b) => a.start - b.start).slice(0, 200);
+}
+function quietNow(){
+  const now = Date.now(), act = quietWindows().filter(w => w.start <= now && now < w.end);
+  return act.reduce((b, w) => !b || ({normal:3, silent:2, vibrate:1}[w.mode] > {normal:3, silent:2, vibrate:1}[b.mode]) ? w : b, null);
 }
 function calCellsHTML(m){
   const s = S.settings, y = m.getFullYear(), mo = m.getMonth();
@@ -3803,6 +3860,20 @@ function settingsHTML(){
       tgl('vibrate', 'Vibrate', 'Works on phones that allow it') +
       tgl('repeatAlert', 'Keep ringing until I respond', 'Repeats for about 30 seconds') +
       tgl('confirmDelete', 'Ask before deleting') + '</div>' +
+    '<div class="sec-title"><span>Quiet phone</span></div><div class="group">' +
+      sel('quietWork', 'During work', [['off','Leave it'],['vibrate','Vibrate'],['silent','Mute']], 'Your phone goes quiet for each work shift on your calendar, then back to how it was') +
+      sel('quietClass', 'During classes', [['off','Leave it'],['vibrate','Vibrate'],['silent','Mute']], 'Same for each class on your calendar') +
+      (function(){
+        const phone = document.documentElement.classList.contains('is-phone'), wantMute = s.quietWork === 'silent' || s.quietClass === 'silent' || (s.quietWins || []).some(w => w.mode === 'silent');
+        let h = '';
+        if (phone && wantMute && quietCanMute === false) h += '<div class="srow"><span class="lbl">Allow muting' + sub('Muting needs “Do Not Disturb access” for this app. Until then it vibrates instead.') + '</span><button class="btn sm accent" data-action="quiet-allow">Allow</button></div>';
+        if (!phone) h += '<div class="srow"><span class="lbl muted" style="font-weight:500">Your phone does the muting. These settings sync to it.</span></div>';
+        const wins = (s.quietWins || []).filter(w => w.until > Date.now()).sort((a, b) => a.from - b.from);
+        const fmt = ts => { const d = new Date(ts), ds = ymd(d); return (ds === todayStr() ? 'Today' : ds === addDays(todayStr(), 1) ? 'Tomorrow' : d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'})) + ' ' + fmtHM(pad(d.getHours()) + ':' + pad(d.getMinutes())); };
+        h += wins.map(w => '<div class="srow"><span class="lbl">' + QUIET_NAMES[w.mode] + sub((w.from <= Date.now() ? 'Now' : fmt(w.from)) + ' until ' + fmt(w.until)) + '</span><button class="btn sm" data-action="quiet-del" data-id="' + w.id + '">Cancel</button></div>').join('');
+        h += '<div class="srow"><span class="lbl muted" style="font-weight:500">Tip: tell your buddy “mute my phone until 5” or “unmute my phone”.</span></div>';
+        return h;
+      })() + '</div>' +
 
     title('set-data', 'Your data') + '<div class="group">' +
       '<div class="srow"><div class="status' + (mode === 'cloud' ? ' on' : '') + '"><i></i><span>' +
@@ -4260,6 +4331,8 @@ const A = {
   },
   'new-bday': t => bdaySheet('', t.dataset.date || ui.calSel),
   'list-bday': () => bdayListSheet(),
+  'quiet-del': t => { S.settings.quietWins = (S.settings.quietWins || []).filter(w => w.id !== t.dataset.id); saveSettings(); render(); toast('Canceled'); },
+  'quiet-allow': () => { if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'dnd'}).catch(() => {}); },
   'list-kind': t => kindListSheet(t.dataset.kind),
   'new-kind': t => eventSheet('', ui.calSel || todayStr(), t.dataset.kind),
   'edit-bday': t => bdaySheet(t.dataset.id),
@@ -5635,7 +5708,7 @@ const SS_SEC = {
   'set-notes':'notes sort preview color view',
   'set-timer':'timer presets countdown stopwatch',
   'set-alarm':'alarm alarms wake snooze ring ringing duration long stop sound song fade volume vibrate',
-  'set-sound':'sounds volume chime tone beep effects',
+  'set-sound':'sounds volume chime tone beep effects quiet mute vibrate silent work class',
   'set-data':'data backup export import delete reset clear sync storage save',
   'set-hsw':'home screen widgets widget color colour purple background launcher'
 };
@@ -6408,6 +6481,20 @@ function wavB64(d, sr, boost){
   for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, shape(d[i]))) * 32767, true);
   return b64(buf);
 }
+/* quiet phone: work/class/asked-for windows go to the phone app, which switches the ringer at each start and end */
+let quietKey = '';   // quietCanMute lives in daykit.html (Settings reads it)
+async function syncQuietNative(){
+  if (!JA || !JA.setQuiet) return;
+  const wins = quietWindows().map(w => ({start:w.start, end:w.end, mode:w.mode})), k = JSON.stringify(wins);
+  if (k === quietKey) return;
+  try { const r = await JA.setQuiet({windows:wins}); quietKey = k; const was = quietCanMute; quietCanMute = !!(r && r.canMute); if (was !== quietCanMute && ui.screen === 'settings') scheduleRender(); }
+  catch (e) { quietKey = ''; }
+}
+if (NATIVE && JA) {
+  setTimeout(syncQuietNative, 2500);
+  setInterval(syncQuietNative, 15 * 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { quietKey = ''; syncQuietNative(); } });   // coming back from "Do Not Disturb access"
+}
 let remNatKey = null, remToneSent = null; try { remToneSent = localStorage.getItem('jma:remTone'); } catch (e) {}
 async function syncRemindersNative(){
   if (!JA || syncRemindersNative.busy || Date.now() - (syncRemindersNative.failAt || 0) < 60000) return;
@@ -6435,7 +6522,7 @@ async function syncRemindersNative(){
 document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol' && NATIVE && JA) syncRemindersNative(); });
 if (NATIVE && JA) {
   const _renderRem = render;
-  render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(syncRemindersNative, 800); };
+  render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(() => { syncRemindersNative(); syncQuietNative(); }, 800); };
   setInterval(syncRemindersNative, 5 * 60000);   // keeps the two-week window moving
   // the app in the background: the phone's notification plays the sound, so the app stays quiet
   const _chime = chime;
@@ -6505,6 +6592,7 @@ function nanoPrompt(text){
     'Titles are short, capitalized, and leave out date and time words. repeat is none, daily, weekdays, weekly, monthly or yearly.',
     'Action formats: {"type":"add_reminder","text":"","date":"","time":"","repeat":"none"} {"type":"add_event","title":"","date":"","start":"","end":"","note":""} {"type":"add_note","title":"","body":""} {"type":"start_timer","minutes":10,"label":""} {"type":"add_alarm","time":"07:00","days":[],"date":"","label":""} {"type":"set_alarm","id":"","enabled":false} {"type":"lifelog","date":"","mood":"","note":""} {"type":"complete_reminder","id":""} {"type":"update_reminder","id":"",...changed fields} {"type":"update_event","id":"",...changed fields} {"type":"add_birthday","name":"","month":1,"day":1,"year":""} {"type":"delete","kind":"reminder|event|note|alarm|birthday","id":""}',
     ...(aiWho ? buddyWhoLines().concat(['Also: {"type":"name_buddy","name":""} sets your own name.']) : []),
+    'Phone: {"type":"phone_quiet","mode":"silent|vibrate|normal","from":"","until":"HH:MM"} mutes, vibrates or unmutes now ("from" empty = now); {"type":"quiet_auto","work":"off|vibrate|silent","class":"off|vibrate|silent"} for every shift/class.',
     'Reminders: ' + (rems.join('; ') || 'none'),
     'Events: ' + (evs.join('; ') || 'none'),
     'Notes: ' + (notes.join('; ') || 'none'),

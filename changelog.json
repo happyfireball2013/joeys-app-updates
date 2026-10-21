@@ -1,5 +1,11 @@
 [
  {
+  "release": 128,
+  "date": "2026-10-21",
+  "notes": "Your phone can go quiet during work and classes (Settings → Sounds → Quiet phone), and you can tell your buddy to mute or unmute it. Tap Install to get it.",
+  "app": true
+ },
+ {
   "release": 111,
   "date": "2026-10-21",
   "notes": "New Birthdays, Work and Classes buttons under the calendar show everything coming up, soonest first. Classes get their own icon you can change in your theme.",
