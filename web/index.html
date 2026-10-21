@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211428;</script>
+<script>window.JOEY_WEB_VERSION = 202610211439;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -744,12 +744,28 @@ button.wx-day:active{background:var(--surface-2)}
 #thMascot{pointer-events:auto!important;cursor:pointer}
 #thMascot.talk img,#thMascot.talk canvas{animation:bbTalk .45s ease-in-out infinite alternate}
 @keyframes bbTalk{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(1.06,.94) rotate(2deg)}}
-#buddyBubble{position:fixed;right:14px;bottom:calc(96px + 76px * var(--bud-k,1) + env(safe-area-inset-bottom,0px));z-index:65;width:min(330px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
+#buddyBubble{position:fixed;right:14px;bottom:calc(96px + 76px * var(--bud-k,1) + env(safe-area-inset-bottom,0px));z-index:65;width:min(390px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
 #buddyBubble::after{content:"";position:absolute;right:calc(38px * var(--bud-k,1) - 4px);bottom:-9px;width:18px;height:18px;background:var(--surface);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
 @keyframes bbPop{from{transform:scale(.6) translateY(30px);opacity:0;transform-origin:85% 100%}to{transform:none;opacity:1}}
 #buddyBubble .bb-x{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
 #buddyBubble .bb-x .ic{width:16px;height:16px}
-#buddyBubble .bb-body{padding-right:22px;max-height:40vh;overflow:auto}
+#buddyBubble .bb-body{padding-right:0;margin-right:-6px;padding-top:22px;max-height:min(55vh,520px);overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px}
+#buddyBubble .bm{display:flex;gap:8px;align-items:flex-end;max-width:100%}
+#buddyBubble .bm.me{justify-content:flex-end;padding-left:44px}
+#buddyBubble .bm.bud{padding-right:30px}
+#buddyBubble .bm-face{flex:none;width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.2))}
+#buddyBubble span.bm-face{border-radius:50%;background:var(--accent-soft)}
+#buddyBubble .bm-b{min-width:0;padding:8px 11px;border-radius:16px 16px 16px 5px;background:var(--surface-2);overflow-wrap:anywhere}
+#buddyBubble .bm.me .bm-b{border-radius:16px 16px 5px 16px;background:var(--accent);color:var(--on-accent);font-size:.92rem;line-height:1.4}
+#buddyBubble .bm.err .bm-b{color:var(--danger)}
+#buddyBubble .bm-b p{margin:0}
+#buddyBubble .bm-b ul{margin:4px 0 0}
+#buddyBubble .bm-b .link{margin-top:4px}
+#buddyBubble .bm-pic{display:flex;align-items:center;gap:5px;font-weight:650;opacity:.9}
+#buddyBubble .bm-pic .ic{width:15px;height:15px}
+#buddyBubble .bm-day{align-self:center;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin:4px 0 0}
+#buddyBubble .bm-top{position:absolute;top:12px;left:14px}
+#buddyBubble .bm-top .link{font-size:.75rem}
 #buddyBubble .bb-body p{margin:0 0 6px;font-size:.95rem;line-height:1.4}
 #buddyBubble .bb-body ul{margin:4px 0 6px;padding-left:18px;font-size:.85rem}
 #buddyBubble .bb-body li span{color:var(--ink-2)}
@@ -4406,7 +4422,7 @@ const A = {
   'test-sound': () => { setTimeout(() => { const t = thFor('reminders'); if (t && sfxSlots(t, 'remDue').length) sfxPlay('remDue', t, true); else playTone('chime'); }, 30); if (S.settings.vibrate) { try { navigator.vibrate && navigator.vibrate([140, 80, 140]); } catch (e) {} } },
   'ai-example': t => { ui.aiText = t.dataset.v; render(); const el = $('#aiInput'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } },
   'ai-stop': () => { if (aiCtl) aiCtl.abort(); },
-  'ai-undo': () => aiUndo(),
+  'ai-undo': () => { const inBud = buddyOpen; aiUndo(); if (inBud) { budLogAdd({who:'bud', text:'Undone. Everything is back the way it was.'}); buddyRefresh(); } },
   'ai-dismiss': () => { Object.assign(ai, {reply:'', lines:[], undo:[], err:''}); render(); },
   'al-new': () => alarmSheet(null),
   'al-edit': t => alarmSheet(t.dataset.id),
@@ -5206,13 +5222,31 @@ render = function(){ thApply(ui.screen); _thRender(); thDecorate(); buddyRefresh
 
 /* tap the corner buddy to talk to the AI: it answers in a speech bubble */
 let buddyOpen = false;
+/* Message log: everything you and your buddy said, kept on this device per buddy (last 100), shown as a chat with
+   a little picture of him next to his messages. The hello for this visit sits under the older messages. */
+const BUD_LOG_MAX = 100;
+let budSessionAt = 0;   // messages from this time on came after today's hello
+const budLogKey = () => 'jma:budLog:' + ((buddyFor(ui.screen) || {}).id || 'none');
+function budLog(){ try { const a = JSON.parse(localStorage.getItem(budLogKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function budLogAdd(m){ const a = budLog(); a.push(Object.assign({ts:Date.now()}, m)); try { localStorage.setItem(budLogKey(), JSON.stringify(a.slice(-BUD_LOG_MAX))); } catch (e) {} }
+function budMsgHTML(m, last){
+  if (m.who === 'me') return '<div class="bm me"><div class="bm-b">' + (m.pic ? '<span class="bm-pic">' + icon('image') + 'Picture</span>' : '') + (m.text ? esc(m.text) : '') + '</div></div>';
+  const face = thImg(thFor(ui.screen), 'mascot');
+  return '<div class="bm bud' + (m.err ? ' err' : '') + '">' + (face ? '<img class="bm-face" src="' + face + '" alt="">' : '<span class="bm-face"></span>') +
+    '<div class="bm-b"><p>' + esc(m.text || '') + '</p>' + (m.lines && m.lines.length ? '<ul>' + m.lines.map(l => '<li>' + esc(l.text) + (l.sub ? ' · <span>' + esc(l.sub) + '</span>' : '') + '</li>').join('') + '</ul>' : '') +
+    (last && ai.undo && ai.undo.length && !ai.busy ? '<button class="link" data-action="ai-undo">Undo</button>' : '') + (last ? buddyNanoNote() : '') + '</div></div>';
+}
 function buddyBodyHTML(){
   if (aiState !== 'ready') return '<p>I can’t talk yet. The AI assistant isn’t set up on this device. <button class="link" data-action="buddy-setup">Set it up</button></p>';
-  if (ai.busy) return '<p class="bb-typing" aria-label="Thinking"><i></i><i></i><i></i></p>';
-  if (ai.err) return '<p>' + esc(ai.err) + '</p>';
-  if (ai.reply) return '<p>' + esc(ai.reply) + '</p>' + (ai.lines && ai.lines.length ? '<ul>' + ai.lines.map(l => '<li>' + esc(l.text) + (l.sub ? ' · <span>' + esc(l.sub) + '</span>' : '') + '</li>').join('') + '</ul>' : '') +
-    (ai.undo && ai.undo.length ? '<button class="link" data-action="ai-undo">Undo</button>' : '') + buddyNanoNote();
-  return '<p>' + esc(buddyHello || 'Hi! What can I do for you?') + '</p>';
+  const log = budLog(), old = log.filter(m => m.ts < budSessionAt), now = log.filter(m => m.ts >= budSessionAt);
+  const day = ts => { const d = new Date(ts), ds = ymd(d); return ds === todayStr() ? 'Today' : ds === addDays(todayStr(), -1) ? 'Yesterday' : d.toLocaleDateString('en-US', {month:'short', day:'numeric'}); };
+  let h = log.length ? '<div class="bm-top"><button class="link" data-action="buddy-clear">Clear chat</button></div>' : '', lastDay = '';
+  old.forEach(m => { const dd = day(m.ts); if (dd !== lastDay) { h += '<div class="bm-day">' + dd + '</div>'; lastDay = dd; } h += budMsgHTML(m, false); });
+  if (old.length && day(Date.now()) !== lastDay) h += '<div class="bm-day">Today</div>';
+  h += budMsgHTML({who:'bud', text:buddyHello || 'Hi! What can I do for you?'}, false);
+  now.forEach((m, i) => { h += budMsgHTML(m, i === now.length - 1 && m.who === 'bud'); });
+  if (ai.busy && buddyPending) h += '<div class="bm bud">' + (thImg(thFor(ui.screen), 'mascot') ? '<img class="bm-face" src="' + thImg(thFor(ui.screen), 'mascot') + '" alt="">' : '<span class="bm-face"></span>') + '<div class="bm-b"><p class="bb-typing" aria-label="Thinking"><i></i><i></i><i></i></p></div></div>';
+  return h;
 }
 /* A different hello each time you tap the buddy. {me} = his name, {you} = your name; lines that need a name
    only show when he has one. Picked once per tap, so it doesn't change while the bubble is open. */
@@ -5380,7 +5414,11 @@ function buddyRefresh(){
   // his answer just came in (in the bubble, or the little note when the bubble's closed): he makes his sound again
   if (budWasBusy && !ai.busy && (buddyOpen || buddyPending) && !document.hidden && (ai.reply || ai.err || (ai.lines && ai.lines.length))) sfxPlay('buddy');
   budWasBusy = !!ai.busy && (buddyOpen || buddyPending);
-  if (buddyPending && !ai.busy) { buddyPending = false; if (!buddyOpen) buddyPeek('done'); }
+  if (buddyPending && !ai.busy) {
+    buddyPending = false;
+    budLogAdd(ai.err ? {who:'bud', text:ai.err, err:true} : {who:'bud', text:ai.reply || 'Done!', lines:(ai.lines || []).map(l => ({text:l.text, sub:l.sub || ''}))});
+    if (!buddyOpen) buddyPeek('done');
+  }
   else if (buddyPending && !buddyOpen) { const p = $('#buddyPeek'); if (!p || p.hidden || p.className !== 'thinking') buddyPeek('thinking'); }
   if (buddyOpen) buddyPeek(null);
   if (m) { m.setAttribute('data-action', 'buddy-talk'); m.classList.toggle('talk', buddyOpen && ai.busy && !m.dataset.still); m.classList.toggle('open', buddyOpen); }
@@ -5388,7 +5426,8 @@ function buddyRefresh(){
   const sh = $('#buddyShade'); if (sh) sh.hidden = !buddyOpen || !m || m.hidden;
   if (!b) return;
   if (!buddyOpen || !m || m.hidden) { b.hidden = true; return; }
-  const body = b.querySelector('.bb-body'); if (body) body.innerHTML = buddyBodyHTML();
+  const body = b.querySelector('.bb-body');
+  if (body) { const h = buddyBodyHTML(); if (body._h !== h) { body._h = h; body.innerHTML = h; body.scrollTop = body.scrollHeight; } }   // newest at the bottom
   const inp = $('#buddyInput'); if (inp) inp.disabled = ai.busy || aiState !== 'ready';
 }
 function buddyClose(){ buddyOpen = false; const b = $('#buddyBubble'); if (b) b.hidden = true; const sh = $('#buddyShade'); if (sh) sh.hidden = true; const i = $('#buddyInput'); if (i) i.blur(); buddyRefresh(); }
@@ -5409,7 +5448,7 @@ function buddyToggle(keep){
   if (buddyOpen) { buddyClose(); return; }
   buddyOpen = true; sfxPlay('buddy');
   if (!keep && !buddyPending) Object.assign(ai, {reply:'', lines:[], undo:[], err:''});   // a fresh chat, unless he's showing what he just did
-  buddyPickHello();
+  buddyPickHello(); budSessionAt = Date.now();
   b.hidden = false; buddyRefresh();
   setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60);
 }
@@ -5419,10 +5458,12 @@ FORMS.buddyForm = () => {
   if (ai.busy || (!text && !buddyPic)) return;
   if (buddyPic) {
     if (!buddyPicReady()) { ai.err = 'Reading pictures needs your Gemini key and the internet. Add the key in Settings → AI assistant.'; buddyRefresh(); return; }
+    budLogAdd({who:'me', text, pic:true});
     if (!text) text = 'Here’s a picture. If it’s my schedule, add my shifts to my calendar.';
     aiImage = {mime:buddyPic.mime, data:buddyPic.data};
     buddyPicClear();
   }
+  if (!aiImage) budLogAdd({who:'me', text});
   i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); aiRun(text); buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection
@@ -5451,6 +5492,7 @@ Object.assign(A, {
   'buddy-talk': () => buddyToggle(),
   'buddy-peek': () => { buddyPeek(null); if (!buddyOpen) buddyToggle(true); },
   'buddy-close': () => buddyClose(),
+  'buddy-clear': t => { if (!armAlways(t, 'Tap again to clear')) return; try { localStorage.removeItem(budLogKey()); } catch (e) {} budSessionAt = Date.now(); buddyRefresh(); },
   'buddy-pic': () => { const f = $('#buddyPicFile'); if (f) f.click(); },
   'buddy-pic-x': () => { buddyPicClear(); const i = $('#buddyInput'); if (i) i.placeholder = 'Say something…'; },
   'buddy-setup': () => { buddyClose(); go('settings'); setTimeout(() => jumpTo('set-ai'), 30); }

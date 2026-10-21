@@ -1,5 +1,11 @@
 [
  {
+  "release": 130,
+  "date": "2026-10-21",
+  "notes": "Your buddy now keeps a chat log of what you've said to each other, with a little picture of him next to his messages, in a bigger bubble.",
+  "app": false
+ },
+ {
   "release": 129,
   "date": "2026-10-21",
   "notes": "After an update, the app now shows which phone permissions got switched off, with one button that walks you through turning them all back on.",
