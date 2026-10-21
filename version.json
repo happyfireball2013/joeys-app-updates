@@ -1,5 +1,5 @@
 {
- "web": 202610211345,
+ "web": 202610211406,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your own work and birthday icon pictures now have a size slider, and they no longer cover your mood on the calendar."
+ "notes": "New Birthdays, Work and Classes buttons under the calendar show everything coming up, soonest first. Classes get their own icon you can change in your theme."
 }

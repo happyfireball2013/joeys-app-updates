@@ -1,5 +1,11 @@
 [
  {
+  "release": 111,
+  "date": "2026-10-21",
+  "notes": "New Birthdays, Work and Classes buttons under the calendar show everything coming up, soonest first. Classes get their own icon you can change in your theme.",
+  "app": false
+ },
+ {
   "release": 110,
   "date": "2026-10-21",
   "notes": "Your own work and birthday icon pictures now have a size slider, and they no longer cover your mood on the calendar.",

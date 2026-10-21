@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211345;</script>
+<script>window.JOEY_WEB_VERSION = 202610211406;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -822,6 +822,14 @@ button.wx-day:active{background:var(--surface-2)}
 .wk-ic .ic{width:16px;height:16px}
 .wk-ic .cal-ic-img{width:calc(20px * min(var(--k,1),1.6));height:calc(20px * min(var(--k,1),1.6));object-fit:contain}
 .hu .cal-ic-img{width:18px;height:18px;object-fit:contain;flex:none}
+.cal-kind .ic{width:16px;height:16px}
+.cal-kind .cal-ic-img{width:18px;height:18px;object-fit:contain}
+.kind-add{align-items:center;margin-bottom:12px}
+.kind-add .muted{font-size:.8rem}
+#kindList .card{max-height:60vh;overflow:auto}
+.seg.ev-type button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.seg.ev-type .ic{width:16px;height:16px}
+.seg.ev-type .cal-ic-img{width:18px;height:18px;object-fit:contain}
 .ev-work-row .lbl{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px}
 .ev-work-row .lbl small{flex-basis:100%}
 .ev-work-row .lbl .ic{width:18px;height:18px;color:var(--accent)}
@@ -941,6 +949,7 @@ const DAY = 864e5;
 
 const IC = {
   folder:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  school:'<path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6v4.1c1.6 1.5 3.5 2.2 5.5 2.2s3.9-.7 5.5-2.2v-4.1M21.5 9.5v5.2"/>',
   work:'<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.6A1.6 1.6 0 0 1 10.6 4h2.8A1.6 1.6 0 0 1 15 5.6v1.9M3.5 12.5h17M11 12.5v1.5h2v-1.5"/>',
   cake:'<path d="M4 20.5h16M5.5 20.5v-6.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6.5M5.5 15.5c1.6 1.1 3.2 1.1 4.8 0s3.2-1.1 4.8 0 2.4 1.1 3.4.4M12 12V8.5M12 4.2c.9.9 1.2 1.7.6 2.5-.3.4-.9.4-1.2 0-.6-.8-.3-1.6.6-2.5z"/>',
   home:'<path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
@@ -1818,7 +1827,7 @@ function upcomingItems(n){
       if (e.end) { const [h2, m2] = e.end.split(':').map(Number); const en = new Date(day); en.setHours(h2, m2, 0, 0); endTs = en.getTime(); }
     }
     if (endTs < now) return;
-    items.push({kind:isWork(e) ? 'work' : 'event', id, title:e.title, date:e.date, time:e.start, ts:startTs});
+    items.push({kind:evType(e), id, title:e.title, date:e.date, time:e.start, ts:startTs});
   });
   openRems().forEach(([id, r]) => { if (r.date) items.push({kind:'rem', id, title:r.text, date:r.date, time:r.time, ts:remDue(r), late:remStatus(r) === 'overdue'}); });
   Object.entries(S.birthdays || {}).forEach(([id, b]) => { if (!b || !b.month) return; const ds = bdayNext(b, t); if (ds > addDays(t, 30)) return; const a = bdayAge(b, ds); items.push({kind:'bday', id, title:bdayTitle(b) + (a > 0 ? ' (' + a + ')' : ''), date:ds, time:'', ts:parseYmd(ds).getTime()}); });
@@ -1833,7 +1842,7 @@ function upcomingHTML(){
   const n = S.settings.homeUpcoming; if (!n) return '';
   const list = upcomingItems(n);
   return '<div class="hero-up"><div class="hu-label">Coming up</div>' +
-    (list.length ? list.map(it => '<button class="hu" data-action="' + (it.kind === 'rem' ? 'edit-rem' : it.kind === 'bday' ? 'edit-bday' : 'edit-event') + '" data-id="' + it.id + '">' + (it.kind === 'rem' ? icon('bell') : it.kind === 'bday' ? calIcon('bday') : it.kind === 'work' ? calIcon('work') : icon('calendar')) +
+    (list.length ? list.map(it => '<button class="hu" data-action="' + (it.kind === 'rem' ? 'edit-rem' : it.kind === 'bday' ? 'edit-bday' : 'edit-event') + '" data-id="' + it.id + '">' + (it.kind === 'rem' ? icon('bell') : it.kind === 'bday' ? calIcon('bday') : it.kind === 'work' || it.kind === 'class' ? calIcon(it.kind) : icon('calendar')) +
         '<span class="hu-t">' + esc(it.title) + '</span><span class="hu-when">' + (it.late ? '<span class="hu-late">Late</span>' : '') + esc(shortWhen(it.date, it.time)) + '</span></button>').join('')
       : '<div class="hu-empty">Nothing coming up. New reminders and events show here.</div>') + '</div>';
 }
@@ -3051,7 +3060,7 @@ function aiImageLines(){
   const who = S.settings.name || 'the user';
   return [
     '', 'The request comes with a picture. Read it carefully.',
-    'If it is a work schedule or any schedule, add one add_event for every shift or entry that has a date, with start and end times exactly as shown. Title each one "Work" (or the job or place name if the picture shows one), set "work":true, and put the role or location in note if shown.',
+    'If it is a work schedule or any schedule, add one add_event for every shift or entry that has a date, with start and end times exactly as shown. Title each one "Work" (or the job or place name if the picture shows one), set "kind":"work", and put the role or location in note if shown. If it is a class schedule, add each class meeting in the next 2 weeks with "kind":"class", titled with the course name, room in note.',
     'If the picture shows several people, only use ' + who + '’s row or column. If you can’t tell which one is ' + who + '’s, add no actions and ask in reply.',
     'Dates must be real dates from the calendar above or later; if the year isn’t shown, use the nearest upcoming one. Skip days off. Skip shifts that already appear in the events list with the same date and start time.',
     'If an end time is earlier than the start (an overnight shift), still give it as shown.',
@@ -3081,7 +3090,7 @@ function aiContext(){
   const from = addDays(t, -7), to = addDays(t, 120);
   const evs = Object.entries(S.events).filter(([, e]) => e.date >= from && e.date <= to)
     .sort((a, b) => (a[1].date + (a[1].start || '')).localeCompare(b[1].date + (b[1].start || ''))).slice(0, 150)
-    .map(([id, e]) => '[' + id + '] ' + clip(e.title, 80) + ' | ' + e.date + (e.start ? ' ' + e.start + (e.end ? '-' + e.end : '') : ' all day') + (e.note ? ' | note: ' + clip(e.note, 60) : ''));
+    .map(([id, e]) => '[' + id + '] ' + clip(e.title, 80) + ' | ' + e.date + (e.start ? ' ' + e.start + (e.end ? '-' + e.end : '') : ' all day') + (evType(e) !== 'event' ? ' | ' + evType(e) : '') + (e.note ? ' | note: ' + clip(e.note, 60) : ''));
   const notes = Object.entries(S.notes).sort((a, b) => (b[1].updated || 0) - (a[1].updated || 0)).slice(0, 60)
     .map(([id, n]) => '[' + id + '] ' + clip(n.title || 'Untitled', 60) + (n.body ? ' | ' + clip(n.body, 80) : ''));
   const alarmsTxt = Object.entries(S.alarms).sort((a, b) => (a[1].time || '').localeCompare(b[1].time || '')).slice(0, 40)
@@ -3116,7 +3125,7 @@ function aiContext(){
     '',
     'Action types:',
     '{"type":"add_reminder","text":"","date":"","time":"","repeat":"none","note":""} (note is optional extra detail)',
-    '{"type":"add_event","title":"","date":"","start":"","end":"","note":"","work":false} (work true for a work shift)',
+    '{"type":"add_event","title":"","date":"","start":"","end":"","note":"","kind":"event"} (kind is event, work for a work shift, or class for a school class)',
     '{"type":"add_note","title":"","body":""}',
     '{"type":"start_timer","minutes":10,"label":""}',
     '{"type":"add_alarm","time":"07:00","days":[1,2,3,4,5],"date":"","label":""}',
@@ -3162,7 +3171,7 @@ function applyAiActions(out){
         if (Object.values(S.events).some(x => x.date === date && (x.start || '') === start && String(x.title || '').toLowerCase() === title.toLowerCase())) { lines.push({icon:'calendar', text:'Already there: ' + title, sub:fmtDay(date) + (start ? ' · ' + fmtHM(start) : '')}); return; }
         const over = start && isTime(a.end) && a.end < start ? 'Ends ' + fmtHM(a.end) + ' the next day' : '';   // overnight shift
         const e = {title, date, start, end, color:S.settings.eventColor, note:[str(a.note, 500), over].filter(Boolean).join(' · '), created:Date.now()};
-        if (a.work === true || a.work === 'true') e.work = true;
+        if (a.kind === 'work' || a.kind === 'class') e.kind = a.kind; else if (a.work === true || a.work === 'true') e.kind = 'work';
         const id = uid(); remember('events', id); putItem('events', id, e);
         lines.push({icon:'calendar', text:'Event: ' + title, sub:evWhen(e), action:'edit-event', id});
       } else if (type === 'add_note') {
@@ -3201,6 +3210,7 @@ function applyAiActions(out){
         if ('end' in a) n.end = isTime(a.end) ? a.end : (a.end === '' || a.end == null ? '' : n.end);
         if (!n.start || (n.end && n.end <= n.start)) n.end = '';
         if ('note' in a) n.note = str(a.note, 500);
+        if (['event', 'work', 'class'].includes(a.kind)) { n.kind = a.kind; delete n.work; }
         remember('events', id0); putItem('events', id0, n);
         lines.push({icon:'calendar', text:'Changed: ' + n.title, sub:evWhen(n), action:'edit-event', id:id0});
       } else if (type === 'add_alarm') {
@@ -3470,10 +3480,18 @@ function bdaySub(b, ds){ const a = bdayAge(b, ds); return a > 0 ? 'Turns ' + a :
 /* Work shifts: an event marked as work (the "Work shift" switch, or added from a schedule picture), or one titled
    "Work…"/"Shift…" when it was never switched. Calendar icons (birthday, work) can be pictures from the theme:
    the page you're on first, then the Calendar page's theme. */
-const isWork = e => !!e && (e.work === true || (e.work !== false && /^(work|shift)\b/i.test(String(e.title || '').trim())));
+// event type: "work", "class" or a plain "event". Chosen in the event form (e.kind); older events: e.work, or guessed from the title
+function evType(e){
+  if (!e) return 'event';
+  if (e.kind === 'work' || e.kind === 'class' || e.kind === 'event') return e.kind;
+  if (e.work === true) return 'work'; if (e.work === false) return 'event';
+  const t = String(e.title || '').trim();
+  return /^(work|shift)\b/i.test(t) ? 'work' : /^(class|lecture|lab|seminar)\b/i.test(t) ? 'class' : 'event';
+}
+const isWork = e => evType(e) === 'work', isClass = e => evType(e) === 'class';
 function calIcon(kind){
   const slot = 'calic_' + kind, t = thImg(thFor(ui.screen), slot) ? thFor(ui.screen) : thFor('calendar'), u = thImg(t, slot);
-  return u ? '<img class="cal-ic-img" src="' + u + '" alt="" style="--k:' + (thSize(t, slot) / 100) + '">' : icon(kind === 'bday' ? 'cake' : kind);   // --k: its Size slider
+  return u ? '<img class="cal-ic-img" src="' + u + '" alt="" style="--k:' + (thSize(t, slot) / 100) + '">' : icon(kind === 'bday' ? 'cake' : kind === 'class' ? 'school' : kind);   // --k: its Size slider
 }
 function calCellsHTML(m){
   const s = S.settings, y = m.getFullYear(), mo = m.getMonth();
@@ -3491,9 +3509,10 @@ function calCellsHTML(m){
     const d = new Date(y, mo, 1 - off + i), ds = ymd(d), out = d.getMonth() !== mo;
     const evs = evByDay[ds] || [], rc = remByDay[ds] || 0;
     const bd = bdaysOn(ds).length;
-    const wk = evs.some(isWork), other = evs.filter(e => !isWork(e));
+    const wk = evs.some(isWork), cl = evs.some(isClass), other = evs.filter(e => evType(e) === 'event');
     const dots = (bd ? '<i class="dot bday" aria-hidden="true">' + calIcon('bday') + '</i>' : '') + (wk ? '<i class="dot work" aria-hidden="true">' + calIcon('work') + '</i>' : '') +
-      other.slice(0, Math.max(1, 3 - (bd ? 1 : 0) - (wk ? 1 : 0))).map(e => '<i class="dot" style="background:' + hueOf(e.color) + '"></i>').join('') + (rc ? '<i class="dot rem-dot"></i>' : '');
+      (cl ? '<i class="dot work cls" aria-hidden="true">' + calIcon('class') + '</i>' : '') +
+      other.slice(0, Math.max(1, 3 - (bd ? 1 : 0) - (wk ? 1 : 0) - (cl ? 1 : 0))).map(e => '<i class="dot" style="background:' + hueOf(e.color) + '"></i>').join('') + (rc ? '<i class="dot rem-dot"></i>' : '');
     const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (bd ? ', ' + bd + (bd > 1 ? ' birthdays' : ' birthday') : '') + (evs.length ? ', ' + evs.length + (evs.length > 1 ? ' events' : ' event') : '') + (rc ? ', ' + rc + (rc > 1 ? ' reminders' : ' reminder') : '');
     cells += '<button class="day' + (out ? ' out' : '') + (ds === t ? ' today' : '') + (ds === ui.calSel ? ' sel' : '') + '" data-action="cal-sel" data-date="' + ds + '" aria-label="' + esc(label) + '" aria-pressed="' + (ds === ui.calSel) + '">' + llCellInner(ds, d.getDate()) + '<span class="dots">' + dots + '</span></button>';
   }
@@ -3506,7 +3525,7 @@ function calendarHTML(){
   const rems = s.calReminders ? Object.entries(S.reminders).filter(e => e[1].date === sel).sort(remSort) : [];
   const onThisMonth = y === new Date().getFullYear() && mo === new Date().getMonth();
   let agenda = bdaysOn(sel).map(([id, b]) => '<button class="ev bd-row" data-action="edit-bday" data-id="' + id + '"><span class="ev-bar" style="background:' + HUES.berry + '"></span><span class="ev-time bd-ic">' + calIcon('bday') + '</span><span class="ev-main"><b>' + esc(bdayTitle(b)) + '</b><span class="muted">' + esc(bdaySub(b, sel)) + '</span></span></button>').join('');
-  agenda += evs.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + (e.start ? fmtHM(e.start) + (e.end ? '<br><span class="muted">' + fmtHM(e.end) + '</span>' : '') : 'All day') + '</span><span class="ev-main"><b>' + (isWork(e) ? '<span class="wk-ic" aria-label="Work">' + calIcon('work') + '</span>' : '') + esc(e.title) + '</b>' + (e.note ? '<span class="muted">' + esc(e.note) + '</span>' : '') + '</span></button>').join('');
+  agenda += evs.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + (e.start ? fmtHM(e.start) + (e.end ? '<br><span class="muted">' + fmtHM(e.end) + '</span>' : '') : 'All day') + '</span><span class="ev-main"><b>' + (evType(e) !== 'event' ? '<span class="wk-ic" aria-label="' + (isWork(e) ? 'Work' : 'Class') + '">' + calIcon(evType(e)) + '</span>' : '') + esc(e.title) + '</b>' + (e.note ? '<span class="muted">' + esc(e.note) + '</span>' : '') + '</span></button>').join('');
   agenda += rems.map(([id, r]) => '<div class="rrow' + (r.done ? ' done' : '') + ' ' + remStatus(r) + '"><button class="chk' + (r.done ? ' on' : '') + '" data-action="rem-toggle" data-id="' + id + '" aria-label="' + (r.done ? 'Mark not done' : 'Mark done') + '">' + (r.done ? icon('check') : '') + '</button><button class="rtext" data-action="edit-rem" data-id="' + id + '"><span class="rt">' + esc(r.text) + '</span><span class="rmeta">' + (r.time ? '<i class="due">' + fmtHM(r.time) + '</i>' : '<i>Reminder</i>') + '</span></button></div>').join('');
   return head((!onThisMonth || sel !== t) ? '<button class="link" data-action="cal-today">Back to today</button>' : esc(fmtDate(new Date())), 'Calendar',
       '<button class="ib accent" data-action="new-event" data-date="' + sel + '" aria-label="New event">' + icon('plus') + '</button>') +
@@ -3516,7 +3535,7 @@ function calendarHTML(){
     (function(){ const w = S.settings.calWeather && wxForDate(sel); return w ? '<div class="agenda-wx">' + wxIcon(w.day ? w.day.icon : 1, false) + '<span><b>' + deg(w.day && w.day.temperature) + '</b> / ' + deg(w.night && w.night.temperature) + ' \u00b7 ' + esc((w.day && w.day.phrase) || '') + '</span></div>' : ''; })() +
     llAgendaHTML(sel) + (sel <= todayStr() ? '<div class="sec-title"><span>Plans</span></div>' : '') +
     '<div class="card">' + (agenda || '<div class="empty"><b>Nothing planned</b>Add an event, reminder or birthday for this day.</div>') + '</div>' +
-    '<div class="agenda-actions"><button class="btn sm" data-action="new-event" data-date="' + sel + '">' + icon('plus') + 'Event</button><button class="btn sm" data-action="new-rem" data-date="' + sel + '">' + icon('plus') + 'Reminder</button><button class="btn sm" data-action="new-bday" data-date="' + sel + '">' + icon('cake') + 'Birthday</button></div>' + bdayUpcomingHTML();
+    '<div class="agenda-actions"><button class="btn sm" data-action="new-event" data-date="' + sel + '">' + icon('plus') + 'Event</button><button class="btn sm" data-action="new-rem" data-date="' + sel + '">' + icon('plus') + 'Reminder</button><button class="btn sm cal-kind" data-action="list-bday">' + calIcon('bday') + 'Birthdays</button><button class="btn sm cal-kind" data-action="list-kind" data-kind="work">' + calIcon('work') + 'Work</button><button class="btn sm cal-kind" data-action="list-kind" data-kind="class">' + calIcon('class') + 'Classes</button></div>' + bdayUpcomingHTML();
 }
 
 function bdayUpcomingHTML(){
@@ -3524,6 +3543,29 @@ function bdayUpcomingHTML(){
   if (!list.length) return '';
   return '<div class="sec-title"><span>Birthdays coming up</span><span>' + Object.keys(S.birthdays).length + ' saved</span></div><div class="card">' +
     list.map(([id, b, ds]) => '<button class="ev bd-row" data-action="edit-bday" data-id="' + id + '"><span class="ev-bar" style="background:' + HUES.berry + '"></span><span class="ev-time bd-ic">' + calIcon('bday') + '</span><span class="ev-main"><b>' + esc(bdayTitle(b)) + '</b><span class="muted">' + esc(shortWhen(ds, '') + (bdayAge(b, ds) > 0 ? ' · turns ' + bdayAge(b, ds) : '')) + '</span></span></button>').join('') + '</div>';
+}
+/* Lists behind the Birthdays / Work / Classes buttons: everything coming up, soonest first, with an Add button. */
+function daysAway(ds){ const n = Math.round((parseYmd(ds) - parseYmd(todayStr())) / DAY); return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : 'In ' + n + ' days'; }
+function bdayListSheet(){
+  const t = todayStr(), list = Object.entries(S.birthdays || {}).filter(([, b]) => b && b.month).map(([id, b]) => [id, b, bdayNext(b, t)]).sort((a, b) => a[2].localeCompare(b[2]) || bdayTitle(a[1]).localeCompare(bdayTitle(b[1])));
+  openSheet('<div id="kindList">' + sheetHead('Birthdays') +
+    '<div class="row-btns kind-add"><span class="muted">' + list.length + ' saved · soonest first</span><span class="grow"></span><button type="button" class="btn sm accent" data-action="new-bday" data-date="' + (ui.calSel || t) + '">' + icon('plus') + 'Add birthday</button></div>' +
+    (list.length ? '<div class="card">' + list.map(([id, b, ds]) => '<button class="ev bd-row" data-action="edit-bday" data-id="' + id + '"><span class="ev-bar" style="background:' + HUES.berry + '"></span><span class="ev-time bd-ic">' + calIcon('bday') + '</span><span class="ev-main"><b>' + esc(bdayTitle(b)) + '</b><span class="muted">' +
+      esc(parseYmd(ds).toLocaleDateString('en-US', {month:'long', day:'numeric'}) + ' · ' + daysAway(ds) + (bdayAge(b, ds) > 0 ? ' · turns ' + bdayAge(b, ds) : '')) + '</span></span></button>').join('') + '</div>'
+      : '<div class="trash-none"><b>No birthdays yet</b>Add one and it shows on the calendar every year.</div>') + '</div>');
+}
+function kindListSheet(kind){
+  const t = todayStr(), now = new Date(), nowHM = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  const name = kind === 'work' ? 'Work' : 'Classes', one = kind === 'work' ? 'shift' : 'class';
+  // coming up: today's that haven't ended yet, then later days
+  const list = Object.entries(S.events).filter(([, e]) => evType(e) === kind && (e.date > t || (e.date === t && (!e.start || (e.end || e.start) >= nowHM))))
+    .sort((a, b) => (a[1].date + (a[1].start || '')).localeCompare(b[1].date + (b[1].start || '')));
+  const when = e => parseYmd(e.date).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  openSheet('<div id="kindList">' + sheetHead(name) +
+    '<div class="row-btns kind-add"><span class="muted">' + list.length + ' coming up · soonest first</span><span class="grow"></span><button type="button" class="btn sm accent" data-action="new-kind" data-kind="' + kind + '">' + icon('plus') + 'Add ' + one + '</button></div>' +
+    (list.length ? '<div class="card">' + list.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + esc(when(e)) + '<br><span class="muted">' + (e.start ? fmtHM(e.start) + (e.end ? '–' + fmtHM(e.end) : '') : 'All day') + '</span></span>' +
+      '<span class="ev-main"><b><span class="wk-ic">' + calIcon(kind) + '</span>' + esc(e.title) + '</b><span class="muted">' + esc(daysAway(e.date) + (e.note ? ' · ' + e.note : '')) + '</span></span></button>').join('') + '</div>'
+      : '<div class="trash-none"><b>No ' + (kind === 'work' ? 'shifts' : 'classes') + ' coming up</b>' + (kind === 'work' ? 'Add one here, or send your buddy a picture of your schedule.' : 'Add one here. Pick “Class” as the type on any event to show it here.') + '</div>') + '</div>');
 }
 function bdaySheet(id, ds){
   const d0 = parseYmd(ds || todayStr());
@@ -4024,8 +4066,9 @@ function remTrashSheet(){
       '<div class="sh-actions">' + (items.length > 1 ? '<button type="button" class="btn danger" data-action="rem-purge-all">Delete all for good</button>' : '') + '<span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Done</button></div>'
     : '<div class="trash-none"><b>Nothing here</b>Reminders you delete show up here, so you can bring them back.</div><div class="sh-actions"><span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Done</button></div>') + '</div>');
 }
-function eventSheet(id, date){
-  const e = id ? S.events[id] : {title:'', date:date || ui.calSel || todayStr(), start:'', end:'', color:S.settings.eventColor, note:''};
+function eventSheet(id, date, kind){
+  const e = id ? S.events[id] : {title:kind === 'work' ? 'Work' : '', date:date || ui.calSel || todayStr(), start:'', end:'', color:S.settings.eventColor, note:'', kind:kind || undefined};
+  const ty = evType(e);
   if (!e) return;
   evEndAuto = !e.end;
   openSheet('<form id="evForm" data-id="' + (id || '') + '" autocomplete="off">' + sheetHead(id ? 'Event' : 'New event') +
@@ -4034,7 +4077,8 @@ function eventSheet(id, date){
     '<div class="fld-row"><label class="fld"><span>Starts</span><input class="in" type="time" id="evStart" value="' + esc(e.start) + '"></label><label class="fld"><span>Ends</span><input class="in" type="time" id="evEnd" value="' + esc(e.end) + '"></label></div>' +
     '<p class="hint">Leave both times empty for an all-day event.</p>' +
     '<div class="fld"><span>Color</span>' + colorPicker('evColor', e.color || 'accent', false) + '</div>' +
-    '<div class="srow ev-work-row"><span class="lbl">' + calIcon('work') + 'Work shift<small>Shows the work icon on the calendar</small></span><button type="button" class="toggle" id="evWork" data-action="ev-work" aria-pressed="' + isWork(e) + '" aria-label="Work shift"></button></div>' +
+    '<div class="fld"><span>Type</span><input type="hidden" id="evType" value="' + ty + '"' + (kind ? ' data-touched="1"' : '') + '><div class="seg ev-type" role="group" aria-label="Type">' +
+      [['event', icon('calendar'), 'Event'], ['work', calIcon('work'), 'Work'], ['class', calIcon('class'), 'Class']].map(([v, ic, l]) => '<button type="button" data-action="ev-type" data-v="' + v + '" aria-pressed="' + (ty === v) + '">' + ic + l + '</button>').join('') + '</div></div>' +
     '<label class="fld"><span>Notes</span><textarea class="in" id="evNote" rows="3" placeholder="Address, room number, what to bring">' + esc(e.note) + '</textarea></label>' +
     '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-event" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">' + (id ? 'Save' : 'Add event') + '</button></div></form>',
     null, id ? null : 'evTitle');
@@ -4205,7 +4249,7 @@ const A = {
   'new-event': t => eventSheet(null, t.dataset.date),
   'edit-event': t => eventSheet(t.dataset.id),
   'del-event': t => { if (!arm(t, 'Tap again to delete')) return; delItem('events', t.dataset.id); closeSheet(true); toast('Event deleted'); },
-  'ev-work': t => { const on = t.getAttribute('aria-pressed') !== 'true'; t.setAttribute('aria-pressed', String(on)); t.dataset.touched = '1'; },
+  'ev-type': t => { const h = $('#evType'); if (!h) return; h.value = t.dataset.v; h.dataset.touched = '1'; t.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === t))); },
   'cal-sel': t => { ui.calSel = t.dataset.date; const d = parseYmd(t.dataset.date); if (d.getMonth() !== ui.calMonth.getMonth() || d.getFullYear() !== ui.calMonth.getFullYear()) ui.calMonth = new Date(d.getFullYear(), d.getMonth(), 1); render(); },
   'cal-nav': t => {
     const m = ui.calMonth; ui.calMonth = new Date(m.getFullYear(), m.getMonth() + Number(t.dataset.d), 1);
@@ -4215,6 +4259,9 @@ const A = {
     render();
   },
   'new-bday': t => bdaySheet('', t.dataset.date || ui.calSel),
+  'list-bday': () => bdayListSheet(),
+  'list-kind': t => kindListSheet(t.dataset.kind),
+  'new-kind': t => eventSheet('', ui.calSel || todayStr(), t.dataset.kind),
   'edit-bday': t => bdaySheet(t.dataset.id),
   'del-bday': t => { if (!arm(t, 'Tap again to delete')) return; delItem('birthdays', t.dataset.id); closeSheet(true); toast('Birthday deleted'); render(); },
   'cal-today': () => { const d = new Date(); ui.calMonth = new Date(d.getFullYear(), d.getMonth(), 1); ui.calSel = todayStr(); render(); },
@@ -4434,7 +4481,7 @@ const FORMS = {
     const start = $('#evStart').value; let end = $('#evEnd').value;
     if (!start) end = ''; if (start && end && end < start) end = '';
     const ne = Object.assign({}, old, {title, date, start, end, color:$('#evColor').value, note:$('#evNote').value.trim(), created:old.created || Date.now()});
-    const wb = $('#evWork'); if (wb && wb.dataset.touched) ne.work = wb.getAttribute('aria-pressed') === 'true';   // untouched: decided by the title
+    const tb = $('#evType'); if (tb && tb.dataset.touched) { ne.kind = tb.value; delete ne.work; }   // untouched: decided by the title (Work…, Class…)
     putItem('events', id, ne);
     ui.calSel = date; const d = parseYmd(date); ui.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
     closeSheet(true); toast(f.dataset.id ? 'Event saved' : 'Event added');
@@ -4725,7 +4772,7 @@ function thSlotGroups(){
     {name:'Note cards', slots:[['card_all','Picture on every note card','Shows behind the note. PNGs with see-through backgrounds look great with “Small in the corner”.']].concat(TH_NOTE_COLORS.map(([c, n]) => ['card_' + c, 'Picture on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Open note background', slots:[['nbg_all','Behind every open note','Fills the page when you open a note to read or edit it']].concat(TH_NOTE_COLORS.map(([c, n]) => ['nbg_' + c, 'Behind open ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Lifelog faces', slots:[['mood_happy','Good day',''],['mood_okay','Okay day',''],['mood_sad','Rough day','']]},
-    {name:'Calendar icons', slots:[['calic_work','Work icon','Shows on days you work and next to work shifts. A small picture with a see-through background looks best.'],['calic_bday','Birthday icon','Shows on birthdays']]}
+    {name:'Calendar icons', slots:[['calic_work','Work icon','Shows on days you work and next to work shifts. A small picture with a see-through background looks best.'],['calic_class','Class icon','Shows on days you have class and next to classes'],['calic_bday','Birthday icon','Shows on birthdays']]}
   ];
 }
 const thDefaults = () => ({themes:{}, app:'', pages:{}});
