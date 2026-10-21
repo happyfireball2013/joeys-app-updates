@@ -1,5 +1,11 @@
 [
  {
+  "release": 107,
+  "date": "2026-10-21",
+  "notes": "Reminders can have notes now: open a reminder to type them. The list only shows a small preview.",
+  "app": false
+ },
+ {
   "release": 106,
   "date": "2026-10-21",
   "notes": "You can now send pictures to your buddy. Send him your work schedule and he puts your shifts on your calendar.",

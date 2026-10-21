@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211319;</script>
+<script>window.JOEY_WEB_VERSION = 202610211325;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -512,6 +512,10 @@ html.desk-bar #findBar{top:calc(36px + 8px)}
 .rmeta{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:.78rem;color:var(--ink-2)}
 .rmeta .ic{width:14px;height:14px}
 .rmeta i{font-style:normal;display:inline-flex;align-items:center;gap:3px}
+.rmeta i.rnote{flex:1 1 100%;min-width:0;max-width:100%}
+.rmeta i.rnote span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rmeta i.rnote .ic{flex:none}
+textarea.rem-note-in{min-height:64px;max-height:40vh;overflow:auto;field-sizing:content}
 .overdue .due{color:var(--danger);font-weight:650}
 .rrow.done .rt{text-decoration:line-through;color:var(--ink-2)}
 .quick{display:flex;gap:8px;margin-bottom:4px}
@@ -1368,8 +1372,10 @@ function nextDate(r){
 }
 function remMeta(r){
   const bits = [];
+  const nt = r.note ? String(r.note).replace(/\s+/g, ' ').trim() : '';
   if (r.date) bits.push('<i class="due">' + esc(fmtDay(r.date)) + (r.time ? ' · ' + fmtHM(r.time) : '') + '</i>');
   if (r.repeat && r.repeat !== 'none') bits.push('<i>' + icon('repeat') + REPEAT_SHORT[r.repeat] + '</i>');
+  if (nt) bits.push('<i class="rnote" title="Has notes">' + icon('note') + '<span>' + esc(nt.slice(0, 140)) + '</span></i>');
   return bits.join('');
 }
 /* Checking off a reminder shows a check mark right where it is. The check stays until 4:00 AM the next day:
@@ -3057,7 +3063,7 @@ function aiContext(){
     const ds = addDays(t, i);
     days.push(parseYmd(ds).toLocaleDateString('en-US', {weekday:'short'}) + ' ' + ds + (i === 0 ? ' (today)' : i === 1 ? ' (tomorrow)' : ''));
   }
-  const rems = openRems().sort(remSort).slice(0, 120).map(([id, r]) => '[' + id + '] ' + clip(r.text, 80) + ' | ' + (r.date || 'no date') + (r.time ? ' ' + r.time : '') + (r.repeat && r.repeat !== 'none' ? ' | repeats ' + r.repeat : ''));
+  const rems = openRems().sort(remSort).slice(0, 120).map(([id, r]) => '[' + id + '] ' + clip(r.text, 80) + ' | ' + (r.date || 'no date') + (r.time ? ' ' + r.time : '') + (r.repeat && r.repeat !== 'none' ? ' | repeats ' + r.repeat : '') + (r.note ? ' | notes: ' + clip(r.note, 160) : ''));
   const from = addDays(t, -7), to = addDays(t, 120);
   const evs = Object.entries(S.events).filter(([, e]) => e.date >= from && e.date <= to)
     .sort((a, b) => (a[1].date + (a[1].start || '')).localeCompare(b[1].date + (b[1].start || ''))).slice(0, 150)
@@ -3095,7 +3101,7 @@ function aiContext(){
     'Weather forecast (' + (S.settings.wxName || 'local') + '):', wxAiLines().join('\n') || '(not available)',
     '',
     'Action types:',
-    '{"type":"add_reminder","text":"","date":"","time":"","repeat":"none"}',
+    '{"type":"add_reminder","text":"","date":"","time":"","repeat":"none","note":""} (note is optional extra detail)',
     '{"type":"add_event","title":"","date":"","start":"","end":"","note":""}',
     '{"type":"add_note","title":"","body":""}',
     '{"type":"start_timer","minutes":10,"label":""}',
@@ -3103,7 +3109,7 @@ function aiContext(){
     '{"type":"set_alarm","id":"","enabled":false} to turn an alarm on or off',
     '{"type":"lifelog","date":"","mood":"happy","note":""} adds to that day\u2019s lifelog',
     '{"type":"complete_reminder","id":""}',
-    '{"type":"update_reminder","id":""} plus only the fields that change among text, date, time, repeat',
+    '{"type":"update_reminder","id":""} plus only the fields that change among text, date, time, repeat, note',
     '{"type":"update_event","id":""} plus only the fields that change among title, date, start, end, note',
     '{"type":"add_birthday","name":"Blake","month":10,"day":11,"year":""}',
     '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday',
@@ -3133,7 +3139,8 @@ function applyAiActions(out){
         const text = str(a.text, 200); if (!text) return;
         const date = isDate(a.date) ? a.date : '', time = date && isTime(a.time) ? a.time : '', repeat = date ? rep(a.repeat) : 'none';
         const id = uid(); remember('reminders', id);
-        putItem('reminders', id, {text, date, time, repeat, dom: date ? parseYmd(date).getDate() : null, done:false, created:Date.now()});
+        const rn = {text, date, time, repeat, dom: date ? parseYmd(date).getDate() : null, done:false, created:Date.now()}; if (str(a.note, 2000)) rn.note = str(a.note, 2000);
+        putItem('reminders', id, rn);
         lines.push({icon:'bell', text:'Reminder: ' + text, sub:when(date, time) + (repeat !== 'none' ? ' · ' + REPEAT_SHORT[repeat] : ''), action:'edit-rem', id});
       } else if (type === 'add_event') {
         const title = str(a.title, 200); if (!title) return;
@@ -3165,6 +3172,7 @@ function applyAiActions(out){
         if ('date' in a) n.date = isDate(a.date) ? a.date : (a.date === '' || a.date == null ? '' : n.date);
         if ('time' in a) n.time = isTime(a.time) ? a.time : (a.time === '' || a.time == null ? '' : n.time);
         if ('repeat' in a) n.repeat = rep(a.repeat);
+        if ('note' in a) { const nt = str(a.note, 2000); if (nt) n.note = nt; else delete n.note; }
         if (!n.date) { n.time = ''; n.repeat = 'none'; }
         n.dom = n.date ? parseYmd(n.date).getDate() : null;
         remember('reminders', id0); putItem('reminders', id0, n);
@@ -3972,6 +3980,7 @@ function remSheet(id, date){
   const t = todayStr();
   openSheet('<form id="remForm" data-id="' + (id || '') + '" autocomplete="off">' + sheetHead(id ? 'Reminder' : 'New reminder') +
     '<label class="fld"><span>Remind me to</span><input class="in" id="rText" required value="' + esc(r.text) + '" placeholder="Call the bank, submit the essay…"></label>' +
+    '<label class="fld"><span>Notes</span><textarea class="in rem-note-in" id="rNote" rows="2" placeholder="Details, links, what to bring…">' + esc(r.note || '') + '</textarea></label>' +
     '<div class="chips" style="margin-bottom:12px">' + [['Today', t], ['Tomorrow', addDays(t, 1)], ['Next week', addDays(t, 7)], ['No date', '']].map(o => '<button type="button" class="chip" data-action="rem-quickdate" data-v="' + o[1] + '">' + o[0] + '</button>').join('') + '</div>' +
     '<div class="fld-row"><label class="fld"><span>Date</span><input class="in" type="date" id="rDate" value="' + esc(r.date) + '"></label><label class="fld"><span>Time</span><input class="in" type="time" id="rTime" value="' + esc(r.time) + '"></label></div>' +
     '<p class="hint">With a date but no time, the alert rings at ' + fmtHM(S.settings.remTime) + '. You can change that in Settings.</p>' +
@@ -4385,9 +4394,11 @@ const FORMS = {
   remForm: f => {
     const id = f.dataset.id || uid(), old = S.reminders[id] || {};
     const text = $('#rText').value.trim(); if (!text) return;
-    const date = $('#rDate').value, time = date ? $('#rTime').value : '', repeat = $('#rRepeat').value;
+    const date = $('#rDate').value, time = date ? $('#rTime').value : '', repeat = $('#rRepeat').value, note = (($('#rNote') || {}).value || '').replace(/\s+$/, '').slice(0, 10000);
     if (repeat !== 'none' && !date) { toast('Pick a date so the repeat knows where to start.'); $('#rDate').focus(); return; }
-    putItem('reminders', id, Object.assign({}, old, {text, date, time, repeat, dom: date ? parseYmd(date).getDate() : null, done:!!old.done && old.date === date, created:old.created || Date.now()}));
+    const nr = Object.assign({}, old, {text, date, time, repeat, dom: date ? parseYmd(date).getDate() : null, done:!!old.done && old.date === date, created:old.created || Date.now()});
+    if (note.trim()) nr.note = note; else delete nr.note;
+    putItem('reminders', id, nr);
     closeSheet(true); toast(f.dataset.id ? 'Reminder saved' : 'Reminder added');
   },
   evForm: f => {

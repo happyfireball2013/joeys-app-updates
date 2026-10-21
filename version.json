@@ -1,5 +1,5 @@
 {
- "web": 202610211319,
+ "web": 202610211325,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "You can now send pictures to your buddy. Send him your work schedule and he puts your shifts on your calendar."
+ "notes": "Reminders can have notes now: open a reminder to type them. The list only shows a small preview."
 }
