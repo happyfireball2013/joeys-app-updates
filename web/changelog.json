@@ -1,5 +1,11 @@
 [
  {
+  "release": 147,
+  "date": "2026-10-21",
+  "notes": "Only listen to my voice (Settings → Hands-free buddy), buddy answers wait in the app with a dot instead of notifications, Settings no longer closes dropdowns or keeps the keyboard up, and the permissions list only pops up when you have an alarm.",
+  "app": true
+ },
+ {
   "release": 145,
   "date": "2026-10-21",
   "notes": "Your buddy double-checks his wake phrase before popping up, hears names like Macca better, and waits longer for you to finish talking (Settings → Hands-free buddy).",
