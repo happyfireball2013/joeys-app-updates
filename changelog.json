@@ -1,5 +1,11 @@
 [
  {
+  "release": 137,
+  "date": "2026-10-21",
+  "notes": "Hands-free buddy: give each buddy a wake phrase in his theme, turn it on in Settings, and call him like Siri. Tap Install to get it.",
+  "app": true
+ },
+ {
   "release": 131,
   "date": "2026-10-21",
   "notes": "Your buddy's chat history now sits behind a little round button, and a new Quiet phone button on the calendar shows when your phone will mute or vibrate.",

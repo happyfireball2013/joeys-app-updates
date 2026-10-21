@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211450;</script>
+<script>window.JOEY_WEB_VERSION = 202610211546;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3101,6 +3101,15 @@ const AI_ERR = {
 /* Buddies: each theme's corner buddy can have a name (theme.buddyName, synced with the theme). When you talk
    to a buddy, aiWho says which one, so the assistant answers as him and can save a new name you give him. */
 let aiWho = null;
+/* Hands-free buddy: each theme's buddy can have a wake phrase (theme.wakePhrase). The phone listens for them
+   (WakeService.java) when "Hands-free buddy" is on for that phone (localStorage, not synced). */
+const wakeNorm = p => String(p || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim().split(' ').slice(0, 5).join(' ');
+function wakeList(){
+  return Object.entries(TH.themes || {}).filter(([, t]) => t && t.img && t.img.mascot && wakeNorm(t.wakePhrase))
+    .map(([id, t]) => ({theme:id, phrase:wakeNorm(t.wakePhrase), label:String(t.wakePhrase).trim(), name:buddyName(Object.assign({id}, t)) || t.name || 'Your buddy'}));
+}
+const wakeOnHere = () => { try { return localStorage.getItem('jma:wakeOn') === '1'; } catch (e) { return false; } };
+let wakeSt = null;   // what the phone says (listening, downloading, needs the mic…)
 // a picture sent to the buddy (only Gemini can read it): {mime, data (base64), url (preview)}
 let aiImage = null, buddyPic = null;
 function aiImageLines(){
@@ -3937,6 +3946,24 @@ function settingsHTML(){
         h += '<div class="srow"><span class="lbl muted" style="font-weight:500">Tip: tell your buddy “mute my phone until 5” or “unmute my phone”.</span></div>';
         return h;
       })() + '</div>' +
+    '<div class="sec-title" id="set-wake"><span>Hands-free buddy</span></div><div class="group">' + (function(){
+        const phone = document.documentElement.classList.contains('is-phone'), list = wakeList(), on = wakeOnHere(), w = wakeSt || {};
+        let h = '';
+        if (!phone) h += '<div class="srow"><span class="lbl">Works on your phone<small>Your phone listens for your buddies’ wake phrases, like “Hey Siri”, even when the app is closed. Set the phrases here (they sync) and turn it on in the phone app.</small></span></div>';
+        else h += '<div class="srow"><span class="lbl">Listen for wake phrases<small>Say a buddy’s phrase any time, even with the app closed or the phone locked, and he pops up to help. Listening happens on your phone, offline. It uses more battery and shows a “Listening” notification.</small></span><button type="button" class="toggle" data-action="wake-toggle" aria-pressed="' + on + '" aria-label="Listen for wake phrases"></button></div>';
+        h += list.length ? list.map(x => '<div class="srow"><span class="lbl">“' + esc(x.label) + '”<small>Calls ' + esc(x.name) + '</small></span></div>').join('')
+          : '<div class="srow"><span class="lbl muted" style="font-weight:500">No wake phrases yet. Open a theme with a corner buddy and fill in “Wake phrase” under his picture.</span></div>';
+        if (phone && on) {
+          const st = String(w.status || '');
+          const msg = !list.length ? '' : w.mic === false ? '' : st.startsWith('downloading') ? 'Getting ready: downloading the voice model (' + (w.progress || 0) + '%). This happens once, about 40 MB.'
+            : st === 'loading' ? 'Getting ready…' : st === 'listening' ? 'Listening now.' : st.startsWith('error') ? 'Couldn’t start: ' + st.slice(7) : st === 'off' && w.running === false ? 'Starting…' : '';
+          if (w.mic === false) h += '<div class="srow"><span class="lbl">Allow the microphone<small>So he can hear his wake phrase</small></span><button class="btn sm accent" data-action="wake-mic">Allow</button></div>';
+          if (msg) h += '<div class="srow"><span class="lbl muted" style="font-weight:500">' + esc(msg) + '</span></div>';
+          if (w.unknown) h += '<div class="srow"><span class="lbl">Some words can’t be heard<small>The offline voice model doesn’t know: ' + esc(w.unknown) + '. Try everyday words, or spell a name the way it sounds (like “dit oh”).</small></span></div>';
+          if (w.overlay === false) h += '<div class="srow"><span class="lbl">Allow “Appear on top”<small>So he pops up right away. Without it he shows up as a notification you tap.</small></span><button class="btn sm" data-action="na-fix" data-which="overlay">Allow</button></div>';
+        }
+        return h;
+      })() + '</div>' +
 
     title('set-data', 'Your data') + '<div class="group">' +
       '<div class="srow"><div class="status' + (mode === 'cloud' ? ' on' : '') + '"><i></i><span>' +
@@ -4398,6 +4425,9 @@ const A = {
   'quiet-allow': () => { if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'dnd'}).catch(() => {}); },
   'list-kind': t => kindListSheet(t.dataset.kind),
   'list-quiet': () => quietListSheet(),
+  'wake-toggle': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeOn', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); if (typeof syncWakeNative === 'function') syncWakeNative(true); render(); },
+  'wake-mic': () => { if (typeof JA !== 'undefined' && JA && JA.requestMic) JA.requestMic().then(() => syncWakeNative(true)).catch(() => {}); },
+  'wake': () => { setTimeout(() => jumpTo('set-wake'), 120); },
   'quiet-settings': () => { closeSheet(true); go('settings'); setTimeout(() => { const el = $('#set-quietWork'); if (el) el.scrollIntoView({block:'center'}); }, 60); },
   'new-kind': t => eventSheet('', ui.calSel || todayStr(), t.dataset.kind),
   'edit-bday': t => bdaySheet(t.dataset.id),
@@ -5579,6 +5609,8 @@ function thEditorHTML(id){
       (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-pick" data-slot="' + slot + '">' + (u ? 'Change' : 'Add') + '</button>' + (u ? '<button type="button" class="btn sm" data-action="th-rm" data-slot="' + slot + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
       (slot === 'buddy' && u ? '<div class="th-sub"><span>Where</span>' + seg('buddyAt', [['hold','Under the time'],['corner','Corner']]) + '<span>Size</span>' + seg('buddySize', [['s','Small'],['m','Medium'],['l','Large']]) + '<span>Motion</span>' + seg('buddyMove', [['squish','Squish'],['bounce','Bounce'],['none','Still']]) + '</div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thBuddyName">Name</label><input class="in" id="thBuddyName" maxlength="30" value="' + esc(t.buddyName || '') + '" placeholder="Give your buddy a name"></div>' : '') +
+      (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thWake">Wake phrase</label><input class="in" id="thWake" maxlength="40" value="' + esc(t.wakePhrase || '') + '" placeholder="' + esc('Hey ' + (t.buddyName || 'buddy')) + '"></div>' +
+        '<p class="hint th-wake-hint">Say it to call him hands-free on your phone, like “Hey Siri”. Turn it on in Settings → Hands-free buddy.</p>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
       (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', ci = slot.startsWith('calic_'), mx = ci ? 250 : slot.startsWith('card_') || bud ? 200 : 100, mn = bud || ci ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
@@ -5748,6 +5780,7 @@ document.addEventListener('change', e => {
   else if (TH_COLOR_IDS[t.id] && TH.themes[thOpen]) { TH.themes[thOpen][TH_COLOR_IDS[t.id]] = t.value; thSave(); thApplied = ''; render(); if (/^th(Card|Ink|DockBg|DockInk)$/.test(t.id)) thRefreshEditor(); }
   else if (t.id === 'thSection' && TH.themes[thOpen]) { thSetSection(thOpen, t.value); thRefreshEditor(); render(); }
   else if (t.id === 'thName' && TH.themes[thOpen]) { TH.themes[thOpen].name = t.value.trim().slice(0, 40) || 'My theme'; thSave(); }
+  else if (t.id === 'thWake' && TH.themes[thOpen]) { const v = t.value.replace(/\s+/g, ' ').trim().slice(0, 40); if (v) TH.themes[thOpen].wakePhrase = v; else delete TH.themes[thOpen].wakePhrase; thSave(); }
   else if (t.id === 'thBuddyName' && TH.themes[thOpen]) { const v = t.value.trim().slice(0, 30); if (v) TH.themes[thOpen].buddyName = v; else delete TH.themes[thOpen].buddyName; thSave(); }
 });
 document.addEventListener('input', e => {
@@ -5802,7 +5835,7 @@ const SS_SEC = {
   'set-notes':'notes sort preview color view',
   'set-timer':'timer presets countdown stopwatch',
   'set-alarm':'alarm alarms wake snooze ring ringing duration long stop sound song fade volume vibrate',
-  'set-sound':'sounds volume chime tone beep effects quiet mute vibrate silent work class',
+  'set-sound':'sounds volume chime tone beep effects quiet mute vibrate silent work class hands-free wake phrase hey siri listen voice microphone',
   'set-data':'data backup export import delete reset clear sync storage save',
   'set-hsw':'home screen widgets widget color colour purple background launcher'
 };
@@ -6459,7 +6492,8 @@ window.__joeyAsk = async function(){
       for (const a of asks) {
         for (let i = 0; i < 120 && ai.busy; i++) await askSleep(500);
         Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
-        aiWho = buddyFor('home');   // the widget buddy is the menu theme's corner buddy
+        // which buddy: the one whose wake phrase you said, or the widget buddy (the menu theme's corner buddy)
+        aiWho = a.theme && TH.themes[a.theme] ? {id:a.theme, name:buddyName(Object.assign({id:a.theme}, TH.themes[a.theme]))} : buddyFor('home');
         try { await aiRun(String(a.text || '')); } catch (e) {}
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
@@ -6589,6 +6623,41 @@ if (NATIVE && JA) {
   setInterval(syncQuietNative, 15 * 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { quietKey = ''; syncQuietNative(); } });   // coming back from "Do Not Disturb access"
 }
+/* hands-free buddy: the wake phrases (and each buddy's picture for the popup) go to the phone, which listens for them */
+let wakeKey = '', wakePics = {}; try { wakePics = JSON.parse(localStorage.getItem('jma:wakePics') || '{}') || {}; } catch (e) {}
+async function wakePic(id){
+  const t = TH.themes[id], url = thImg(Object.assign({id}, t), 'mascot'); if (!url) return '';
+  const im = new Image(); im.src = url; await im.decode();
+  const k = Math.min(1, 320 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+  c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL('image/png').split(',')[1];
+}
+async function syncWakeNative(force){
+  if (!JA || !JA.setWake) return;
+  const on = wakeOnHere(), list = wakeList(), k = JSON.stringify([on, list]);
+  if (k !== wakeKey || force) {
+    try {
+      const out = [];
+      for (const x of list) {
+        const pk = x.theme + ':' + ((TH.themes[x.theme].img || {}).mascot || '');
+        let pic = ''; if (wakePics[x.theme] !== pk) { try { pic = await wakePic(x.theme); } catch (e) {} }
+        out.push(Object.assign({}, x, {pic}));
+      }
+      wakeSt = await JA.setWake({on, phrases:out});
+      wakeKey = k;
+      out.forEach(x => { if (x.pic) wakePics[x.theme] = x.theme + ':' + ((TH.themes[x.theme].img || {}).mascot || ''); });
+      try { localStorage.setItem('jma:wakePics', JSON.stringify(wakePics)); } catch (e) {}
+    } catch (e) { wakeKey = ''; }
+  } else { try { wakeSt = await JA.wakeStatus(); } catch (e) {} }
+  if (ui.screen === 'settings') scheduleRender();
+}
+if (NATIVE && JA) {
+  setTimeout(() => syncWakeNative(), 3000);
+  // while Settings is open, keep the status fresh (download progress etc.)
+  setInterval(() => { if (ui.screen === 'settings' && !document.hidden && wakeOnHere()) syncWakeNative(); }, 2500);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncWakeNative(); });
+}
 let remNatKey = null, remToneSent = null; try { remToneSent = localStorage.getItem('jma:remTone'); } catch (e) {}
 async function syncRemindersNative(){
   if (!JA || syncRemindersNative.busy || Date.now() - (syncRemindersNative.failAt || 0) < 60000) return;
@@ -6616,7 +6685,7 @@ async function syncRemindersNative(){
 document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol' && NATIVE && JA) syncRemindersNative(); });
 if (NATIVE && JA) {
   const _renderRem = render;
-  render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(() => { syncRemindersNative(); syncQuietNative(); }, 800); };
+  render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(() => { syncRemindersNative(); syncQuietNative(); syncWakeNative(); }, 800); };
   setInterval(syncRemindersNative, 5 * 60000);   // keeps the two-week window moving
   // the app in the background: the phone's notification plays the sound, so the app stays quiet
   const _chime = chime;
@@ -7448,7 +7517,8 @@ function permList(){
     ['fullScreen', 'Full-screen alarms', 'So an alarm fills your lock screen', true],
     ['overlay', 'Appear on top', 'A backup so the alarm screen always opens', true],
     ['dnd', 'Do Not Disturb access', 'So the app can mute your phone during work and class', quietMute],
-    ['location', 'Location', 'For the weather where you are', !!s.wxGps]
+    ['location', 'Location', 'For the weather where you are', !!s.wxGps],
+    ['mic', 'Microphone', 'So your buddy can hear his wake phrase', wakeOnHere() && wakeList().length > 0]
   ].filter(p => p[3]);
 }
 async function permCheck(){
@@ -7456,6 +7526,7 @@ async function permCheck(){
   const st = {};
   try { const r = await JA.checkSetup(); Object.assign(st, r); } catch (e) {}
   try { if (JA.quietStatus) { const q = await JA.quietStatus(); st.dnd = !!(q && q.canMute); } } catch (e) {}
+  try { if (JA.wakeStatus) { const w = await JA.wakeStatus(); st.mic = !!(w && w.mic); } } catch (e) {}
   try { if (S.settings.wxGps) { const G = capPlugin('Geolocation'), p = await G.checkPermissions(); st.location = !!p && (p.location === 'granted' || p.coarseLocation === 'granted'); } } catch (e) {}
   if (st.overlay === undefined) st.overlay = true;
   PERM.st = st;
@@ -7481,6 +7552,8 @@ async function permFix(k){
   PERM.tried[k] = true;
   if (k === 'notifications') {
     try { const r = await JA.requestNotifications(); if (!r || !r.granted) JA.openSetting({which:'notifications'}); } catch (e) { JA.openSetting({which:'notifications'}).catch(() => {}); }
+  } else if (k === 'mic') {
+    try { const r = await JA.requestMic(); if (!r || !r.granted) JA.openSetting({which:'app'}); } catch (e) { JA.openSetting({which:'app'}).catch(() => {}); }
   } else if (k === 'location') {
     try { await capPlugin('Geolocation').requestPermissions(); } catch (e) { JA.openSetting({which:'app'}).catch(() => {}); }
   } else JA.openSetting({which:k}).catch(() => {});
@@ -7498,7 +7571,7 @@ async function permNext(){
       return;
     }
     await permFix(miss[0]);
-    if (miss[0] === 'notifications' || miss[0] === 'location') setTimeout(() => { if (PERM.run) { PERM.busy = false; permNext(); } }, 900);   // a pop-up, not a new screen
+    if (miss[0] === 'notifications' || miss[0] === 'location' || miss[0] === 'mic') setTimeout(() => { if (PERM.run) { PERM.busy = false; permNext(); } }, 900);   // a pop-up, not a new screen
   } finally { PERM.busy = false; }
 }
 if (NATIVE && JA) {
