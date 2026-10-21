@@ -1,5 +1,11 @@
 [
  {
+  "release": 155,
+  "date": "2026-10-21",
+  "notes": "Your buddy waits for you to start talking after his sound and answers back if you only say his name, stops listening on Battery saver, and his listening notification stays out of the way.",
+  "app": true
+ },
+ {
   "release": 153,
   "date": "2026-10-21",
   "notes": "What you ask your buddy out loud is now written down by Google's voice typing (much more accurate, still no beep), and just saying his name can wake him once he knows your voice.",

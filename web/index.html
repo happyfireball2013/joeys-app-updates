@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211925;</script>
+<script>window.JOEY_WEB_VERSION = 202610211941;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -971,6 +971,7 @@ button.wx-day:active{background:var(--surface-2)}
 .th-bname{align-items:center}
 .th-bname label{font-weight:600}
 .th-bname .in{flex:1;min-width:0}
+.th-sub>small{grid-column:1 / -1}   /* a hint under the row, not squeezing the box */
 .dock button:not([aria-current="page"]) .ic{color:var(--dk-tint,currentColor)}
 
 .nf-add{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;border:1px dashed var(--line);background:none;font-size:.9rem;font-weight:600;color:var(--accent-ink)}
@@ -4125,7 +4126,7 @@ function settingsHTML(){
         if (phone && on) {
           const st = String(w.status || '');
           const msg = !list.length ? '' : w.mic === false ? '' : st.startsWith('downloading') ? 'Getting ready: downloading the voice model (' + (w.progress || 0) + '%). This happens once, about 40 MB.'
-            : st === 'loading' ? 'Getting ready…' : st === 'listening' ? 'Listening now.' : st.startsWith('error') ? 'Couldn’t start: ' + st.slice(7) : st === 'off' && w.running === false ? 'Starting…' : '';
+            : st === 'loading' ? 'Getting ready…' : st === 'listening' ? 'Listening now.' : st === 'battery-saver' ? 'Paused while Battery saver is on. He listens again when you turn it off.' : st.startsWith('error') ? 'Couldn’t start: ' + st.slice(7) : st === 'off' && w.running === false ? 'Starting…' : '';
           if (w.mic === false) h += '<div class="srow"><span class="lbl">Allow the microphone<small>So he can hear his wake phrase</small></span><button class="btn sm accent" data-action="wake-mic">Allow</button></div>';
           if (msg) h += '<div class="srow"><span class="lbl muted" style="font-weight:500">' + esc(msg) + '</span></div>';
           // only my voice
