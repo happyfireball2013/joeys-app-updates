@@ -1,5 +1,11 @@
 [
  {
+  "release": 149,
+  "date": "2026-10-21",
+  "notes": "Your buddy hears his wake phrase much more easily again, and a buddy can have several phrases split by commas.",
+  "app": true
+ },
+ {
   "release": 147,
   "date": "2026-10-21",
   "notes": "Only listen to my voice (Settings → Hands-free buddy), buddy answers wait in the app with a dot instead of notifications, Settings no longer closes dropdowns or keeps the keyboard up, and the permissions list only pops up when you have an alarm.",

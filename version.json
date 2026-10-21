@@ -1,5 +1,5 @@
 {
- "web": 202610211841,
+ "web": 202610211858,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 147,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=147"
+  "code": 149,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=149"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Only listen to my voice (Settings \u2192 Hands-free buddy), buddy answers wait in the app with a dot instead of notifications, Settings no longer closes dropdowns or keeps the keyboard up, and the permissions list only pops up when you have an alarm."
+ "notes": "Your buddy hears his wake phrase much more easily again, and a buddy can have several phrases split by commas."
 }
