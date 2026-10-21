@@ -1,5 +1,11 @@
 [
  {
+  "release": 139,
+  "date": "2026-10-21",
+  "notes": "Your buddy now makes his sound when you call him by voice, and Settings shows a battery tracker for hands-free listening. Tap Install to get it.",
+  "app": true
+ },
+ {
   "release": 137,
   "date": "2026-10-21",
   "notes": "Hands-free buddy: give each buddy a wake phrase in his theme, turn it on in Settings, and call him like Siri. Tap Install to get it.",

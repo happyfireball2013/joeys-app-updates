@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211546;</script>
+<script>window.JOEY_WEB_VERSION = 202610211609;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -928,6 +928,12 @@ button.wx-day:active{background:var(--surface-2)}
 .trash-none{display:grid;gap:4px;text-align:center;padding:26px 12px;color:var(--ink-2)}
 .trash-none b{color:var(--ink);font-size:1rem}
 .perm-all{width:100%;justify-content:center;margin:4px 0 12px;padding-block:14px;font-size:1rem}
+.wake-batt{margin:2px 0 10px;padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--line);display:grid;gap:8px}
+.wb-head{display:flex;align-items:center;gap:6px;font-size:.85rem}
+.wb-head .ic{width:16px;height:16px;color:var(--accent)}
+.wb-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wb-row b{flex-basis:100%;font-size:.9rem}
+.wb-row small{flex:1;min-width:0;font-size:.78rem;color:var(--ink-2)}
 .perm-list{padding:0}
 .perm-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
 .perm-row:first-child{border-top:0}
@@ -3110,6 +3116,41 @@ function wakeList(){
 }
 const wakeOnHere = () => { try { return localStorage.getItem('jma:wakeOn') === '1'; } catch (e) { return false; } };
 let wakeSt = null;   // what the phone says (listening, downloading, needs the mic…)
+/* Battery tracker: the phone notes the battery every 10 minutes while listening (WakeService.sample). From that:
+   how long it listened, how fast the battery went down with the screen off and not charging, and the app's own
+   processor time. Android doesn't let apps read their exact share, so "App info → Battery" has the official number. */
+function wakeBattery(raw){
+  let a = []; try { a = (typeof raw === 'string' ? JSON.parse(raw) : raw) || []; } catch (e) {}
+  a = a.filter(x => x && x.t).sort((x, y) => x.t - y.t);
+  const since = Date.now() - 24 * 36e5; a = a.filter(x => x.t >= since - 15 * 6e4);
+  let listen = 0, cpu = 0, offMs = 0, drain = 0;
+  for (let i = 1; i < a.length; i++) {
+    const p = a[i - 1], q = a[i], dt = q.t - p.t;
+    if (!p.on || dt <= 0 || dt > 20 * 6e4) continue;
+    listen += dt;
+    if (q.cpu >= p.cpu) cpu += q.cpu - p.cpu;
+    if (!p.plug && !q.plug && !p.scr && !q.scr) {
+      offMs += dt;
+      const full = p.uah > 0 && p.pct > 0 ? p.uah / (p.pct / 100) : 0;
+      drain += full && q.uah > 0 ? (p.uah - q.uah) / full * 100 : p.pct - q.pct;
+    }
+  }
+  return {listen, cpu, offMs, rate:offMs >= 45 * 6e4 ? Math.max(0, drain / (offMs / 36e5)) : null, first:a.length ? a[0].t : 0, n:a.length};
+}
+function wakeBatteryHTML(){
+  const w = wakeSt || {}; if (!w.tracker) return '';
+  const b = wakeBattery(w.battery), hm = ms => { const m = Math.round(ms / 6e4); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); };
+  const rows = [];
+  if (b.listen < 6e4) rows.push(['Still measuring', 'Check back in an hour or two. It notes your battery every 10 minutes while listening.']);
+  else {
+    rows.push(['Listened for ' + hm(b.listen), b.first > Date.now() - 23 * 36e5 ? 'Since ' + fmtHM(pad(new Date(b.first).getHours()) + ':' + pad(new Date(b.first).getMinutes())) + (ymd(new Date(b.first)) === todayStr() ? ' today' : ' yesterday') : 'In the last 24 hours']);
+    rows.push(b.rate == null ? ['Battery: still measuring', 'Needs about an hour with the screen off and not charging'] :
+      ['Battery: about ' + (b.rate < 10 ? b.rate.toFixed(1) : Math.round(b.rate)) + '% an hour', 'How fast your whole phone went down while listening, with the screen off and not charging (' + hm(b.offMs) + ' measured)']);
+    rows.push(['Processor: ' + hm(b.cpu) + ' of work', 'The app’s own work while listening (' + (b.listen ? (b.cpu / b.listen * 100).toFixed(1) : '0') + '% of the time)']);
+  }
+  return '<div class="wake-batt"><div class="wb-head">' + icon('spark') + '<b>Battery tracker</b></div>' + rows.map(([t, s]) => '<div class="wb-row"><b>' + esc(t) + '</b><small>' + esc(s) + '</small></div>').join('') +
+    '<div class="wb-row"><small>Android’s exact number is in App info → Battery (“used since last full charge”).</small><button type="button" class="btn sm" data-action="na-fix" data-which="app">Open</button></div></div>';
+}
 // a picture sent to the buddy (only Gemini can read it): {mime, data (base64), url (preview)}
 let aiImage = null, buddyPic = null;
 function aiImageLines(){
@@ -3950,7 +3991,8 @@ function settingsHTML(){
         const phone = document.documentElement.classList.contains('is-phone'), list = wakeList(), on = wakeOnHere(), w = wakeSt || {};
         let h = '';
         if (!phone) h += '<div class="srow"><span class="lbl">Works on your phone<small>Your phone listens for your buddies’ wake phrases, like “Hey Siri”, even when the app is closed. Set the phrases here (they sync) and turn it on in the phone app.</small></span></div>';
-        else h += '<div class="srow"><span class="lbl">Listen for wake phrases<small>Say a buddy’s phrase any time, even with the app closed or the phone locked, and he pops up to help. Listening happens on your phone, offline. It uses more battery and shows a “Listening” notification.</small></span><button type="button" class="toggle" data-action="wake-toggle" aria-pressed="' + on + '" aria-label="Listen for wake phrases"></button></div>';
+        else h += '<div class="srow"><span class="lbl">Listen for wake phrases<small>Say a buddy’s phrase any time, even with the app closed or the phone locked, and he pops up to help. Listening happens on your phone, offline. It uses more battery and shows a “Listening” notification.</small></span><button type="button" class="toggle" data-action="wake-toggle" aria-pressed="' + on + '" aria-label="Listen for wake phrases"></button></div>' +
+          (on || (wakeSt && wakeBattery(wakeSt.battery).listen) ? wakeBatteryHTML() : '');
         h += list.length ? list.map(x => '<div class="srow"><span class="lbl">“' + esc(x.label) + '”<small>Calls ' + esc(x.name) + '</small></span></div>').join('')
           : '<div class="srow"><span class="lbl muted" style="font-weight:500">No wake phrases yet. Open a theme with a corner buddy and fill in “Wake phrase” under his picture.</span></div>';
         if (phone && on) {
@@ -6587,11 +6629,13 @@ async function remToneWav(kind, boost){
   return wavB64((await oc.startRendering()).getChannelData(0), sr, boost);
 }
 // the Reminders theme's "due" sound, evened out and set to its volume, as a short sound file the phone can play
-async function remThemeWav(t, boost){
-  const slot = sfxSlots(t, 'remDue')[0], r = slot && await IDB.get('th:' + t.id + ':' + slot);
+async function remThemeWav(t, boost){ return themeSfxWav(t, sfxSlots(t, 'remDue')[0], 'remDue', 1, boost); }
+// one of a theme's sound effects, evened out and set to its volume, as a WAV the phone can play (mul: extra volume)
+async function themeSfxWav(t, slot, ev, mul, boost){
+  const r = slot && await IDB.get('th:' + t.id + ':' + slot);
   if (!r || !r.buf) return '';
   const src = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(r.buf.slice(0));
-  const vol = (t.sfxVol == null ? 70 : t.sfxVol) / 100 * ((t.sfxV && t.sfxV.remDue != null) ? t.sfxV.remDue : 100) / 100;
+  const vol = (mul == null ? 1 : mul) * (t.sfxVol == null ? 70 : t.sfxVol) / 100 * ((t.sfxV && t.sfxV[ev] != null) ? t.sfxV[ev] : 100) / 100;
   const sr = 22050, len = Math.min(src.duration, 8), oc = new OfflineAudioContext(1, Math.max(1, Math.ceil(sr * len)), sr);
   const s = oc.createBufferSource(), g = oc.createGain(), gain = sfxNorm(src) * vol;
   s.buffer = src; g.gain.setValueAtTime(gain, 0);
@@ -6624,7 +6668,9 @@ if (NATIVE && JA) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { quietKey = ''; syncQuietNative(); } });   // coming back from "Do Not Disturb access"
 }
 /* hands-free buddy: the wake phrases (and each buddy's picture for the popup) go to the phone, which listens for them */
-let wakeKey = '', wakePics = {}; try { wakePics = JSON.parse(localStorage.getItem('jma:wakePics') || '{}') || {}; } catch (e) {}
+let wakeKey = '', wakePics = {}, wakeSnds = {}; try { wakePics = JSON.parse(localStorage.getItem('jma:wakePics') || '{}') || {}; wakeSnds = JSON.parse(localStorage.getItem('jma:wakeSnds') || '{}') || {}; } catch (e) {}
+// what his sound depends on: which files, their volumes, and this phone's volume
+const wakeSndKey = id => { const t = TH.themes[id] || {}; return JSON.stringify([sfxSlots(Object.assign({id}, t), 'buddy').map(k => k + ':' + (t.img || {})[k]), t.sfxVol, (t.sfxV || {}).buddy, devVol]); };
 async function wakePic(id){
   const t = TH.themes[id], url = thImg(Object.assign({id}, t), 'mascot'); if (!url) return '';
   const im = new Image(); im.src = url; await im.decode();
@@ -6642,10 +6688,19 @@ async function syncWakeNative(force){
       for (const x of list) {
         const pk = x.theme + ':' + ((TH.themes[x.theme].img || {}).mascot || '');
         let pic = ''; if (wakePics[x.theme] !== pk) { try { pic = await wakePic(x.theme); } catch (e) {} }
-        out.push(Object.assign({}, x, {pic}));
+        const o = Object.assign({}, x, {pic});
+        // his sound (up to 3 if the theme has a set), at this phone's volume; only sent when it changed
+        if (wakeSnds[x.theme] !== wakeSndKey(x.theme)) {
+          const t = Object.assign({id:x.theme}, TH.themes[x.theme]), mul = Math.min(1, devVol / 100), boost = Math.max(1, devVol / 100), snd = [];
+          for (const sl of sfxSlots(t, 'buddy').slice(0, 3)) { try { const w = await themeSfxWav(t, sl, 'buddy', mul, boost); if (w) snd.push(w); } catch (e) {} }
+          o.sounds = snd; o._sk = wakeSndKey(x.theme);
+        }
+        out.push(o);
       }
-      wakeSt = await JA.setWake({on, phrases:out});
+      wakeSt = await JA.setWake({on, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; return c; })});
       wakeKey = k;
+      out.forEach(o => { if (o._sk) wakeSnds[o.theme] = o._sk; });
+      try { localStorage.setItem('jma:wakeSnds', JSON.stringify(wakeSnds)); } catch (e) {}
       out.forEach(x => { if (x.pic) wakePics[x.theme] = x.theme + ':' + ((TH.themes[x.theme].img || {}).mascot || ''); });
       try { localStorage.setItem('jma:wakePics', JSON.stringify(wakePics)); } catch (e) {}
     } catch (e) { wakeKey = ''; }
@@ -6682,7 +6737,7 @@ async function syncRemindersNative(){
   } catch (e) { syncRemindersNative.failAt = Date.now(); }   // an older phone app without this
   finally { syncRemindersNative.busy = false; }
 }
-document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol' && NATIVE && JA) syncRemindersNative(); });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol' && NATIVE && JA) { syncRemindersNative(); syncWakeNative(true); } });
 if (NATIVE && JA) {
   const _renderRem = render;
   render = function(){ _renderRem(); clearTimeout(syncRemindersNative.t); syncRemindersNative.t = setTimeout(() => { syncRemindersNative(); syncQuietNative(); syncWakeNative(); }, 800); };

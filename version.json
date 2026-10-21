@@ -1,5 +1,5 @@
 {
- "web": 202610211546,
+ "web": 202610211609,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 137,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=137"
+  "code": 139,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=139"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Hands-free buddy: give each buddy a wake phrase in his theme, turn it on in Settings, and call him like Siri. Tap Install to get it."
+ "notes": "Your buddy now makes his sound when you call him by voice, and Settings shows a battery tracker for hands-free listening. Tap Install to get it."
 }
