@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211337;</script>
+<script>window.JOEY_WEB_VERSION = 202610211345;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -815,11 +815,12 @@ button.wx-day:active{background:var(--surface-2)}
 .dot.bday .ic{width:9px;height:9px;stroke-width:2.4}
 .dot.work{width:auto;height:auto;background:none!important;color:var(--accent);display:inline-grid;place-items:center}
 .dot.work .ic{width:10px;height:10px;stroke-width:2.3}
-.dot .cal-ic-img{width:14px;height:14px;object-fit:contain;display:block;margin:-4px 0 -2px}
-.bd-ic .cal-ic-img{width:26px;height:26px;object-fit:contain}
+.dot .cal-ic-img{width:calc(14px * var(--k,1));height:calc(14px * var(--k,1));object-fit:contain;display:block}
+.dots:has(.cal-ic-img){height:auto;min-height:6px;align-items:center}   /* a picture icon gets its own room under the date, so it doesn't sit on the mood face */
+.bd-ic .cal-ic-img{width:calc(26px * min(var(--k,1),1.6));height:calc(26px * min(var(--k,1),1.6));object-fit:contain}
 .wk-ic{display:inline-grid;place-items:center;vertical-align:-3px;margin-right:6px;color:var(--accent)}
 .wk-ic .ic{width:16px;height:16px}
-.wk-ic .cal-ic-img{width:20px;height:20px;object-fit:contain}
+.wk-ic .cal-ic-img{width:calc(20px * min(var(--k,1),1.6));height:calc(20px * min(var(--k,1),1.6));object-fit:contain}
 .hu .cal-ic-img{width:18px;height:18px;object-fit:contain;flex:none}
 .ev-work-row .lbl{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px}
 .ev-work-row .lbl small{flex-basis:100%}
@@ -3471,8 +3472,8 @@ function bdaySub(b, ds){ const a = bdayAge(b, ds); return a > 0 ? 'Turns ' + a :
    the page you're on first, then the Calendar page's theme. */
 const isWork = e => !!e && (e.work === true || (e.work !== false && /^(work|shift)\b/i.test(String(e.title || '').trim())));
 function calIcon(kind){
-  const slot = 'calic_' + kind, u = thImg(thFor(ui.screen), slot) || thImg(thFor('calendar'), slot);
-  return u ? '<img class="cal-ic-img" src="' + u + '" alt="">' : icon(kind === 'bday' ? 'cake' : kind);
+  const slot = 'calic_' + kind, t = thImg(thFor(ui.screen), slot) ? thFor(ui.screen) : thFor('calendar'), u = thImg(t, slot);
+  return u ? '<img class="cal-ic-img" src="' + u + '" alt="" style="--k:' + (thSize(t, slot) / 100) + '">' : icon(kind === 'bday' ? 'cake' : kind);   // --k: its Size slider
 }
 function calCellsHTML(m){
   const s = S.settings, y = m.getFullYear(), mo = m.getMonth();
@@ -4834,10 +4835,10 @@ function thPattern(kind, color){
   return svg ? 'url("data:image/svg+xml,' + svg.replace(/"/g, "'").replace(/#/g, '%23') + '")' : 'none';
 }
 // how big a background picture shows: 100 fills the space, smaller shows the whole picture smaller
-const TH_SIZE_RE = /^(bg|hero|card_|nbg_|mascot)/;   // mascot = how big the corner buddy is (100 = normal)
+const TH_SIZE_RE = /^(bg|hero|card_|nbg_|mascot|calic_)/;   // mascot = how big the corner buddy is, calic_ = calendar icon pictures (100 = normal)
 const thSize = (t, slot) => { const v = t && t.sizes && Number(t.sizes[slot]); return v >= 20 ? v : 100; };
 const thBgSize = v => v >= 100 ? 'cover' : v + '%';
-const thSizeLabel = (slot, v) => slot.startsWith('card_') || slot === 'mascot' ? (v === 100 ? 'Normal' : v + '%') : (v >= 100 ? 'Fill' : v + '%');
+const thSizeLabel = (slot, v) => slot.startsWith('card_') || slot === 'mascot' || slot.startsWith('calic_') ? (v === 100 ? 'Normal' : v + '%') : (v >= 100 ? 'Fill' : v + '%');
 let thSizeRaf = 0;
 document.addEventListener('input', e => {
   const el = e.target; if (!el.classList || !el.classList.contains('th-size') || !TH.themes[thOpen]) return;
@@ -5366,7 +5367,7 @@ function thEditorHTML(id){
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thBuddyName">Name</label><input class="in" id="thBuddyName" maxlength="30" value="' + esc(t.buddyName || '') + '" placeholder="Give your buddy a name"></div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
-      (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', mx = slot.startsWith('card_') || bud ? 200 : 100, mn = bud ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
+      (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', ci = slot.startsWith('calic_'), mx = ci ? 250 : slot.startsWith('card_') || bud ? 200 : 100, mn = bud || ci ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
         return '<div class="th-sub th-size-row"><span>Size</span><input type="range" class="th-size" data-slot="' + slot + '" min="' + mn + '" max="' + mx + '" step="5" value="' + v + '" aria-label="' + (bud ? 'Buddy size' : 'Picture size') + '"><output>' + thSizeLabel(slot, v) + '</output></div>'; })() : '');
   };
   const sec = thSecOf(t);

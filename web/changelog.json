@@ -1,5 +1,11 @@
 [
  {
+  "release": 110,
+  "date": "2026-10-21",
+  "notes": "Your own work and birthday icon pictures now have a size slider, and they no longer cover your mood on the calendar.",
+  "app": false
+ },
+ {
   "release": 109,
   "date": "2026-10-21",
   "notes": "Work shifts now get a work icon on the calendar, and you can change it (and the birthday icon) to your own picture in your Calendar theme.",

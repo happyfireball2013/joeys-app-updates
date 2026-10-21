@@ -1,5 +1,5 @@
 {
- "web": 202610211337,
+ "web": 202610211345,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Work shifts now get a work icon on the calendar, and you can change it (and the birthday icon) to your own picture in your Calendar theme."
+ "notes": "Your own work and birthday icon pictures now have a size slider, and they no longer cover your mood on the calendar."
 }
