@@ -1,5 +1,5 @@
 {
- "web": 202610211858,
+ "web": 202610211912,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 149,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=149"
+  "code": 151,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=151"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy hears his wake phrase much more easily again, and a buddy can have several phrases split by commas."
+ "notes": "New crash log in Settings \u2192 App updates, and the Work and Classes lists let you set your phone to vibrate or mute during every shift or class."
 }

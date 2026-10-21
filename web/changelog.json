@@ -1,5 +1,11 @@
 [
  {
+  "release": 151,
+  "date": "2026-10-21",
+  "notes": "New crash log in Settings → App updates, and the Work and Classes lists let you set your phone to vibrate or mute during every shift or class.",
+  "app": true
+ },
+ {
   "release": 149,
   "date": "2026-10-21",
   "notes": "Your buddy hears his wake phrase much more easily again, and a buddy can have several phrases split by commas.",

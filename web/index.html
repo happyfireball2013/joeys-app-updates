@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211858;</script>
+<script>window.JOEY_WEB_VERSION = 202610211912;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -635,6 +635,18 @@ textarea.rem-note-in{min-height:64px;max-height:40vh;overflow:auto;field-sizing:
 .fld>span{font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
 .fld-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .hint{margin:-4px 0 12px;font-size:.78rem;color:var(--ink-2)}
+.kind-quiet{margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
+.kind-quiet .kq-t{display:block;font-weight:650;font-size:.9rem;margin:0 0 8px}
+.kind-quiet .kq-note{margin-top:8px;font-size:.78rem;color:var(--ink-2)}
+.crash-sec{margin:14px 2px 6px;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.crash-row{padding:10px 12px;border-bottom:1px solid var(--line)}
+.crash-row:last-child{border-bottom:0}
+.crash-row b{display:block;font-size:.9rem}
+.crash-row small{display:block;color:var(--ink-2);font-size:.76rem;margin-top:2px}
+.crash-row.bad b{color:var(--danger,#C2410C)}
+.crash-row details{margin-top:6px}
+.crash-row summary{font-size:.76rem;color:var(--accent);cursor:pointer}
+.crash-row pre{white-space:pre-wrap;word-break:break-word;font-size:.68rem;max-height:220px;overflow:auto;background:var(--surface-2);padding:8px;border-radius:8px;margin:6px 0 0}
 .teach-text{padding:14px 16px;font-size:1.05rem;line-height:1.55;font-weight:500}
 .teach-status{min-height:1.4em;margin:12px 2px 0;font-weight:600;color:var(--accent)}
 .trow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:8px;margin-bottom:8px;font-weight:600}
@@ -992,6 +1004,16 @@ button.wx-day:active{background:var(--surface-2)}
   <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
 </div>
 
+<script>
+/* crash log, page part: errors in the app's own code are kept (last 30) for Settings → App updates → Crash log */
+(function(){
+  const add = o => { try { const a = JSON.parse(localStorage.getItem('jma:errLog') || '[]'), last = a[a.length - 1];
+    if (last && last.msg === o.msg && Date.now() - last.t < 60000) { last.n = (last.n || 1) + 1; last.t = Date.now(); } else a.push(Object.assign({t:Date.now()}, o));
+    localStorage.setItem('jma:errLog', JSON.stringify(a.slice(-30))); } catch (e) {} };
+  window.addEventListener('error', e => add({msg:String(e.message || 'Error'), src:String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0) + ':' + (e.colno || 0), stack:e.error && e.error.stack ? String(e.error.stack).slice(0, 1500) : ''}));
+  window.addEventListener('unhandledrejection', e => { const r = e.reason; add({msg:'Unhandled: ' + String((r && r.message) || r), stack:r && r.stack ? String(r.stack).slice(0, 1500) : ''}); });
+})();
+</script>
 <script>
 (function(){
 'use strict';
@@ -3802,14 +3824,20 @@ function bdayListSheet(){
       esc(parseYmd(ds).toLocaleDateString('en-US', {month:'long', day:'numeric'}) + ' · ' + daysAway(ds) + (bdayAge(b, ds) > 0 ? ' · turns ' + bdayAge(b, ds) : '')) + '</span></span></button>').join('') + '</div>'
       : '<div class="trash-none"><b>No birthdays yet</b>Add one and it shows on the calendar every year.</div>') + '</div>');
 }
-function kindListSheet(kind){
+function kindListSheet(kind){ openSheet(kindListHTML(kind)); }
+function kindListHTML(kind){
   const t = todayStr(), now = new Date(), nowHM = pad(now.getHours()) + ':' + pad(now.getMinutes());
   const name = kind === 'work' ? 'Work' : 'Classes', one = kind === 'work' ? 'shift' : 'class';
   // coming up: today's that haven't ended yet, then later days
   const list = Object.entries(S.events).filter(([, e]) => evType(e) === kind && (e.date > t || (e.date === t && (!e.start || (e.end || e.start) >= nowHM))))
     .sort((a, b) => (a[1].date + (a[1].start || '')).localeCompare(b[1].date + (b[1].start || '')));
   const when = e => parseYmd(e.date).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
-  openSheet('<div id="kindList">' + sheetHead(name) +
+  const qk = kind === 'work' ? 'quietWork' : 'quietClass', qv = S.settings[qk] || 'off', phone = document.documentElement.classList.contains('is-phone');
+  const quiet = '<div class="kind-quiet"><span class="kq-t">During every ' + one + ', my phone…</span><div class="seg sm" role="group" aria-label="Phone during every ' + one + '">' +
+    [['off', 'Rings'], ['vibrate', 'Vibrates'], ['silent', 'Mutes']].map(([v, l]) => '<button type="button" data-action="kind-quiet" data-k="' + qk + '" data-v="' + v + '" data-kind="' + kind + '" aria-pressed="' + (qv === v) + '">' + l + '</button>').join('') + '</div>' +
+    (phone && qv === 'silent' && quietCanMute === false ? '<div class="kq-note">Muting needs “Do Not Disturb access”. Until then it vibrates. <button class="link" data-action="quiet-allow">Allow</button></div>' : '') +
+    (qv !== 'off' ? '<div class="kq-note">It goes back to normal when each ' + one + ' ends.</div>' : '') + '</div>';
+  return ('<div id="kindList">' + sheetHead(name) + quiet +
     '<div class="row-btns kind-add"><span class="muted">' + list.length + ' coming up · soonest first</span><span class="grow"></span><button type="button" class="btn sm accent" data-action="new-kind" data-kind="' + kind + '">' + icon('plus') + 'Add ' + one + '</button></div>' +
     (list.length ? '<div class="card">' + list.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + esc(when(e)) + '<br><span class="muted">' + (e.start ? fmtHM(e.start) + (e.end ? '–' + fmtHM(e.end) : '') : 'All day') + '</span></span>' +
       '<span class="ev-main"><b><span class="wk-ic">' + calIcon(kind) + '</span>' + esc(e.title) + '</b><span class="muted">' + esc(daysAway(e.date) + (e.note ? ' · ' + e.note : '')) + '</span></span></button>').join('') + '</div>'
@@ -4600,6 +4628,12 @@ const A = {
   'new-bday': t => bdaySheet('', t.dataset.date || ui.calSel),
   'list-bday': () => bdayListSheet(),
   'quiet-del': t => { S.settings.quietWins = (S.settings.quietWins || []).filter(w => w.id !== t.dataset.id); saveSettings(); render(); toast('Canceled'); if (t.dataset.back) quietListSheet(); },
+  'kind-quiet': t => {
+    const k = t.dataset.k, v = t.dataset.v, kind = t.dataset.kind, one = kind === 'work' ? 'work shift' : 'class';
+    setSetting(k, v);
+    const el = $('#kindList'); if (el) el.outerHTML = kindListHTML(kind);
+    toast(v === 'off' ? 'Your phone will ring normally during ' + (kind === 'work' ? 'work' : 'classes') + '.' : 'Your phone will ' + (v === 'vibrate' ? 'vibrate' : 'be muted') + ' during every ' + one + '.');
+  },
   'quiet-allow': () => { if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'dnd'}).catch(() => {}); },
   'list-kind': t => kindListSheet(t.dataset.kind),
   'list-quiet': () => quietListSheet(),
@@ -7724,6 +7758,7 @@ function updSettingsHTML(){
   return '<div class="sec-title" id="set-upd"><span>App updates</span><span>' + esc(UPD.verText || '') + '</span></div><div class="group">' +
     '<div class="srow"><span class="lbl">' + esc(msg) + '</span></div>' +
     (pm ? '<div class="srow"><span class="lbl">Phone permissions<small>' + (pm.length ? pm.length + (pm.length > 1 ? ' are' : ' is') + ' switched off' : 'All on') + '</small></span><button class="btn sm' + (pm.length ? ' accent' : '') + '" data-action="perm-open">' + (pm.length ? 'Turn on' : 'Check') + '</button></div>' : '') +
+    '<div class="srow"><span class="lbl">Crash log<small>When the app crashed or closed, and why</small></span><button class="btn sm" data-action="crash-open">Open</button></div>' +
     '<div class="upd-row">' + btn + '<button class="pn-btn" data-action="patch-notes" aria-label="Patch notes">' + icon('note') + 'Patch notes</button></div></div>';
 }
 // patch notes: every update and what it changed (the online list, or the copy that came with this version when offline)
@@ -7742,6 +7777,66 @@ async function patchNotesSheet(){
   }).join('');
 }
 A['patch-notes'] = () => patchNotesSheet();
+
+/* ---------- crash log: Settings → App updates → Crash log ----------
+   Phone: every time Android closed the app and why (crashed, froze, out of memory…), plus the app's own crash
+   details. Both: errors in the page's code. "Copy all" makes a text you can paste to whoever is fixing it. */
+const EXIT_WHY = {1:['It closed itself', 0], 2:['Stopped by the system', 1], 3:['Android closed it to free up memory', 1], 4:['The app crashed', 2], 5:['The app crashed (in built-in code)', 2],
+  6:['The app froze, and Android closed it', 2], 7:['It failed to start', 2], 8:['Closed because a permission changed', 0], 9:['Android closed it for using too much battery or processor', 1],
+  10:['You closed it (or it was force stopped)', 0], 11:['You stopped it', 0], 12:['Closed because something it needs stopped', 1], 13:['Closed by the system', 0], 14:['Paused by the system', 0],
+  15:['Closed because the app was switched off', 0], 16:['Closed for an app update', 0], 0:['Closed (reason unknown)', 0]};
+let crashText = '';
+function crashWhen(t){ const d = new Date(t); return (ymd(d) === todayStr() ? 'Today' : ymd(d) === addDays(todayStr(), -1) ? 'Yesterday' : d.toLocaleDateString('en-US', {month:'short', day:'numeric'})) + ' ' + fmtHM(pad(d.getHours()) + ':' + pad(d.getMinutes())); }
+async function crashOpen(){
+  openSheet('<div id="crashSheet">' + sheetHead('Crash log') + '<p class="muted">Loading…</p></div>');
+  let nat = null; try { if (NATIVE && JA && JA.crashLog) nat = await JA.crashLog(); } catch (e) {}
+  const parse = s => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  const cleared = nat ? Number(nat.clearedAt || 0) : 0;
+  const java = nat ? parse(nat.java) : [], exits = nat ? parse(nat.exits).filter(x => x.t > cleared) : [];
+  let pageErr = []; try { pageErr = JSON.parse(localStorage.getItem('jma:errLog') || '[]'); } catch (e) {}
+  const usedJava = new Set();
+  const big = [], small = [];
+  exits.sort((a, b) => b.t - a.t).forEach(x => {
+    const [title, level] = EXIT_WHY[x.reason] || EXIT_WHY[0];
+    const j = x.reason === 4 ? java.findIndex((c, i) => !usedJava.has(i) && Math.abs(c.t - x.t) < 15000) : -1; if (j >= 0) usedJava.add(j);
+    const fg = x.importance && x.importance <= 125 ? 'while you were using it' : 'in the background';
+    const mem = x.pss ? ' · using ' + Math.round(x.pss / 1024) + ' MB' : '';
+    const detail = [x.desc && x.desc !== 'null' ? x.desc : '', j >= 0 ? java[j].msg + '\n' + java[j].trace : '', x.trace || ''].filter(Boolean).join('\n\n');
+    (level ? big : small).push({t:x.t, title, sub:fg + mem, detail, level});
+  });
+  java.forEach((c, i) => { if (!usedJava.has(i) && c.t > cleared) big.push({t:c.t, title:'The app crashed', sub:c.thread ? 'in “' + c.thread + '”' : '', detail:c.msg + '\n' + c.trace, level:2}); });
+  big.sort((a, b) => b.t - a.t);
+  const row = e => '<div class="crash-row' + (e.level === 2 ? ' bad' : '') + '"><b>' + esc(e.title) + '</b><small>' + esc(crashWhen(e.t) + (e.sub ? ' · ' + e.sub : '')) + '</small>' +
+    (e.detail ? '<details><summary>Details</summary><pre>' + esc(e.detail) + '</pre></details>' : '') + '</div>';
+  const errRow = e => '<div class="crash-row"><b>' + esc(e.msg) + (e.n > 1 ? ' (×' + e.n + ')' : '') + '</b><small>' + esc(crashWhen(e.t) + (e.src ? ' · ' + e.src : '')) + '</small>' + (e.stack ? '<details><summary>Details</summary><pre>' + esc(e.stack) + '</pre></details>' : '') + '</div>';
+  let h = '<div id="crashSheet">' + sheetHead('Crash log');
+  if (nat) h += '<p class="hint">' + (big.length ? big.length + ' time' + (big.length > 1 ? 's' : '') + ' the app crashed or was shut down. Tap “Copy all” and paste it to me so I can see what went wrong.' : 'No crashes. Nice.') + '</p>';
+  if (nat && Number(nat.sdk) < 30) h += '<p class="hint">This phone’s Android version doesn’t keep a list of why the app closed, so only some crashes show up here.</p>';
+  if (big.length) h += '<div class="crash-sec">Crashes and shutdowns</div><div class="card">' + big.slice(0, 25).map(row).join('') + '</div>';
+  if (pageErr.length) h += '<div class="crash-sec">Errors inside the app</div><div class="card">' + pageErr.slice().reverse().slice(0, 15).map(errRow).join('') + '</div>';
+  if (small.length) h += '<details class="crash-other"><summary class="crash-sec">Other times it closed (normal) · ' + small.length + '</summary><div class="card">' + small.slice(0, 20).map(row).join('') + '</div></details>';
+  if (!big.length && !pageErr.length && !small.length) h += '<div class="trash-none"><b>Nothing here</b>If the app crashes, it shows up here.</div>';
+  h += '<div class="sh-actions">' + (big.length || pageErr.length || small.length ? '<button type="button" class="btn danger" data-action="crash-clear">Clear</button>' : '') + '<span class="grow"></span>' +
+    (big.length || pageErr.length ? '<button type="button" class="btn" data-action="crash-copy">Copy all</button>' : '') + '<button type="button" class="btn" data-action="sheet-close">Done</button></div></div>';
+  crashText = 'Joey’s App crash log · ' + new Date().toLocaleString('en-US') + ' · web ' + window.JOEY_WEB_VERSION + (nat ? ' · app ' + nat.ver + ' · Android ' + nat.sdk + ' · ' + nat.model : '') + '\n\n' +
+    big.map(e => crashWhen(e.t) + ' — ' + e.title + ' (' + e.sub + ')\n' + (e.detail || '')).join('\n\n') +
+    (pageErr.length ? '\n\nErrors inside the app:\n' + pageErr.slice().reverse().map(e => crashWhen(e.t) + ' — ' + e.msg + (e.n > 1 ? ' ×' + e.n : '') + (e.src ? ' @ ' + e.src : '') + (e.stack ? '\n' + e.stack : '')).join('\n') : '') +
+    (small.length ? '\n\nOther closes:\n' + small.map(e => crashWhen(e.t) + ' — ' + e.title + ' (' + e.sub + ')' + (e.detail ? ': ' + e.detail.split('\n')[0] : '')).join('\n') : '');
+  const el = $('#crashSheet'); if (el) el.outerHTML = h;
+}
+A['crash-open'] = () => crashOpen();
+A['crash-copy'] = async () => {
+  let ok = false;
+  try { await navigator.clipboard.writeText(crashText); ok = true; } catch (e) {}
+  if (!ok) { try { const ta = document.createElement('textarea'); ta.value = crashText; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) {} }
+  toast(ok ? 'Copied. Paste it in a message to me.' : 'Couldn’t copy. Try a screenshot instead.');
+};
+A['crash-clear'] = async t => {
+  if (!arm(t, 'Tap again to clear')) return;
+  try { localStorage.removeItem('jma:errLog'); } catch (e) {}
+  try { if (NATIVE && JA && JA.clearCrashLog) await JA.clearCrashLog(); } catch (e) {}
+  crashOpen();
+};
 if (updOn()) {
   (JUP ? JUP.info().then(i => 'Version ' + (i.versionName || i.versionCode)) : DESK.info().then(i => 'Version 1.0.' + i.shell)).then(s => { UPD.verText = s; }).catch(() => {});
   const _settingsU = settingsHTML;
