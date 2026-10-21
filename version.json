@@ -1,5 +1,5 @@
 {
- "web": 202610211327,
+ "web": 202610211337,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Fixed the big circle on the calendar. Days with a reminder now show a small dot under the date."
+ "notes": "Work shifts now get a work icon on the calendar, and you can change it (and the birthday icon) to your own picture in your Calendar theme."
 }
