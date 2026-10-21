@@ -1,5 +1,11 @@
 [
  {
+  "release": 129,
+  "date": "2026-10-21",
+  "notes": "After an update, the app now shows which phone permissions got switched off, with one button that walks you through turning them all back on.",
+  "app": false
+ },
+ {
   "release": 128,
   "date": "2026-10-21",
   "notes": "Your phone can go quiet during work and classes (Settings → Sounds → Quiet phone), and you can tell your buddy to mute or unmute it. Tap Install to get it.",

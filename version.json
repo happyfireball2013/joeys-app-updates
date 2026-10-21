@@ -1,5 +1,5 @@
 {
- "web": 202610211414,
+ "web": 202610211428,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your phone can go quiet during work and classes (Settings \u2192 Sounds \u2192 Quiet phone), and you can tell your buddy to mute or unmute it. Tap Install to get it."
+ "notes": "After an update, the app now shows which phone permissions got switched off, with one button that walks you through turning them all back on."
 }

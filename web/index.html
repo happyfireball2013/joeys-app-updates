@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211414;</script>
+<script>window.JOEY_WEB_VERSION = 202610211428;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -894,6 +894,16 @@ button.wx-day:active{background:var(--surface-2)}
 .trash-row .btn.sm{flex:none}
 .trash-none{display:grid;gap:4px;text-align:center;padding:26px 12px;color:var(--ink-2)}
 .trash-none b{color:var(--ink);font-size:1rem}
+.perm-all{width:100%;justify-content:center;margin:4px 0 12px;padding-block:14px;font-size:1rem}
+.perm-list{padding:0}
+.perm-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+.perm-row:first-child{border-top:0}
+.perm-ic{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.perm-row.on .perm-ic{background:color-mix(in srgb,#2fa84f 16%,transparent);color:#2a8f45}
+.perm-ic .ic{width:16px;height:16px}
+.perm-t{flex:1;min-width:0;display:grid;gap:2px}
+.perm-t small{font-size:.78rem;color:var(--ink-2)}
+.perm-ok{font-size:.8rem;font-weight:700;color:#2a8f45}
 .th-bname{align-items:center}
 .th-bname label{font-weight:600}
 .th-bname .in{flex:1;min-width:0}
@@ -7284,8 +7294,10 @@ function updSettingsHTML(){
   const btn = st === 'ready' ? '<button class="btn sm accent" data-action="upd-now">Restart now</button>'
     : st === 'shell' ? '<button class="btn sm accent" data-action="' + (JUP ? 'upd-apk' : 'upd-exe') + '">' + (UPD.installing ? 'Downloading…' : JUP ? 'Install' : 'Restart to update') + '</button>'
     : '<button class="btn sm" data-action="upd-check"' + (st === 'checking' || st === 'downloading' ? ' disabled' : '') + '>Check for updates</button>';
+  const pm = typeof permMissing === 'function' && JUP ? permMissing() : null;
   return '<div class="sec-title" id="set-upd"><span>App updates</span><span>' + esc(UPD.verText || '') + '</span></div><div class="group">' +
     '<div class="srow"><span class="lbl">' + esc(msg) + '</span></div>' +
+    (pm ? '<div class="srow"><span class="lbl">Phone permissions<small>' + (pm.length ? pm.length + (pm.length > 1 ? ' are' : ' is') + ' switched off' : 'All on') + '</small></span><button class="btn sm' + (pm.length ? ' accent' : '') + '" data-action="perm-open">' + (pm.length ? 'Turn on' : 'Check') + '</button></div>' : '') +
     '<div class="upd-row">' + btn + '<button class="pn-btn" data-action="patch-notes" aria-label="Patch notes">' + icon('note') + 'Patch notes</button></div></div>';
 }
 // patch notes: every update and what it changed (the online list, or the copy that came with this version when offline)
@@ -7335,6 +7347,95 @@ if (DESK && DESK.titleBar && !window.claude) {
   const _renderBar = render;
   render = function(){ _renderBar(); barSync(); };
   barSync();
+}
+
+
+/* ---------- phone permissions: everything the app needs in one list, and one button to turn them all back on ----------
+   Android switches some of these off when the app updates (full-screen alarms especially), and the special ones can
+   only be turned on by you in their own settings screen. "Turn them all on" opens each one that's off, one after
+   another: every time you come back to the app it checks again and opens the next. After an update, this pops up by
+   itself if anything got switched off. */
+const PERM = {st:null, run:false, tried:{}, busy:false};
+function permList(){
+  const s = S.settings, quietMute = s.quietWork === 'silent' || s.quietClass === 'silent' || (s.quietWins || []).some(w => w.mode === 'silent');
+  return [
+    ['notifications', 'Notifications', 'So reminders and alarms can show up', true],
+    ['exact', 'Alarms & reminders', 'So they go off at the exact minute', true],
+    ['fullScreen', 'Full-screen alarms', 'So an alarm fills your lock screen', true],
+    ['overlay', 'Appear on top', 'A backup so the alarm screen always opens', true],
+    ['dnd', 'Do Not Disturb access', 'So the app can mute your phone during work and class', quietMute],
+    ['location', 'Location', 'For the weather where you are', !!s.wxGps]
+  ].filter(p => p[3]);
+}
+async function permCheck(){
+  if (!(NATIVE && JA)) return null;
+  const st = {};
+  try { const r = await JA.checkSetup(); Object.assign(st, r); } catch (e) {}
+  try { if (JA.quietStatus) { const q = await JA.quietStatus(); st.dnd = !!(q && q.canMute); } } catch (e) {}
+  try { if (S.settings.wxGps) { const G = capPlugin('Geolocation'), p = await G.checkPermissions(); st.location = !!p && (p.location === 'granted' || p.coarseLocation === 'granted'); } } catch (e) {}
+  if (st.overlay === undefined) st.overlay = true;
+  PERM.st = st;
+  return st;
+}
+function permMissing(){ const st = PERM.st; return st ? permList().filter(p => st[p[0]] === false || (p[0] === 'overlay' ? st.overlay === false : st[p[0]] !== true)).map(p => p[0]) : null; }
+function permSheetHTML(){
+  const st = PERM.st || {}, miss = permMissing() || [];
+  const rows = permList().map(([k, name, why]) => {
+    const on = !miss.includes(k);
+    return '<div class="perm-row' + (on ? ' on' : '') + '"><span class="perm-ic">' + icon(on ? 'check' : 'x') + '</span><span class="perm-t"><b>' + name + '</b><small>' + why + '</small></span>' +
+      (on ? '<span class="perm-ok">On</span>' : '<button type="button" class="btn sm" data-action="perm-fix" data-which="' + k + '">Turn on</button>') + '</div>';
+  }).join('');
+  return '<div id="permSheet">' + sheetHead('Phone permissions') +
+    '<p class="hint">' + (miss.length ? 'Android sometimes switches these off when the app updates. Tap the button and switch on Joey’s App on each screen that opens, then come back. The next one opens by itself.' : 'Everything is on. You’re all set.') + '</p>' +
+    (miss.length ? '<button type="button" class="btn accent perm-all" data-action="perm-all">' + (PERM.run ? 'Keep going (' + miss.length + ' left)' : 'Turn them all on (' + miss.length + ')') + '</button>' : '') +
+    '<div class="card perm-list">' + rows + '</div>' +
+    '<div class="sh-actions"><span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Done</button></div></div>';
+}
+function permSheetRefresh(){ const el = $('#permSheet'); if (el) el.outerHTML = permSheetHTML(); }
+async function permOpen(){ await permCheck(); openSheet(permSheetHTML(), () => { PERM.run = false; }); }
+async function permFix(k){
+  PERM.tried[k] = true;
+  if (k === 'notifications') {
+    try { const r = await JA.requestNotifications(); if (!r || !r.granted) JA.openSetting({which:'notifications'}); } catch (e) { JA.openSetting({which:'notifications'}).catch(() => {}); }
+  } else if (k === 'location') {
+    try { await capPlugin('Geolocation').requestPermissions(); } catch (e) { JA.openSetting({which:'app'}).catch(() => {}); }
+  } else JA.openSetting({which:k}).catch(() => {});
+}
+// the next one that's still off (each is tried once per round, so saying no doesn't loop)
+async function permNext(){
+  if (PERM.busy) return; PERM.busy = true;
+  try {
+    await permCheck(); permSheetRefresh(); nativeSetup = PERM.st; scheduleRender();
+    const miss = (permMissing() || []).filter(k => !PERM.tried[k]);
+    if (!miss.length) {
+      const left = permMissing() || [];
+      PERM.run = false; PERM.tried = {}; permSheetRefresh();
+      toast(left.length ? left.length + ' still off. You can try again any time.' : 'All permissions are on.');
+      return;
+    }
+    await permFix(miss[0]);
+    if (miss[0] === 'notifications' || miss[0] === 'location') setTimeout(() => { if (PERM.run) { PERM.busy = false; permNext(); } }, 900);   // a pop-up, not a new screen
+  } finally { PERM.busy = false; }
+}
+if (NATIVE && JA) {
+  A['perm-open'] = () => permOpen();
+  A['perm-fix'] = t => { PERM.run = false; permFix(t.dataset.which); };
+  A['perm-all'] = () => { PERM.run = true; PERM.tried = {}; permNext(); };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    setTimeout(async () => {
+      if (PERM.run) permNext();
+      else if ($('#permSheet')) { await permCheck(); permSheetRefresh(); }
+    }, 400);
+  });
+  // after an update: if something got switched off, show the list by itself
+  setTimeout(async () => {
+    let ver = 0; try { ver = JUP ? (await JUP.info()).versionCode : 0; } catch (e) {}
+    await permCheck(); if (ui.screen === 'settings') scheduleRender();
+    let last = 0; try { last = Number(localStorage.getItem('jma:permVer') || 0); } catch (e) {}
+    try { if (ver) localStorage.setItem('jma:permVer', String(ver)); } catch (e) {}
+    if (ver && ver !== last && (permMissing() || []).length && $('#sheet').hidden) permOpen();   // also the first time (last = 0)
+  }, 3000);
 }
 /* ---------- pull down at the top of a page to refresh (like Snapchat) ---------- */
 // The page stretches with more and more resistance the farther you pull. Let go past the line and it
