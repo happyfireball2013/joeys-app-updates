@@ -1,5 +1,5 @@
 {
- "web": 202610201615,
+ "web": 202610211310,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy now says a different hello each time you tap him, including ones for the time of day."
+ "notes": "On your computer, Ctrl+F now finds words on the page, just like in a web browser."
 }

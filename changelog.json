@@ -1,5 +1,11 @@
 [
  {
+  "release": 105,
+  "date": "2026-10-21",
+  "notes": "On your computer, Ctrl+F now finds words on the page, just like in a web browser.",
+  "app": false
+ },
+ {
   "release": 104,
   "date": "2026-10-20",
   "notes": "Your buddy now says a different hello each time you tap him, including ones for the time of day.",
