@@ -1,5 +1,5 @@
 {
- "web": 202610211439,
+ "web": 202610211450,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy now keeps a chat log of what you've said to each other, with a little picture of him next to his messages, in a bigger bubble."
+ "notes": "Your buddy's chat history now sits behind a little round button, and a new Quiet phone button on the calendar shows when your phone will mute or vibrate."
 }

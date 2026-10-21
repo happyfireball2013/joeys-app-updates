@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211439;</script>
+<script>window.JOEY_WEB_VERSION = 202610211450;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -744,12 +744,12 @@ button.wx-day:active{background:var(--surface-2)}
 #thMascot{pointer-events:auto!important;cursor:pointer}
 #thMascot.talk img,#thMascot.talk canvas{animation:bbTalk .45s ease-in-out infinite alternate}
 @keyframes bbTalk{from{transform:scale(1,1) rotate(-2deg)}to{transform:scale(1.06,.94) rotate(2deg)}}
-#buddyBubble{position:fixed;right:14px;bottom:calc(96px + 76px * var(--bud-k,1) + env(safe-area-inset-bottom,0px));z-index:65;width:min(390px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
+#buddyBubble{position:fixed;right:14px;bottom:calc(96px + 76px * var(--bud-k,1) + env(safe-area-inset-bottom,0px));z-index:65;width:min(340px,calc(100vw - 28px));padding:14px 14px 12px;border-radius:20px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(30,15,70,.22);animation:bbPop .22s cubic-bezier(.2,.9,.3,1.25)}
 #buddyBubble::after{content:"";position:absolute;right:calc(38px * var(--bud-k,1) - 4px);bottom:-9px;width:18px;height:18px;background:var(--surface);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
 @keyframes bbPop{from{transform:scale(.6) translateY(30px);opacity:0;transform-origin:85% 100%}to{transform:none;opacity:1}}
 #buddyBubble .bb-x{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2)}
 #buddyBubble .bb-x .ic{width:16px;height:16px}
-#buddyBubble .bb-body{padding-right:0;margin-right:-6px;padding-top:22px;max-height:min(55vh,520px);overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px}
+#buddyBubble .bb-body{padding-right:0;margin-right:-6px;padding-top:4px;max-height:40vh;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px}
 #buddyBubble .bm{display:flex;gap:8px;align-items:flex-end;max-width:100%}
 #buddyBubble .bm.me{justify-content:flex-end;padding-left:44px}
 #buddyBubble .bm.bud{padding-right:30px}
@@ -764,8 +764,14 @@ button.wx-day:active{background:var(--surface-2)}
 #buddyBubble .bm-pic{display:flex;align-items:center;gap:5px;font-weight:650;opacity:.9}
 #buddyBubble .bm-pic .ic{width:15px;height:15px}
 #buddyBubble .bm-day{align-self:center;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin:4px 0 0}
-#buddyBubble .bm-top{position:absolute;top:12px;left:14px}
+#buddyBubble.log-open .bb-body{max-height:min(55vh,520px)}
+#buddyBubble .bb-body:has(.bm-logbtn){padding-top:34px}
+#buddyBubble .bm-top{position:absolute;top:8px;left:12px;display:flex;align-items:center;gap:10px}
 #buddyBubble .bm-top .link{font-size:.75rem}
+#buddyBubble .bm-logbtn{position:relative;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-ink,var(--accent))}
+#buddyBubble .bm-logbtn[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+#buddyBubble .bm-logbtn .ic{width:17px;height:17px}
+#buddyBubble .bm-logbtn i{position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:var(--surface);color:var(--ink-2);border:1px solid var(--line);font:700 .58rem/14px var(--font-ui);font-style:normal;text-align:center}
 #buddyBubble .bb-body p{margin:0 0 6px;font-size:.95rem;line-height:1.4}
 #buddyBubble .bb-body ul{margin:4px 0 6px;padding-left:18px;font-size:.85rem}
 #buddyBubble .bb-body li span{color:var(--ink-2)}
@@ -843,6 +849,17 @@ button.wx-day:active{background:var(--surface-2)}
 .kind-add{align-items:center;margin-bottom:12px}
 .kind-add .muted{font-size:.8rem}
 #kindList .card{max-height:60vh;overflow:auto}
+.q-row{grid-template-columns:4px minmax(96px,auto) minmax(0,1fr) auto;align-items:center}
+.q-row .ev-bar{background:var(--accent);align-self:stretch}
+.q-row.q-vibrate .ev-bar{background:color-mix(in srgb,var(--accent) 45%,transparent)}
+.q-row.q-normal .ev-bar{background:#2fa84f}
+.q-row .ev-main b{display:flex;align-items:center;gap:6px}
+.q-row .ev-main b .ic{width:16px;height:16px;color:var(--accent)}
+.q-now{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:12px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--line)}
+.q-now.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.q-now > .ic{width:22px;height:22px;flex:none;color:var(--accent)}
+.q-now span{display:grid;gap:2px}
+.q-now small{font-size:.8rem;color:var(--ink-2)}
 .seg.ev-type button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .seg.ev-type .ic{width:16px;height:16px}
 .seg.ev-type .cal-ic-img{width:18px;height:18px;object-fit:contain}
@@ -975,6 +992,7 @@ const DAY = 864e5;
 
 const IC = {
   folder:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  chat:'<path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M9 11h6M9 14h4"/>',
   school:'<path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6v4.1c1.6 1.5 3.5 2.2 5.5 2.2s3.9-.7 5.5-2.2v-4.1M21.5 9.5v5.2"/>',
   work:'<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.6A1.6 1.6 0 0 1 10.6 4h2.8A1.6 1.6 0 0 1 15 5.6v1.9M3.5 12.5h17M11 12.5v1.5h2v-1.5"/>',
   cake:'<path d="M4 20.5h16M5.5 20.5v-6.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6.5M5.5 15.5c1.6 1.1 3.2 1.1 4.8 0s3.2-1.1 4.8 0 2.4 1.1 3.4.4M12 12V8.5M12 4.2c.9.9 1.2 1.7.6 2.5-.3.4-.9.4-1.2 0-.6-.8-.3-1.6.6-2.5z"/>',
@@ -3618,7 +3636,7 @@ function calendarHTML(){
     (function(){ const w = S.settings.calWeather && wxForDate(sel); return w ? '<div class="agenda-wx">' + wxIcon(w.day ? w.day.icon : 1, false) + '<span><b>' + deg(w.day && w.day.temperature) + '</b> / ' + deg(w.night && w.night.temperature) + ' \u00b7 ' + esc((w.day && w.day.phrase) || '') + '</span></div>' : ''; })() +
     llAgendaHTML(sel) + (sel <= todayStr() ? '<div class="sec-title"><span>Plans</span></div>' : '') +
     '<div class="card">' + (agenda || '<div class="empty"><b>Nothing planned</b>Add an event, reminder or birthday for this day.</div>') + '</div>' +
-    '<div class="agenda-actions"><button class="btn sm" data-action="new-event" data-date="' + sel + '">' + icon('plus') + 'Event</button><button class="btn sm" data-action="new-rem" data-date="' + sel + '">' + icon('plus') + 'Reminder</button><button class="btn sm cal-kind" data-action="list-bday">' + calIcon('bday') + 'Birthdays</button><button class="btn sm cal-kind" data-action="list-kind" data-kind="work">' + calIcon('work') + 'Work</button><button class="btn sm cal-kind" data-action="list-kind" data-kind="class">' + calIcon('class') + 'Classes</button></div>' + bdayUpcomingHTML();
+    '<div class="agenda-actions"><button class="btn sm" data-action="new-event" data-date="' + sel + '">' + icon('plus') + 'Event</button><button class="btn sm" data-action="new-rem" data-date="' + sel + '">' + icon('plus') + 'Reminder</button><button class="btn sm cal-kind" data-action="list-bday">' + calIcon('bday') + 'Birthdays</button><button class="btn sm cal-kind" data-action="list-kind" data-kind="work">' + calIcon('work') + 'Work</button><button class="btn sm cal-kind" data-action="list-kind" data-kind="class">' + calIcon('class') + 'Classes</button><button class="btn sm cal-kind" data-action="list-quiet">' + icon('moon') + 'Quiet phone</button></div>' + bdayUpcomingHTML();
 }
 
 function bdayUpcomingHTML(){
@@ -3649,6 +3667,25 @@ function kindListSheet(kind){
     (list.length ? '<div class="card">' + list.map(([id, e]) => '<button class="ev" data-action="edit-event" data-id="' + id + '"><span class="ev-bar" style="background:' + hueOf(e.color) + '"></span><span class="ev-time">' + esc(when(e)) + '<br><span class="muted">' + (e.start ? fmtHM(e.start) + (e.end ? '–' + fmtHM(e.end) : '') : 'All day') + '</span></span>' +
       '<span class="ev-main"><b><span class="wk-ic">' + calIcon(kind) + '</span>' + esc(e.title) + '</b><span class="muted">' + esc(daysAway(e.date) + (e.note ? ' · ' + e.note : '')) + '</span></span></button>').join('') + '</div>'
       : '<div class="trash-none"><b>No ' + (kind === 'work' ? 'shifts' : 'classes') + ' coming up</b>' + (kind === 'work' ? 'Add one here, or send your buddy a picture of your schedule.' : 'Add one here. Pick “Class” as the type on any event to show it here.') + '</div>') + '</div>');
+}
+// When the phone is set to mute / vibrate: right now, then every upcoming quiet time, soonest first
+function quietListSheet(){
+  const s = S.settings, now = Date.now(), wins = quietWindows().filter(w => w.end > now), cur = quietNow();
+  const hm = ts => fmtHM(pad(new Date(ts).getHours()) + ':' + pad(new Date(ts).getMinutes()));
+  const dayOf = ts => { const ds = ymd(new Date(ts)); return ds === todayStr() ? 'Today' : ds === addDays(todayStr(), 1) ? 'Tomorrow' : new Date(ts).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}); };
+  const span = w => w.start <= now ? 'Now until ' + (ymd(new Date(w.end)) === todayStr() ? hm(w.end) : dayOf(w.end) + ' ' + hm(w.end)) : hm(w.start) + '–' + hm(w.end) + (ymd(new Date(w.end)) !== ymd(new Date(w.start)) ? ' next day' : '');
+  const why = w => w.why === 'asked' ? 'You asked' : w.why;
+  const mine = (s.quietWins || []);
+  const rowFor = w => { const own = w.why === 'asked' && mine.find(x => x.from === w.start && x.until === w.end);
+    return '<div class="ev q-row q-' + w.mode + '"><span class="ev-bar"></span><span class="ev-time">' + esc(dayOf(Math.max(w.start, now))) + '<br><span class="muted">' + esc(span(w)) + '</span></span>' +
+      '<span class="ev-main"><b>' + icon(w.mode === 'normal' ? 'bell' : 'moon') + ' ' + QUIET_NAMES[w.mode] + '</b><span class="muted">' + esc(why(w)) + '</span></span>' +
+      (own ? '<button type="button" class="btn sm" data-action="quiet-del" data-id="' + own.id + '" data-back="1">Cancel</button>' : '') + '</div>'; };
+  openSheet('<div id="kindList" class="quiet-list">' + sheetHead('Quiet phone') +
+    '<div class="q-now' + (cur ? ' on' : '') + '">' + icon(cur && cur.mode !== 'normal' ? 'moon' : 'bell') + '<span><b>Right now: ' + (cur ? {normal:'ringing (you unmuted it)', silent:'muted', vibrate:'on vibrate'}[cur.mode] : 'ringing normally') + '</b>' +
+      '<small>' + (cur ? 'Until ' + hm(cur.end) + (cur.why && cur.why !== 'asked' ? ' · ' + esc(cur.why) : '') : 'Work: ' + QUIET_NAMES[s.quietWork].toLowerCase() + ' · Classes: ' + QUIET_NAMES[s.quietClass].toLowerCase()) + '</small></span></div>' +
+    '<div class="row-btns kind-add"><span class="muted">' + wins.length + ' coming up · soonest first</span><span class="grow"></span><button type="button" class="btn sm" data-action="quiet-settings">Settings</button></div>' +
+    (wins.length ? '<div class="card">' + wins.map(rowFor).join('') + '</div>'
+      : '<div class="trash-none"><b>Nothing planned</b>' + (s.quietWork === 'off' && s.quietClass === 'off' ? 'Turn on “Quiet phone” for work or classes in Settings, or tell your buddy “mute my phone until 5”.' : 'Your phone goes quiet for your next shift or class once it’s on the calendar.') + '</div>') + '</div>');
 }
 function bdaySheet(id, ds){
   const d0 = parseYmd(ds || todayStr());
@@ -4357,9 +4394,11 @@ const A = {
   },
   'new-bday': t => bdaySheet('', t.dataset.date || ui.calSel),
   'list-bday': () => bdayListSheet(),
-  'quiet-del': t => { S.settings.quietWins = (S.settings.quietWins || []).filter(w => w.id !== t.dataset.id); saveSettings(); render(); toast('Canceled'); },
+  'quiet-del': t => { S.settings.quietWins = (S.settings.quietWins || []).filter(w => w.id !== t.dataset.id); saveSettings(); render(); toast('Canceled'); if (t.dataset.back) quietListSheet(); },
   'quiet-allow': () => { if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'dnd'}).catch(() => {}); },
   'list-kind': t => kindListSheet(t.dataset.kind),
+  'list-quiet': () => quietListSheet(),
+  'quiet-settings': () => { closeSheet(true); go('settings'); setTimeout(() => { const el = $('#set-quietWork'); if (el) el.scrollIntoView({block:'center'}); }, 60); },
   'new-kind': t => eventSheet('', ui.calSel || todayStr(), t.dataset.kind),
   'edit-bday': t => bdaySheet(t.dataset.id),
   'del-bday': t => { if (!arm(t, 'Tap again to delete')) return; delItem('birthdays', t.dataset.id); closeSheet(true); toast('Birthday deleted'); render(); },
@@ -5226,6 +5265,7 @@ let buddyOpen = false;
    a little picture of him next to his messages. The hello for this visit sits under the older messages. */
 const BUD_LOG_MAX = 100;
 let budSessionAt = 0;   // messages from this time on came after today's hello
+let budLogOpen = false;   // the little round chat button shows the older messages
 const budLogKey = () => 'jma:budLog:' + ((buddyFor(ui.screen) || {}).id || 'none');
 function budLog(){ try { const a = JSON.parse(localStorage.getItem(budLogKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
 function budLogAdd(m){ const a = budLog(); a.push(Object.assign({ts:Date.now()}, m)); try { localStorage.setItem(budLogKey(), JSON.stringify(a.slice(-BUD_LOG_MAX))); } catch (e) {} }
@@ -5240,9 +5280,10 @@ function buddyBodyHTML(){
   if (aiState !== 'ready') return '<p>I can’t talk yet. The AI assistant isn’t set up on this device. <button class="link" data-action="buddy-setup">Set it up</button></p>';
   const log = budLog(), old = log.filter(m => m.ts < budSessionAt), now = log.filter(m => m.ts >= budSessionAt);
   const day = ts => { const d = new Date(ts), ds = ymd(d); return ds === todayStr() ? 'Today' : ds === addDays(todayStr(), -1) ? 'Yesterday' : d.toLocaleDateString('en-US', {month:'short', day:'numeric'}); };
-  let h = log.length ? '<div class="bm-top"><button class="link" data-action="buddy-clear">Clear chat</button></div>' : '', lastDay = '';
-  old.forEach(m => { const dd = day(m.ts); if (dd !== lastDay) { h += '<div class="bm-day">' + dd + '</div>'; lastDay = dd; } h += budMsgHTML(m, false); });
-  if (old.length && day(Date.now()) !== lastDay) h += '<div class="bm-day">Today</div>';
+  let h = '<div class="bm-top">' + (old.length ? '<button type="button" class="bm-logbtn" data-action="buddy-log" aria-pressed="' + budLogOpen + '" aria-label="' + (budLogOpen ? 'Hide' : 'Show') + ' earlier messages" title="Earlier messages">' + icon('chat') + '<i>' + Math.min(99, old.length) + '</i></button>' : '') +
+    (budLogOpen && log.length ? '<button class="link" data-action="buddy-clear">Clear chat</button>' : '') + '</div>', lastDay = '';
+  if (budLogOpen) old.forEach(m => { const dd = day(m.ts); if (dd !== lastDay) { h += '<div class="bm-day">' + dd + '</div>'; lastDay = dd; } h += budMsgHTML(m, false); });
+  if (budLogOpen && old.length && day(Date.now()) !== lastDay) h += '<div class="bm-day">Today</div>';
   h += budMsgHTML({who:'bud', text:buddyHello || 'Hi! What can I do for you?'}, false);
   now.forEach((m, i) => { h += budMsgHTML(m, i === now.length - 1 && m.who === 'bud'); });
   if (ai.busy && buddyPending) h += '<div class="bm bud">' + (thImg(thFor(ui.screen), 'mascot') ? '<img class="bm-face" src="' + thImg(thFor(ui.screen), 'mascot') + '" alt="">' : '<span class="bm-face"></span>') + '<div class="bm-b"><p class="bb-typing" aria-label="Thinking"><i></i><i></i><i></i></p></div></div>';
@@ -5448,7 +5489,7 @@ function buddyToggle(keep){
   if (buddyOpen) { buddyClose(); return; }
   buddyOpen = true; sfxPlay('buddy');
   if (!keep && !buddyPending) Object.assign(ai, {reply:'', lines:[], undo:[], err:''});   // a fresh chat, unless he's showing what he just did
-  buddyPickHello(); budSessionAt = Date.now();
+  buddyPickHello(); budSessionAt = Date.now(); budLogOpen = false; b.classList.remove('log-open');
   b.hidden = false; buddyRefresh();
   setTimeout(() => { const i = $('#buddyInput'); if (i && !i.disabled) i.focus(); }, 60);
 }
@@ -5492,7 +5533,8 @@ Object.assign(A, {
   'buddy-talk': () => buddyToggle(),
   'buddy-peek': () => { buddyPeek(null); if (!buddyOpen) buddyToggle(true); },
   'buddy-close': () => buddyClose(),
-  'buddy-clear': t => { if (!armAlways(t, 'Tap again to clear')) return; try { localStorage.removeItem(budLogKey()); } catch (e) {} budSessionAt = Date.now(); buddyRefresh(); },
+  'buddy-log': () => { budLogOpen = !budLogOpen; const b = $('#buddyBubble'); if (b) b.classList.toggle('log-open', budLogOpen); buddyRefresh(); },
+  'buddy-clear': t => { if (!armAlways(t, 'Tap again to clear')) return; try { localStorage.removeItem(budLogKey()); } catch (e) {} budSessionAt = Date.now(); budLogOpen = false; const bb = $('#buddyBubble'); if (bb) bb.classList.remove('log-open'); buddyRefresh(); },
   'buddy-pic': () => { const f = $('#buddyPicFile'); if (f) f.click(); },
   'buddy-pic-x': () => { buddyPicClear(); const i = $('#buddyInput'); if (i) i.placeholder = 'Say something…'; },
   'buddy-setup': () => { buddyClose(); go('settings'); setTimeout(() => jumpTo('set-ai'), 30); }
