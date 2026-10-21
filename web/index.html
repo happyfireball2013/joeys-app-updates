@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211310;</script>
+<script>window.JOEY_WEB_VERSION = 202610211319;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -751,6 +751,13 @@ button.wx-day:active{background:var(--surface-2)}
 #buddyBubble .bb-body li span{color:var(--ink-2)}
 #buddyBubble .bb-form{display:flex;gap:8px;margin-top:8px}
 #buddyBubble .bb-form .in{flex:1;min-width:0}
+#buddyBubble .bb-attach{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}
+#buddyBubble .bb-attach .ic{width:20px;height:20px}
+#buddyBubble .bb-pic{position:relative;margin-top:8px;width:max-content;max-width:100%}
+#buddyBubble .bb-pic[hidden]{display:none}
+#buddyBubble .bb-pic img{display:block;max-height:120px;max-width:100%;border-radius:10px;border:1px solid var(--line)}
+#buddyBubble .bb-pic-x{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--surface)}
+#buddyBubble .bb-pic-x .ic{width:14px;height:14px}
 #buddyBubble .ai-go{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--accent);color:var(--on-accent)}
 .bb-typing{display:flex;gap:5px;padding:6px 0}
 .bb-typing i{width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.4;animation:bbDot 1s infinite}
@@ -3017,6 +3024,20 @@ const AI_ERR = {
 /* Buddies: each theme's corner buddy can have a name (theme.buddyName, synced with the theme). When you talk
    to a buddy, aiWho says which one, so the assistant answers as him and can save a new name you give him. */
 let aiWho = null;
+// a picture sent to the buddy (only Gemini can read it): {mime, data (base64), url (preview)}
+let aiImage = null, buddyPic = null;
+function aiImageLines(){
+  if (!aiImage) return [];
+  const who = S.settings.name || 'the user';
+  return [
+    '', 'The request comes with a picture. Read it carefully.',
+    'If it is a work schedule or any schedule, add one add_event for every shift or entry that has a date, with start and end times exactly as shown. Title each one "Work" (or the job or place name if the picture shows one), and put the role or location in note if shown.',
+    'If the picture shows several people, only use ' + who + '’s row or column. If you can’t tell which one is ' + who + '’s, add no actions and ask in reply.',
+    'Dates must be real dates from the calendar above or later; if the year isn’t shown, use the nearest upcoming one. Skip days off. Skip shifts that already appear in the events list with the same date and start time.',
+    'If an end time is earlier than the start (an overnight shift), still give it as shown.',
+    'In reply, say how many shifts you added and the date range. For any other picture, do what the request asks with it.'
+  ];
+}
 const buddyName = t => t && t.buddyName ? String(t.buddyName).trim().slice(0, 30) : '';
 function buddyFor(screen){ const t = thFor(screen); return t && t.img && t.img.mascot ? {id:t.id, name:buddyName(t)} : null; }
 function buddyWhoLines(){
@@ -3089,13 +3110,14 @@ function aiContext(){
     '',
     ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
     ...(aiWho ? ['', ...buddyWhoLines()] : []),
+    ...aiImageLines(),
     '',
     'Reply with only one JSON object: {"actions":[...],"reply":"..."}',
     'Example for "remind me tuesday at 3 to take out the dishes": {"actions":[{"type":"add_reminder","text":"Take out the dishes","date":"<the coming Tuesday>","time":"15:00","repeat":"none"}],"reply":"Got it. I’ll remind you Tuesday at 3:00 PM to take out the dishes."}'
   ].join('\n');
 }
 function applyAiActions(out){
-  const acts = (out && Array.isArray(out.actions)) ? out.actions.slice(0, 12) : [];
+  const acts = (out && Array.isArray(out.actions)) ? out.actions.slice(0, 40) : [];
   const lines = [], undo = [];
   const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) && !isNaN(parseYmd(v).getTime());
   const isTime = v => /^\d{2}:\d{2}$/.test(String(v || '')) && +String(v).slice(0, 2) < 24 && +String(v).slice(3) < 60;
@@ -3116,7 +3138,9 @@ function applyAiActions(out){
       } else if (type === 'add_event') {
         const title = str(a.title, 200); if (!title) return;
         const date = isDate(a.date) ? a.date : todayStr(), start = isTime(a.start) ? a.start : '', end = start && isTime(a.end) && a.end > start ? a.end : '';
-        const e = {title, date, start, end, color:S.settings.eventColor, note:str(a.note, 500), created:Date.now()};
+        if (Object.values(S.events).some(x => x.date === date && (x.start || '') === start && String(x.title || '').toLowerCase() === title.toLowerCase())) { lines.push({icon:'calendar', text:'Already there: ' + title, sub:fmtDay(date) + (start ? ' · ' + fmtHM(start) : '')}); return; }
+        const over = start && isTime(a.end) && a.end < start ? 'Ends ' + fmtHM(a.end) + ' the next day' : '';   // overnight shift
+        const e = {title, date, start, end, color:S.settings.eventColor, note:[str(a.note, 500), over].filter(Boolean).join(' · '), created:Date.now()};
         const id = uid(); remember('events', id); putItem('events', id, e);
         lines.push({icon:'calendar', text:'Event: ' + title, sub:evWhen(e), action:'edit-event', id});
       } else if (type === 'add_note') {
@@ -5202,7 +5226,10 @@ function buddyToggle(keep){
   if (!b) {
     b = document.createElement('div'); b.id = 'buddyBubble'; b.hidden = true; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Talk to your buddy');
     b.innerHTML = '<button class="bb-x" data-action="buddy-close" aria-label="Close">' + icon('x') + '</button><div class="bb-body"></div>' +
-      '<form id="buddyForm" class="bb-form" autocomplete="off"><input class="in" id="buddyInput" placeholder="Say something…" enterkeyhint="send"><button class="ai-go" type="submit" aria-label="Send">' + icon('send') + '</button></form>';
+      '<div class="bb-pic" id="buddyPic" hidden><img alt="Picture to send"><button type="button" class="bb-pic-x" data-action="buddy-pic-x" aria-label="Remove picture">' + icon('x') + '</button></div>' +
+      '<form id="buddyForm" class="bb-form" autocomplete="off"><button type="button" class="bb-attach" data-action="buddy-pic" aria-label="Send a picture" title="Send a picture (like your work schedule)">' + icon('image') + '</button>' +
+      '<input class="in" id="buddyInput" placeholder="Say something…" enterkeyhint="send"><button class="ai-go" type="submit" aria-label="Send">' + icon('send') + '</button></form>' +
+      '<input type="file" id="buddyPicFile" accept="image/*" hidden>';
     document.body.appendChild(b);
     // tapping anywhere else puts the bubble away, and the app's buttons wait until it's closed
     const sh = document.createElement('div'); sh.id = 'buddyShade'; sh.hidden = true; sh.setAttribute('data-action', 'buddy-close');
@@ -5217,13 +5244,44 @@ function buddyToggle(keep){
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && buddyOpen) { e.stopPropagation(); buddyClose(); } }, true);
 FORMS.buddyForm = () => {
-  const i = $('#buddyInput'), text = i ? i.value.trim() : ''; if (!text || ai.busy) return;
+  const i = $('#buddyInput'); let text = i ? i.value.trim() : '';
+  if (ai.busy || (!text && !buddyPic)) return;
+  if (buddyPic) {
+    if (!buddyPicReady()) { ai.err = 'Reading pictures needs your Gemini key and the internet. Add the key in Settings → AI assistant.'; buddyRefresh(); return; }
+    if (!text) text = 'Here’s a picture. If it’s my schedule, add my shifts to my calendar.';
+    aiImage = {mime:buddyPic.mime, data:buddyPic.data};
+    buddyPicClear();
+  }
   i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); aiRun(text); buddyRefresh();
 };
+// pictures go to Gemini, so they need the key and a connection
+const buddyPicReady = () => typeof gemKey === 'function' && !!gemKey() && navigator.onLine !== false;
+function buddyPicClear(){ if (buddyPic && buddyPic.url) URL.revokeObjectURL(buddyPic.url); buddyPic = null; const b = $('#buddyPic'); if (b) b.hidden = true; const f = $('#buddyPicFile'); if (f) f.value = ''; const i = $('#buddyInput'); if (i) i.placeholder = 'Say something…'; }
+// shrink big photos (max 2000 px, JPEG) so they send quickly but stay readable
+async function buddyPicLoad(file){
+  if (!file || !/^image\//.test(file.type || 'image/')) { toast('That isn’t a picture.'); return; }
+  try {
+    const url = URL.createObjectURL(file), im = new Image(); im.src = url; await im.decode();
+    const k = Math.min(1, 2000 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+    c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+    const data = c.toDataURL('image/jpeg', 0.88).split(',')[1];
+    buddyPicClear(); buddyPic = {mime:'image/jpeg', data, url};
+    const b = $('#buddyPic'); if (b) { b.querySelector('img').src = url; b.hidden = false; }
+    const i = $('#buddyInput'); if (i) { i.placeholder = 'Add a message, or just send it'; i.focus(); }
+  } catch (e) { toast('That picture couldn’t be opened.'); }
+}
+document.addEventListener('change', e => { if (e.target && e.target.id === 'buddyPicFile') buddyPicLoad(e.target.files && e.target.files[0]); });
+// pasting a picture (Ctrl+V) or dropping one on the bubble works too
+document.addEventListener('paste', e => { if (!buddyOpen || !e.clipboardData) return; const f = [...e.clipboardData.files].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); buddyPicLoad(f); } });
+document.addEventListener('dragover', e => { if (buddyOpen && e.target.closest && e.target.closest('#buddyBubble')) e.preventDefault(); });
+document.addEventListener('drop', e => { if (!buddyOpen || !e.target.closest || !e.target.closest('#buddyBubble')) return; const f = [...(e.dataTransfer ? e.dataTransfer.files : [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); buddyPicLoad(f); } });
 Object.assign(A, {
   'buddy-talk': () => buddyToggle(),
   'buddy-peek': () => { buddyPeek(null); if (!buddyOpen) buddyToggle(true); },
   'buddy-close': () => buddyClose(),
+  'buddy-pic': () => { const f = $('#buddyPicFile'); if (f) f.click(); },
+  'buddy-pic-x': () => { buddyPicClear(); const i = $('#buddyInput'); if (i) i.placeholder = 'Say something…'; },
   'buddy-setup': () => { buddyClose(); go('settings'); setTimeout(() => jumpTo('set-ai'), 30); }
 });
 const TH_COLOR_IDS = {thAccent:'accent', thBgc:'bg', thCard:'card', thInk:'ink', thDockBg:'dockBg', thDockInk:'dockInk'};
@@ -6772,7 +6830,7 @@ try { mgState("settings"); mgState("themes"); } catch (e) {}
 const GEM = {models:['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'], lastErr:'', model:''};
 try { GEM.model = localStorage.getItem('jma:gemModel') || ''; } catch (e) {}
 const gemKey = () => String(S.settings.geminiKey || '').trim();
-async function gemCall(system, contents){
+async function gemCall(system, contents, maxTokens){
   const order = GEM.model ? [GEM.model].concat(GEM.models.filter(m => m !== GEM.model)) : GEM.models.slice();
   let last = null;
   for (const m of order) {
@@ -6780,7 +6838,7 @@ async function gemCall(system, contents){
     try {
       r = await withTimeout(fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent?key=' + encodeURIComponent(gemKey()), {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({systemInstruction:{parts:[{text:system}]}, contents, generationConfig:{temperature:0.2, maxOutputTokens:1200, responseMimeType:'application/json'}})
+        body:JSON.stringify({systemInstruction:{parts:[{text:system}]}, contents, generationConfig:{temperature:0.2, maxOutputTokens:maxTokens || 1200, responseMimeType:'application/json'}})
       }), 45000);
     } catch (e) { throw new Error(navigator.onLine === false ? 'offline' : 'network'); }
     if (r.ok) {
@@ -6809,16 +6867,19 @@ async function gemRun(text, fallback){
     ui.aiText = ''; render();
     aiCtl = {abort(){ gemReq++; ai.busy = false; aiCtl = null; ui.aiText = text; render(); }};
     const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. ' + (aiWho ? 'You are the buddy described above (Gemini runs you behind the scenes), inside Joey’s Multipurpose App on his ' : 'You are Gemini, the assistant inside Joey’s Multipurpose App on his ') + (NATIVE ? 'phone' : 'computer') + '.';
-    const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]})).concat([{role:'user', parts:[{text:'Request: ' + text}]}]);
+    const img = aiImage; aiImage = null;   // a picture sent with this request (read once)
+    const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]}))
+      .concat([{role:'user', parts:[{text:'Request: ' + text}].concat(img ? [{inline_data:{mime_type:img.mime, data:img.data}}] : [])}]);
+    const maxTok = img ? 6000 : 1200;
     let raw;
     try {
-      try { raw = await gemCall(system, contents); }
+      try { raw = await gemCall(system, contents, maxTok); }
       catch (e1) {   // one more try before giving up (a phone waking up or in the background can drop the first try)
         const m1 = String(e1 && e1.message || '');
         if (m1 === 'badkey' || my !== gemReq) throw e1;
         await new Promise(r => setTimeout(r, m1 === 'limit' ? 2500 : 1500));
         if (my !== gemReq) throw e1;
-        raw = await gemCall(system, contents);
+        raw = await gemCall(system, contents, maxTok);
       }
       ai.engine = 'Gemini';
     }
@@ -6826,7 +6887,7 @@ async function gemRun(text, fallback){
       if (my !== gemReq) return;
       const m = String(e && e.message || '');
       ai.busy = false; aiCtl = null; ui.aiText = text;
-      if (fallback && m !== 'badkey') { ai.turns = turns; ai.engineWhy = m === 'limit' ? 'Gemini’s free limit was reached' : m === 'offline' || m === 'network' ? 'Gemini couldn’t be reached' : 'Gemini didn’t answer'; return fallback(text); }   // offline or Google busy: the phone's own AI answers
+      if (fallback && m !== 'badkey' && !img) { ai.turns = turns; ai.engineWhy = m === 'limit' ? 'Gemini’s free limit was reached' : m === 'offline' || m === 'network' ? 'Gemini couldn’t be reached' : 'Gemini didn’t answer'; return fallback(text); }   // offline or Google busy: the phone's own AI answers
       ai.err = m === 'badkey' ? 'Google didn’t accept the Gemini key. Check it in Settings → AI assistant.' : m === 'limit' ? 'You’ve hit Gemini’s free limit for now. Try again in a little while.' : m === 'offline' ? 'You’re offline. The AI bar needs the internet on the computer.' : 'Gemini didn’t answer. Try again. ' + (m.startsWith('failed') ? m.slice(6) : '');
       render(); return;
     }
@@ -6838,7 +6899,7 @@ async function gemRun(text, fallback){
     if (!out || (!out.actions.length && !String(out.reply || '').trim())) { Object.assign(ai, {err:'Gemini didn’t answer. Try saying it another way.'}); ui.aiText = text; render(); return; }
     const res = applyAiActions(out);
     Object.assign(ai, {req:text, reply:res.reply, lines:res.lines, undo:res.undo, err:'', lastAt:Date.now()});
-    ai.turns = turns.concat({role:'user', content:'Request: ' + text}, {role:'assistant', content:JSON.stringify({actions:out.actions, reply:res.reply})}).slice(-6);
+    ai.turns = turns.concat({role:'user', content:'Request: ' + text + (img ? ' [sent a picture]' : '')}, {role:'assistant', content:JSON.stringify({actions:out.actions, reply:res.reply})}).slice(-6);
     render();
 }
 const gemKeyRows = () => {
@@ -6885,6 +6946,7 @@ if (NATIVE && !window.claude) {
   const phoneGem = () => !!gemKey() && S.settings.phoneAi !== 'nano';
   aiRun = async function(text){
     if (!ai.busy) { ai.engine = ''; ai.engineWhy = ''; }
+    if (aiImage && gemKey()) return gemRun(text, null);   // only Gemini can read pictures
     if (phoneGem() && navigator.onLine !== false) return gemRun(text, typeof nanoReady === 'function' && nanoReady() ? nanoRun : null);
     return nanoRun(text);
   };

@@ -1,5 +1,11 @@
 [
  {
+  "release": 106,
+  "date": "2026-10-21",
+  "notes": "You can now send pictures to your buddy. Send him your work schedule and he puts your shifts on your calendar.",
+  "app": false
+ },
+ {
   "release": 105,
   "date": "2026-10-21",
   "notes": "On your computer, Ctrl+F now finds words on the page, just like in a web browser.",
