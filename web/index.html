@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211634;</script>
+<script>window.JOEY_WEB_VERSION = 202610211822;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -2212,6 +2212,8 @@ document.addEventListener('input', e => {
   if (actx && actx._jm) actx._jm.gain.value = devVol / 100;
   const o = document.getElementById('devVolOut'); if (o) o.textContent = devVol + '%';
 });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'wakePause') { const o = $('#wakePauseOut'); if (o) o.textContent = e.target.value + ' s'; } });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'wakePause') { try { localStorage.setItem('jma:wakePause', String(e.target.value)); } catch (x) {} if (typeof syncWakeNative === 'function') syncWakeNative(true); } });
 document.addEventListener('change', e => { if (e.target && e.target.id === 'devVol') { const t = thFor(ui.screen); const ev = t && SFX.map(x => x[0]).find(k => sfxSlots(t, k).length); if (ev) sfxPlay(ev, t, true); else { ensureCtx(); playTone('chime'); } } });
 function ensureCtx(){
   try { if (!actx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); } } catch (e) {}
@@ -3141,6 +3143,8 @@ function wakeList(){
     .map(([id, t]) => ({theme:id, phrase:wakeNorm(t.wakePhrase), label:String(t.wakePhrase).trim(), name:buddyName(Object.assign({id}, t)) || t.name || 'Your buddy'}));
 }
 const wakeOnHere = () => { try { return localStorage.getItem('jma:wakeOn') === '1'; } catch (e) { return false; } };
+/** Seconds he waits after you stop talking before he takes your request (this phone only). */
+const wakePauseHere = () => { try { const v = Number(localStorage.getItem('jma:wakePause')); return v >= 1 && v <= 8 ? v : 3; } catch (e) { return 3; } };
 let wakeSt = null;   // what the phone says (listening, downloading, needs the mic…)
 /* Battery tracker: the phone notes the battery every 10 minutes while listening (WakeService.sample). From that:
    how long it listened, how fast the battery went down with the screen off and not charging, and the app's own
@@ -4053,7 +4057,9 @@ function settingsHTML(){
         let h = '';
         if (!phone) h += '<div class="srow"><span class="lbl">Works on your phone<small>Your phone listens for your buddies’ wake phrases, like “Hey Siri”, even when the app is closed. Set the phrases here (they sync) and turn it on in the phone app.</small></span></div>';
         else h += '<div class="srow"><span class="lbl">Listen for wake phrases<small>Say a buddy’s phrase any time, even with the app closed or the phone locked, and he pops up to help. Listening happens on your phone, offline. It uses more battery and shows a “Listening” notification.</small></span><button type="button" class="toggle" data-action="wake-toggle" aria-pressed="' + on + '" aria-label="Listen for wake phrases"></button></div>' +
-          (on || (wakeSt && wakeBattery(wakeSt.battery).listen) ? wakeBatteryHTML() : '');
+          (on || (wakeSt && wakeBattery(wakeSt.battery).listen) ? wakeBatteryHTML() : '') +
+          (on ? '<div class="srow"><label class="lbl" for="wakePause">Wait after you stop talking' + sub('How long he waits for you to go on before he answers. Longer gives you time to think mid-sentence.') + '</label><span class="vol" id="wakePauseOut">' + wakePauseHere() + ' s</span></div>' +
+            '<div style="padding:0 0 12px"><input class="range" type="range" min="1" max="6" step="0.5" id="wakePause" value="' + wakePauseHere() + '" aria-label="Wait after you stop talking"></div>' : '');
         h += list.length ? list.map(x => '<div class="srow"><span class="lbl">“' + esc(x.label) + '”<small>Calls ' + esc(x.name) + '</small></span></div>').join('')
           : '<div class="srow"><span class="lbl muted" style="font-weight:500">No wake phrases yet. Open a theme with a corner buddy and fill in “Wake phrase” under his picture.</span></div>';
         if (phone && on) {
@@ -4062,7 +4068,8 @@ function settingsHTML(){
             : st === 'loading' ? 'Getting ready…' : st === 'listening' ? 'Listening now.' : st.startsWith('error') ? 'Couldn’t start: ' + st.slice(7) : st === 'off' && w.running === false ? 'Starting…' : '';
           if (w.mic === false) h += '<div class="srow"><span class="lbl">Allow the microphone<small>So he can hear his wake phrase</small></span><button class="btn sm accent" data-action="wake-mic">Allow</button></div>';
           if (msg) h += '<div class="srow"><span class="lbl muted" style="font-weight:500">' + esc(msg) + '</span></div>';
-          if (w.unknown) h += '<div class="srow"><span class="lbl">Some words can’t be heard<small>The offline voice model doesn’t know: ' + esc(w.unknown) + '. Try everyday words, or spell a name the way it sounds (like “dit oh”).</small></span></div>';
+          if (w.smart && w.ignored > 0) h += '<div class="srow"><span class="lbl muted" style="font-weight:500">' + esc('Today he stayed quiet ' + w.ignored + (w.ignored === 1 ? ' time' : ' times') + ' when something only sounded like a wake phrase.') + '</span></div>';
+          if (w.unknown) h += '<div class="srow"><span class="lbl">Some words can’t be heard<small>The offline voice model doesn’t know: ' + esc(w.unknown) + (w.smart ? ', and nothing it knows sounds close enough' : '') + '. Try everyday words, or spell a name the way it sounds (like “dit oh”).</small></span></div>';
           if (w.overlay === false) h += '<div class="srow"><span class="lbl">Allow “Appear on top”<small>So he pops up right away. Without it he shows up as a notification you tap.</small></span><button class="btn sm" data-action="na-fix" data-which="overlay">Allow</button></div>';
         }
         return h;
@@ -6768,7 +6775,7 @@ async function wakePic(id){
 }
 async function syncWakeNative(force){
   if (!JA || !JA.setWake) return;
-  const on = wakeOnHere(), list = wakeList(), k = JSON.stringify([on, list]);
+  const on = wakeOnHere(), list = wakeList(), pause = typeof wakePauseHere === 'function' ? wakePauseHere() : 3, k = JSON.stringify([on, list, pause]);
   if (k !== wakeKey || force) {
     try {
       const out = [];
@@ -6789,7 +6796,7 @@ async function syncWakeNative(force){
         }
         out.push(o);
       }
-      wakeSt = await JA.setWake({on, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; return c; })});
+      wakeSt = await JA.setWake({on, pause, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; return c; })});
       wakeKey = k;
       out.forEach(o => { if (o._sk) wakeSnds[o.theme] = o._sk; });
       try { localStorage.setItem('jma:wakeSnds', JSON.stringify(wakeSnds)); } catch (e) {}

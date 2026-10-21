@@ -1,5 +1,11 @@
 [
  {
+  "release": 145,
+  "date": "2026-10-21",
+  "notes": "Your buddy double-checks his wake phrase before popping up, hears names like Macca better, and waits longer for you to finish talking (Settings → Hands-free buddy).",
+  "app": true
+ },
+ {
   "release": 143,
   "date": "2026-10-21",
   "notes": "Your buddy now starts listening the moment you say his phrase (no beep) and his GIF plays; checked-off reminders leave Overdue, and Clear completed keeps repeating ones.",

@@ -1,5 +1,5 @@
 {
- "web": 202610211634,
+ "web": 202610211822,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 143,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=143"
+  "code": 145,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=145"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy now starts listening the moment you say his phrase (no beep) and his GIF plays; checked-off reminders leave Overdue, and Clear completed keeps repeating ones."
+ "notes": "Your buddy double-checks his wake phrase before popping up, hears names like Macca better, and waits longer for you to finish talking (Settings \u2192 Hands-free buddy)."
 }
