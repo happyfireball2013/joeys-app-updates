@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211619;</script>
+<script>window.JOEY_WEB_VERSION = 202610211634;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1536,7 +1536,8 @@ function remFadeLater(id, stamp){
 }
 function remShowStatus(r){
   if (!remRecent(r)) return remStatus(r);
-  return remStatus(Object.assign({}, r, {done:false}));   // stays in its own section until it fades
+  const st = remStatus(Object.assign({}, r, {done:false}));   // stays in its own section until it fades…
+  return st === 'overdue' ? 'today' : st;   // …but a checked-off one doesn't belong in Overdue
 }
 function remRoll(){
   sfxMute++; setTimeout(() => sfxMute--, 0);   // coming back after 4 AM isn't you unchecking it
@@ -1563,6 +1564,22 @@ function toggleRem(id){
     return;
   }
   const stamp = Date.now();
+  // checking off an overdue one: it slides out of Overdue (the space closes) and into Today
+  const fromOver = ui.screen === 'reminders' && remShowStatus(r) === 'overdue' && $('#main .rrow[data-rid="' + id + '"]');
+  if (fromOver && !remLeaving.has(id)) {
+    remLeaving.add(id); sfxPlay('remCheck');
+    const chk = fromOver.querySelector('.chk'); if (chk) { chk.classList.add('on'); chk.innerHTML = icon('check'); }
+    remImp(fromOver, 'pointer-events', 'none'); remImp(fromOver, 'transition', 'opacity 260ms ease'); remImp(fromOver, 'opacity', '0');
+    setTimeout(() => remCloseRow(fromOver, REM_CLOSE), 220);
+    setTimeout(() => {
+      remLeaving.delete(id);
+      const cur = S.reminders[id]; if (!cur || cur.done) return;
+      sfxMute++; try { putItem('reminders', id, Object.assign({}, cur, {done:true, doneAt:stamp})); } finally { sfxMute--; }
+      if (!remRepeats(cur)) remFadeLater(id, stamp);
+      if (remRepeats(cur)) toast('Done for ' + (cur.date === todayStr() || !cur.date ? 'today' : fmtDay(cur.date)) + '. It comes back ' + fmtDay(nextDate(cur)) + '.');
+    }, 220 + REM_CLOSE + 40);
+    return;
+  }
   putItem('reminders', id, Object.assign({}, r, {done:true, doneAt:stamp}));
   if (!remRepeats(r)) remFadeLater(id, stamp);
   if (r.repeat && r.repeat !== 'none') toast('Done for ' + (r.date === todayStr() || !r.date ? 'today' : fmtDay(r.date)) + '. It comes back ' + fmtDay(nextDate(r)) + '.');
@@ -4498,7 +4515,7 @@ const A = {
   'rem-toggle': t => toggleRem(t.dataset.id),
   'rem-quickdate': t => { $('#rDate').value = t.dataset.v; if (!t.dataset.v) $('#rTime').value = ''; },
   'toggle-done': () => { const c = S.settings.showDone && $('#main .rem-done-card'); if (!c) { setSetting('showDone', !S.settings.showDone); return; } remCollapse(c, REM_CLOSE); setTimeout(() => setSetting('showDone', false), REM_CLOSE + 40); },
-  'clear-done': t => { if (!arm(t, 'Tap again to clear')) return; Object.entries(S.reminders).filter(e => e[1].done).forEach(e => remTrash(e[0])); toast('Completed reminders cleared. You can restore them.'); },
+  'clear-done': t => { if (!arm(t, 'Tap again to clear')) return; Object.entries(S.reminders).filter(e => e[1].done && !remRepeats(e[1])).forEach(e => remTrash(e[0])); /* repeating ones stay (they come back) */ toast('Completed reminders cleared. You can restore them.'); },
   'new-event': t => eventSheet(null, t.dataset.date),
   'edit-event': t => eventSheet(t.dataset.id),
   'del-series': t => { const e = S.events[t.dataset.id]; if (!e || !e.series) return; if (!armAlways(t, 'Tap again')) return;
@@ -6757,8 +6774,13 @@ async function syncWakeNative(force){
       const out = [];
       for (const x of list) {
         const pk = x.theme + ':' + ((TH.themes[x.theme].img || {}).mascot || '');
-        let pic = ''; if (wakePics[x.theme] !== pk) { try { pic = await wakePic(x.theme); } catch (e) {} }
-        const o = Object.assign({}, x, {pic});
+        let pic = '', gif = null;
+        if (wakePics[x.theme] !== pk) {
+          try { pic = await wakePic(x.theme); } catch (e) {}
+          // a GIF buddy also sends the moving version, so he plays in the popup when you call him
+          try { const blob = await (await fetch(thImg(Object.assign({id:x.theme}, TH.themes[x.theme]), 'mascot'))).blob(); gif = /gif/i.test(blob.type) && blob.size < 6 * 1024 * 1024 ? b64(await blob.arrayBuffer()) : ''; } catch (e) { gif = ''; }
+        }
+        const o = Object.assign({}, x, {pic}); if (gif !== null) o.gif = gif;
         // his sound (up to 3 if the theme has a set), at this phone's volume; only sent when it changed
         if (wakeSnds[x.theme] !== wakeSndKey(x.theme)) {
           const t = Object.assign({id:x.theme}, TH.themes[x.theme]), mul = Math.min(1, devVol / 100), boost = Math.max(1, devVol / 100), snd = [];
