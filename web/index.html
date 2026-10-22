@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610212333;</script>
+<script>window.JOEY_WEB_VERSION = 202610220056;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -635,6 +635,10 @@ textarea.rem-note-in{min-height:64px;max-height:40vh;overflow:auto;field-sizing:
 .fld>span{font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
 .fld-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .hint{margin:-4px 0 12px;font-size:.78rem;color:var(--ink-2)}
+.th-voice{display:flex!important;flex-direction:column;align-items:stretch!important;gap:8px}
+.th-voice-t{display:flex;flex-direction:column;gap:2px;font-weight:650;color:var(--ink)}.th-voice-t small{font-weight:400;color:var(--ink-2);font-size:.78rem}
+.th-voice-btns{display:flex;gap:6px;flex-wrap:wrap}
+.th-voice-rows{grid-template-columns:auto 1fr!important}
 .kind-quiet{margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
 .kind-quiet .kq-t{display:block;font-weight:650;font-size:.9rem;margin:0 0 8px}
 .kind-quiet .kq-note{margin-top:8px;font-size:.78rem;color:var(--ink-2)}
@@ -3179,7 +3183,7 @@ function wakeList(){
     for (let i = 0; i < parts.length; i++) labels.push(/^(hey|hi|yo|ok|okay|hello|oi|ay|sup|hiya)$/i.test(wakeNorm(parts[i])) && parts[i + 1] ? parts[i] + ', ' + parts[++i] : parts[i]);
     labels.forEach(label => {
       const phrase = wakeNorm(label); if (!phrase || seen.has(phrase)) return; seen.add(phrase);
-      out.push({theme:id, phrase, label, name});
+      out.push({theme:id, phrase, label, name, voice:t.voice || null});
     });
   });
   return out;
@@ -5260,6 +5264,33 @@ function thSfxRow(t, ev, label){
       (on ? '<button type="button" class="btn sm" data-action="th-sfx-rm" data-ev="' + ev + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
     (on ? '<div class="th-sub th-size-row"><span>This sound</span><input type="range" class="th-sfxvol" data-ev="' + ev + '" min="0" max="200" step="10" value="' + sv + '" aria-label="' + esc(label) + ' volume"><output>' + sv + '%</output></div>' : '');
 }
+/* His voice when he talks back (hands-free on the phone): a voice file (like the Pikmin one) sets how the phone's
+   text-to-speech is pitched and sped up, plus his little chirps (kept as the theme's "sfx_voice" sounds, so they sync). */
+function thVoiceHTML(id, t){
+  const v = t.voice, n = sfxSlots(Object.assign({id}, t), 'voice').length;
+  const rng = (k, label, mn, mx, st) => '<span>' + label + '</span><input type="range" class="th-voice-r" data-k="' + k + '" min="' + mn + '" max="' + mx + '" step="' + st + '" value="' + v[k] + '" aria-label="' + label + '">';
+  return '<div class="th-sub th-voice"><span class="th-voice-t">Voice<small>' + (v ? esc((v.name || 'Custom') + ' voice' + (n ? ' · ' + n + ' chirps' : '')) + '. How he sounds when he talks back to you hands-free.' : 'His normal phone voice. Load a voice file to make him sound like himself.') + '</small></span>' +
+    '<span class="th-voice-btns"><button type="button" class="btn sm" data-action="th-voice-load">' + (v ? 'Change' : 'Load voice file') + '</button>' +
+    (v ? '<button type="button" class="btn sm" data-action="th-voice-test">' + icon('play') + 'Test</button><button type="button" class="btn sm" data-action="th-voice-rm" aria-label="Remove voice">' + icon('x') + '</button>' : '') + '</span></div>' +
+    (v ? '<div class="th-sub th-size-row th-voice-rows">' + rng('pitch', 'Pitch', 0.5, 2, 0.05) + rng('rate', 'Speed', 0.5, 1.6, 0.05) + rng('squeak', 'Squeak', 1, 2, 0.05) + '</div>' : '') +
+    '<div style="display:none"><input type="file" id="thVoiceFile" accept=".buddyvoice,.json,application/json"></div>';
+}
+const b64ToBuf = s => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
+async function thVoiceLoad(id, file){
+  const t = TH.themes[id]; if (!t || !file) return;
+  let j; try { j = JSON.parse(await file.text()); } catch (e) { toast('That isn’t a voice file.'); return; }
+  if (!j || j.type !== 'joeys-app-buddy-voice') { toast('That isn’t a voice file.'); return; }
+  const num = (x, d, mn, mx) => { x = Number(x); return isNaN(x) ? d : Math.max(mn, Math.min(mx, x)); };
+  t.voice = {name:String(j.name || 'Custom').slice(0, 30), pitch:num(j.pitch, 1, 0.5, 2), rate:num(j.rate, 1, 0.5, 1.6), squeak:num(j.squeak, 1, 1, 2), chirp:['before', 'after', 'both', 'off'].includes(j.chirp) ? j.chirp : 'before'};
+  sfxSlots(Object.assign({id}, t), 'voice').forEach(k => { delete t.img[k]; IDB.del('th:' + id + ':' + k).catch(() => {}); });
+  const ch = Array.isArray(j.chirps) ? j.chirps.slice(0, 40) : [], v0 = Date.now(), img = Object.assign({}, t.img);
+  for (let i = 0; i < ch.length; i++) {
+    try { const slot = 'sfx_voice' + (i ? '~' + (i + 1) : ''); await IDB.put('th:' + id + ':' + slot, {buf:b64ToBuf(String(ch[i])), type:'audio/wav', v:v0 + i, name:'chirp ' + (i + 1)}); img[slot] = v0 + i; } catch (e) {}
+  }
+  t.img = img; thSave(); thRefreshEditor();
+  toast(t.voice.name + ' voice added. Tap Test to hear him.');
+  if (typeof syncWakeNative === 'function') syncWakeNative(true);
+}
 function thSfxHTML(id, noteSounds){
   const t = TH.themes[id]; if (!t) return '';
   const mv = t.sfxVol == null ? 70 : t.sfxVol, any = Object.keys(t.img || {}).some(k => k.startsWith('sfx_'));
@@ -5284,6 +5315,8 @@ document.addEventListener('change', e => {
     const th = Object.assign({id:thOpen}, TH.themes[thOpen]), ev = el.dataset.ev || (SFX.find(([k]) => th.img && th.img['sfx_' + k]) || [''])[0];
     if (ev) sfxPlay(ev, th, true);   // hear the new volume
   }
+  if (el.id === 'thVoiceFile') { const f = (el.files || [])[0]; el.value = ''; if (f && thOpen) thVoiceLoad(thOpen, f); }
+  if (el.classList && el.classList.contains('th-voice-r') && TH.themes[thOpen] && TH.themes[thOpen].voice) { TH.themes[thOpen].voice[el.dataset.k] = Number(el.value); thSave(); if (typeof syncWakeNative === 'function') syncWakeNative(true); }
   if (el.id === 'thSfxFile' || el.id === 'thSfxDir') {
     const fs = Array.from(el.files || []), dir = el.id === 'thSfxDir' && fs[0] && fs[0].webkitRelativePath ? fs[0].webkitRelativePath.split('/')[0] : '';
     el.value = ''; if (fs.length && thOpen && thSfxEv) thStoreSfx(thOpen, thSfxEv, fs, dir || (el.id === 'thSfxDir' ? 'Folder' : ''));
@@ -6025,7 +6058,7 @@ function thEditorHTML(id){
       (slot === 'buddy' && u ? '<div class="th-sub"><span>Where</span>' + seg('buddyAt', [['hold','Under the time'],['corner','Corner']]) + '<span>Size</span>' + seg('buddySize', [['s','Small'],['m','Medium'],['l','Large']]) + '<span>Motion</span>' + seg('buddyMove', [['squish','Squish'],['bounce','Bounce'],['none','Still']]) + '</div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thBuddyName">Name</label><input class="in" id="thBuddyName" maxlength="30" value="' + esc(t.buddyName || '') + '" placeholder="Give your buddy a name"></div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thWake">Wake phrase</label><input class="in" id="thWake" maxlength="120" value="' + esc(t.wakePhrase || '') + '" placeholder="' + esc('Hey ' + (t.buddyName || 'buddy') + ', Yo ' + (t.buddyName || 'buddy')) + '"><small class="muted">More than one? Split them with commas.</small></div>' +
-        '<p class="hint th-wake-hint">Say it to call him hands-free on your phone, like “Hey Siri”. Turn it on in Settings → Hands-free buddy.</p>' : '') +
+        '<p class="hint th-wake-hint">Say it to call him hands-free on your phone, like “Hey Siri”. Turn it on in Settings → Hands-free buddy.</p>' + thVoiceHTML(id, t) : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
       (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', ci = slot.startsWith('calic_'), mx = ci ? 250 : slot.startsWith('card_') || bud ? 200 : 100, mn = bud || ci ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
@@ -6180,6 +6213,20 @@ Object.assign(A, {
   'th-font-pick': () => { const f = $('#thFontFile'); if (f) f.click(); },
   'th-font-rm': () => { const th = TH.themes[thOpen]; if (!th || !th.img) return; delete th.img.font; delete th.fontName; if (th.noteFont === 'custom') th.noteFont = 'default'; IDB.del('th:' + thOpen + ':font').catch(() => {}); thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'th-rm': t => thRemoveImage(thOpen, t.dataset.slot),
+  'th-voice-load': () => { const f = $('#thVoiceFile'); if (f) f.click(); },
+  'th-voice-rm': t => { const th = TH.themes[thOpen]; if (!th) return; if (!arm(t, 'Tap again')) return; delete th.voice; sfxSlots(Object.assign({id:thOpen}, th), 'voice').forEach(k => { delete th.img[k]; IDB.del('th:' + thOpen + ':' + k).catch(() => {}); }); thSave(); thRefreshEditor(); if (typeof syncWakeNative === 'function') syncWakeNative(true); },
+  'th-voice-test': async () => {
+    const id = thOpen, th = TH.themes[id]; if (!th || !th.voice) return;
+    const t = Object.assign({id}, th), name = buddyName(t), text = 'Hi ' + (S.settings.name || 'there') + '! ' + (name ? 'It’s me, ' + name + '. ' : '') + 'I set your reminder for five minutes from now.';
+    if (typeof JA !== 'undefined' && JA && JA.voiceTest) {
+      toast('Listen…');
+      try { if (JA.setWakeSound && typeof voiceChirpsSend === 'function' && wakeVoiceSent[id] !== voiceChirpKey(id)) await voiceChirpsSend(id); await JA.voiceTest({theme:id, voice:th.voice, text}); } catch (e) { toast((e && e.message) || 'Couldn’t play the voice.'); }
+      return;
+    }
+    // on the computer: a rough preview (the phone's voice is the real one)
+    sfxPlay('voice', t, true);
+    try { const u = new SpeechSynthesisUtterance(text); u.pitch = Math.min(2, th.voice.pitch * th.voice.squeak); u.rate = Math.min(2, th.voice.rate * th.voice.squeak); setTimeout(() => speechSynthesis.speak(u), 450); } catch (e) {}
+  },
   'th-sfx-pick': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxFile'); if (f) f.click(); },
   'th-sfx-dir': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxDir'); if (f) f.click(); },
   'th-sfx-rm': t => thRemoveSfx(thOpen, t.dataset.ev),
@@ -7056,6 +7103,16 @@ if (NATIVE && JA) {
 let wakeKey = '', wakePics = {}, wakeSnds = {}, wakeGifs = {}, o_gifKey = {}; try { wakeGifs = JSON.parse(localStorage.getItem('jma:wakeGifs') || '{}') || {}; } catch (e) {}
 let _wkp0 = null; try { wakePics = JSON.parse(localStorage.getItem('jma:wakePics') || '{}') || {}; wakeSnds = JSON.parse(localStorage.getItem('jma:wakeSnds') || '{}') || {}; } catch (e) {}
 // what his sound depends on: which files, their volumes, and this phone's volume
+/* his voice's chirps (theme → Voice) go to the phone too, one at a time */
+let wakeVoiceSent = {}; try { wakeVoiceSent = JSON.parse(localStorage.getItem('jma:wakeVoiceSent') || '{}') || {}; } catch (e) {}
+const voiceChirpKey = id => { const t = TH.themes[id] || {}; return JSON.stringify(sfxSlots(Object.assign({id}, t), 'voice').map(k => k + ':' + (t.img || {})[k])); };
+async function voiceChirpsSend(id){
+  if (!JA || !JA.setWakeSound) return;
+  const t = Object.assign({id}, TH.themes[id]), sl = sfxSlots(t, 'voice').slice(0, 40), n = sl.length;
+  if (!n) await JA.setWakeSound({theme:id, i:0, n:0, data:'', kind:'voice'});
+  for (let i = 0; i < n; i++) { let w = ''; try { w = await themeSfxWav(t, sl[i], 'voice', 1, 1); } catch (e) {} await JA.setWakeSound({theme:id, i, n, data:w || '', kind:'voice'}); }
+  wakeVoiceSent[id] = voiceChirpKey(id); try { localStorage.setItem('jma:wakeVoiceSent', JSON.stringify(wakeVoiceSent)); } catch (e) {}
+}
 const wakeSndKey = id => { const t = TH.themes[id] || {}; return JSON.stringify(['all', !!(JA && JA.setWakeSound), sfxSlots(Object.assign({id}, t), 'buddy').map(k => k + ':' + (t.img || {})[k]), t.sfxVol, (t.sfxV || {}).buddy, devVol]); };
 async function wakePic(id){
   const t = TH.themes[id], url = thImg(Object.assign({id}, t), 'mascot'); if (!url) return '';
@@ -7095,6 +7152,7 @@ async function syncWakeNative(force){
       }
       const bias = (S.settings.customLines || []).map(l => l.say).concat(list.map(x => x.name), list.map(x => x.label)).filter(Boolean).slice(0, 60);
       wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, bias, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; delete c._send; return c; })});
+      for (const o of out) { if (wakeVoiceSent[o.theme] !== voiceChirpKey(o.theme)) { try { await voiceChirpsSend(o.theme); } catch (e) {} } }
       for (const o of out) {
         if (!o._send) continue;
         const t = Object.assign({id:o.theme}, TH.themes[o.theme]), mul = Math.min(1, devVol / 100), boost = Math.max(1, devVol / 100), n = o._send.length;

@@ -1,5 +1,5 @@
 {
- "web": 202610212333,
+ "web": 202610220056,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 170,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=170"
+  "code": 173,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=173"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy now sends Gemini the actual recording of what you say, so it listens to you itself instead of trusting voice typing."
+ "notes": "Buddies can have their own voice (load a voice file under Corner buddy \u2192 Voice), and the popup no longer says it didn't catch you right before doing what you asked."
 }

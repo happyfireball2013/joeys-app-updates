@@ -1,5 +1,11 @@
 [
  {
+  "release": 173,
+  "date": "2026-10-22",
+  "notes": "Buddies can have their own voice (load a voice file under Corner buddy → Voice), and the popup no longer says it didn't catch you right before doing what you asked.",
+  "app": true
+ },
+ {
   "release": 170,
   "date": "2026-10-21",
   "notes": "Your buddy now sends Gemini the actual recording of what you say, so it listens to you itself instead of trusting voice typing.",
