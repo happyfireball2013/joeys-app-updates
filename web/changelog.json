@@ -1,5 +1,11 @@
 [
  {
+  "release": 167,
+  "date": "2026-10-21",
+  "notes": "Your buddy now uses every one of his sounds when you call him hands-free (it was stuck on 3), and sounds play like a shuffled deck so each one comes up before any repeat.",
+  "app": true
+ },
+ {
   "release": 164,
   "date": "2026-10-21",
   "notes": "Tapping the “Listening” notification now takes you straight to the switch that hides it for good, and swiping it away keeps it away.",

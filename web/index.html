@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610212258;</script>
+<script>window.JOEY_WEB_VERSION = 202610212320;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -5132,6 +5132,21 @@ function sfxNote(ev, color){
 let sfxDelAt = 0;
 let sfxMute = 0;
 const sfxLast = {};
+/* A set of sounds plays like a shuffled deck: each one once, in random order, before any repeats (and never the same one
+   twice in a row). Plain random picks kept landing on the same few. The deck is remembered on this device. */
+let sfxDecks = {}; try { sfxDecks = JSON.parse(localStorage.getItem('jma:sfxDecks') || '{}') || {}; } catch (e) {}
+function sfxDeckNext(key, slots, last){
+  if (slots.length <= 1) return slots[0];
+  let deck = (sfxDecks[key] || []).filter(s => slots.includes(s));
+  if (!deck.length) {
+    deck = slots.slice();
+    for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    if (deck[0] === last) deck.push(deck.shift());
+  }
+  const pick = deck.shift(); sfxDecks[key] = deck;
+  try { localStorage.setItem('jma:sfxDecks', JSON.stringify(sfxDecks)); } catch (e) {}
+  return pick;
+}
 // every stored sound for one sound effect: sfx_<ev>, then sfx_<ev>~2, sfx_<ev>~3…
 const sfxSlots = (t, ev) => Object.keys((t && t.img) || {}).filter(k => k === 'sfx_' + ev || k.startsWith('sfx_' + ev + '~'));
 const sfxBufs = {};
@@ -5159,8 +5174,7 @@ async function sfxPlay(ev, t, force){
   try { if (ctx.state === 'suspended') await ctx.resume(); } catch (e) {}
   // a slot can hold a set of sounds: one is picked at random each time (never the same one twice in a row)
   const slots = sfxSlots(t, ev);
-  let slot = slots[Math.floor(Math.random() * slots.length)];
-  if (slots.length > 1 && slot === sfxLast[t.id + ev]) slot = slots[(slots.indexOf(slot) + 1 + Math.floor(Math.random() * (slots.length - 1))) % slots.length];
+  const slot = sfxDeckNext(t.id + ':' + ev, slots, sfxLast[t.id + ev]);
   sfxLast[t.id + ev] = slot;
   const key = t.id + ':' + slot + ':' + t.img[slot];
   let e = sfxBufs[key];
@@ -7029,7 +7043,7 @@ if (NATIVE && JA) {
 let wakeKey = '', wakePics = {}, wakeSnds = {}, wakeGifs = {}, o_gifKey = {}; try { wakeGifs = JSON.parse(localStorage.getItem('jma:wakeGifs') || '{}') || {}; } catch (e) {}
 let _wkp0 = null; try { wakePics = JSON.parse(localStorage.getItem('jma:wakePics') || '{}') || {}; wakeSnds = JSON.parse(localStorage.getItem('jma:wakeSnds') || '{}') || {}; } catch (e) {}
 // what his sound depends on: which files, their volumes, and this phone's volume
-const wakeSndKey = id => { const t = TH.themes[id] || {}; return JSON.stringify([sfxSlots(Object.assign({id}, t), 'buddy').map(k => k + ':' + (t.img || {})[k]), t.sfxVol, (t.sfxV || {}).buddy, devVol]); };
+const wakeSndKey = id => { const t = TH.themes[id] || {}; return JSON.stringify(['all', !!(JA && JA.setWakeSound), sfxSlots(Object.assign({id}, t), 'buddy').map(k => k + ':' + (t.img || {})[k]), t.sfxVol, (t.sfxV || {}).buddy, devVol]); };
 async function wakePic(id){
   const t = TH.themes[id], url = thImg(Object.assign({id}, t), 'mascot'); if (!url) return '';
   const im = new Image(); im.src = url; await im.decode();
@@ -7057,16 +7071,23 @@ async function syncWakeNative(force){
           o_gifKey[x.theme] = pk;
         }
         const o = Object.assign({}, x, {pic}); if (gif !== null) o.gif = gif;
-        // his sound (up to 3 if the theme has a set), at this phone's volume; only sent when it changed
+        // his sounds (ALL of them, up to 100), at this phone's volume; only sent when they changed
         if (wakeSnds[x.theme] !== wakeSndKey(x.theme)) {
-          const t = Object.assign({id:x.theme}, TH.themes[x.theme]), mul = Math.min(1, devVol / 100), boost = Math.max(1, devVol / 100), snd = [];
-          for (const sl of sfxSlots(t, 'buddy').slice(0, 3)) { try { const w = await themeSfxWav(t, sl, 'buddy', mul, boost); if (w) snd.push(w); } catch (e) {} }
-          o.sounds = snd; o._sk = wakeSndKey(x.theme);
+          const t = Object.assign({id:x.theme}, TH.themes[x.theme]), mul = Math.min(1, devVol / 100), boost = Math.max(1, devVol / 100);
+          if (JA.setWakeSound) o._send = sfxSlots(t, 'buddy').slice(0, 100);   // sent one by one below (the phone picks from a shuffled deck)
+          else { const snd = []; for (const sl of sfxSlots(t, 'buddy').slice(0, 3)) { try { const w = await themeSfxWav(t, sl, 'buddy', mul, boost); if (w) snd.push(w); } catch (e) {} } o.sounds = snd; }
+          o._sk = wakeSndKey(x.theme);
         }
         out.push(o);
       }
       const bias = (S.settings.customLines || []).map(l => l.say).concat(list.map(x => x.name), list.map(x => x.label)).filter(Boolean).slice(0, 60);
-      wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, bias, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; return c; })});
+      wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, bias, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; delete c._send; return c; })});
+      for (const o of out) {
+        if (!o._send) continue;
+        const t = Object.assign({id:o.theme}, TH.themes[o.theme]), mul = Math.min(1, devVol / 100), boost = Math.max(1, devVol / 100), n = o._send.length;
+        if (!n) await JA.setWakeSound({theme:o.theme, i:0, n:0, data:''});
+        for (let i = 0; i < n; i++) { let w = ''; try { w = await themeSfxWav(t, o._send[i], 'buddy', mul, boost); } catch (e) {} await JA.setWakeSound({theme:o.theme, i, n, data:w || ''}); }
+      }
       wakeKey = k;
       out.forEach(o => { if (o._sk) wakeSnds[o.theme] = o._sk; });
       try { localStorage.setItem('jma:wakeSnds', JSON.stringify(wakeSnds)); } catch (e) {}
