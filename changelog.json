@@ -1,5 +1,11 @@
 [
  {
+  "release": 182,
+  "date": "2026-10-22",
+  "notes": "When you call Steve by voice, he now listens with Google's voice typing (like the mic button), so he sends what you said by himself.",
+  "app": true
+ },
+ {
   "release": 179,
   "date": "2026-10-22",
   "notes": "Notes save as you type and have an Undo button (Ctrl+Z works everywhere on the computer); Steve's answers pop up outside the app, he always says your custom lines out loud, and he lets your screen go to sleep.",
