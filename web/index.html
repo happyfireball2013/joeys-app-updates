@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610211941;</script>
+<script>window.JOEY_WEB_VERSION = 202610212025;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1175,7 +1175,7 @@ function defaultSettings(){
     noteSort:'edited', noteColor:'none', notePreview:5, noteView:'grid',
     timerPresets:[1,5,10,25], hundredths:true, wakeLock:true,
     alarmVolume:90, alarmFade:false, alarmSnooze:9, alarmAutoStop:1, widgetColor:'royal', phoneAi:'gemini', alarmSound:'tone:chime', cBg:'', cCard:'', cInk:'', cAccent:'',
-    quietWork:'off', quietClass:'off', quietWins:[],
+    quietWork:'off', quietClass:'off', quietWins:[], customLines:[],
     sound:true, tone:'chime', remSound:'', volume:70, vibrate:true, repeatAlert:true, confirmDelete:true,
     widgets:[
       {id:'w-capture', type:'capture', size:'full'},
@@ -1211,6 +1211,7 @@ function normSettings(s){
   if (!/^(tone:(chime|beep|bell)|song:[A-Za-z0-9]+)$/.test(String(o.remSound))) o.remSound = 'tone:' + (o.tone || 'chime');   // starts as the old alert sound
   o.appName = String(o.appName || '').slice(0, 40) || APP_NAME;
   // quiet times you asked for: [{id, from, until, mode}] (old ones drop off)
+  o.customLines = (Array.isArray(o.customLines) ? o.customLines : []).filter(l => l && l.say && l.reply).map(l => ({id:String(l.id || uid()), say:String(l.say).slice(0, 120), reply:String(l.reply).slice(0, 500), buddy:String(l.buddy || '')})).slice(0, 100);
   o.quietWins = (Array.isArray(o.quietWins) ? o.quietWins : []).filter(w => w && w.until > Date.now() && w.until > w.from && ['silent','vibrate','normal'].includes(w.mode)).slice(0, 50);
   o.name = String(o.name || '').slice(0, 40);
   o.menu = Array.isArray(o.menu) ? Array.from(new Set(o.menu.filter(k => MENU[k]))) : d.menu;
@@ -3478,6 +3479,39 @@ function applyAiActions(out){
   const reply = str(out && out.reply, 500) || (lines.length ? 'Done.' : 'I did not catch that. Try saying it another way.');
   return {reply, lines, undo};
 }
+/* Buddy lines (Settings → Buddy lines): "when I say X, he says Y". Checked before the AI, so it's instant, works
+   offline, and the answer is exactly what you wrote. Matching is forgiving: case, punctuation, a "hey Steve" in
+   front, a "please" at the end, or a word or two of difference are all fine. {you} = your name, {me} = his. */
+const clNorm = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+function clLev(a, b){ const p = Array(b.length + 1).fill(0).map((_, j) => j); for (let i = 1; i <= a.length; i++) { let prev = p[0]; p[0] = i; for (let j = 1; j <= b.length; j++) { const t = p[j]; p[j] = Math.min(p[j] + 1, p[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } } return p[b.length]; }
+function customLineFor(text, who){
+  const lines = (S.settings.customLines || []).filter(l => !l.buddy || (who && l.buddy === who.id)); if (!lines.length) return null;
+  const names = new Set(['hey', 'hi', 'yo', 'ok', 'okay', 'hello', 'oi', 'so', 'um', 'uh']);
+  Object.entries(TH.themes || {}).forEach(([id, t]) => { const n = clNorm(buddyName(Object.assign({id}, t))); if (n) names.add(n); });
+  let w = clNorm(text).split(' ').filter(Boolean);
+  while (w.length > 1 && names.has(w[0])) w.shift();   // "hey steve, call my pawns" → "call my pawns"
+  while (w.length > 1 && /^(please|thanks|thank|now)$/.test(w[w.length - 1])) w.pop();
+  const t = w.join(' ');
+  let best = null, bestD = 1e9;
+  for (const l of lines) {
+    const s = clNorm(l.say); if (!s) continue;
+    // the whole thing, or its last words (up to 3 extra words in front, like "yo steve can you…")
+    const sw = s.split(' ').length; let d = clLev(t, s);
+    for (let k = Math.max(1, sw - 1); k <= sw + 1; k++) if (w.length > k && w.length - k <= 3) d = Math.min(d, clLev(w.slice(-k).join(' '), s) + 1);
+    const ok = d <= Math.max(1, Math.floor(s.length * 0.2));
+    if (ok && (d < bestD || (d === bestD && l.buddy))) { best = l; bestD = d; }   // a line for this buddy wins over an "any buddy" one
+  }
+  return best;
+}
+function customReplyText(l, who){ return String(l.reply).replace(/\{you\}/g, S.settings.name || 'you').replace(/\{me\}/g, (who && who.name) || 'me'); }
+/** Ask the AI, unless it's one of your buddy lines: then he answers with your line right away. */
+function aiAsk(text){
+  const who = aiWho, l = text && !ai.busy ? customLineFor(text, who) : null;
+  if (!l) return aiRun(text);
+  Object.assign(ai, {busy:false, req:String(text), reply:customReplyText(l, who), lines:[], undo:[], err:'', engine:'', engineWhy:'', lastAt:Date.now()});
+  ui.aiText = ''; render();
+  return Promise.resolve();
+}
 async function aiRun(text){
   text = String(text || '').trim(); if (!text || ai.busy) return;
   if (!aiFn) { toast('The AI assistant is not available here.'); return; }
@@ -3973,7 +4007,7 @@ function timeHTML(){
 }
 
 /* ---------- settings screen ---------- */
-const SET_SECTIONS = [['set-you','You'],['set-look','Look'],['set-themes','Themes'],['set-menu','Menu'],['set-widgets','Widgets'],['set-ai','AI'],['set-tabs','Tab bar'],['set-time','Clock'],['set-weather','Weather'],['set-cal','Calendar'],['set-rem','Reminders'],['set-notes','Notes'],['set-timer','Timer'],['set-alarm','Alarms'],['set-sound','Sounds'],['set-data','Data']];
+const SET_SECTIONS = [['set-you','You'],['set-look','Look'],['set-themes','Themes'],['set-menu','Menu'],['set-widgets','Widgets'],['set-ai','AI'],['set-lines','Buddy lines'],['set-tabs','Tab bar'],['set-time','Clock'],['set-weather','Weather'],['set-cal','Calendar'],['set-rem','Reminders'],['set-notes','Notes'],['set-timer','Timer'],['set-alarm','Alarms'],['set-sound','Sounds'],['set-data','Data']];
 function settingsHTML(){
   const s = S.settings;
   const sub = t => t ? '<small>' + t + '</small>' : '';
@@ -4156,6 +4190,12 @@ function settingsHTML(){
         return h;
       })() + '</div>' +
 
+    '<div class="sec-title" id="set-lines"><span>Buddy lines</span></div><div class="group">' + (function(){
+        const L = s.customLines || [], bn = id => { const t = TH.themes[id]; return t ? (buddyName(Object.assign({id}, t)) || t.name || 'Buddy') : 'Any buddy'; };
+        let h = '<div class="srow"><span class="lbl">Your own buddy lines' + sub('Say something, get exactly the answer you wrote. Like “call my pawns” → “Pawns, assemble!”. Works by voice and in his bubble.') + '</span><button class="btn sm accent" data-action="line-new">' + icon('plus') + 'Add</button></div>';
+        h += L.map(l => '<div class="srow line-row"><span class="lbl">“' + esc(l.say) + '”<small>' + esc((l.buddy ? bn(l.buddy) : 'Any buddy') + ': “' + l.reply + '”') + '</small></span><button class="btn sm" data-action="line-edit" data-id="' + esc(l.id) + '">Edit</button></div>').join('');
+        return h;
+      })() + '</div>' +
     title('set-data', 'Your data') + '<div class="group">' +
       '<div class="srow"><div class="status' + (mode === 'cloud' ? ' on' : '') + '"><i></i><span>' +
         (mode === 'cloud' ? 'Every setting, note, reminder and event saves to your Claude account as you go. Only you can see it, on any device where you open this app.' : 'Everything saves in this browser as you go. Open the app while signed in to Claude to keep it on every device.') +
@@ -4635,6 +4675,9 @@ const A = {
     const el = $('#kindList'); if (el) el.outerHTML = kindListHTML(kind);
     toast(v === 'off' ? 'Your phone will ring normally during ' + (kind === 'work' ? 'work' : 'classes') + '.' : 'Your phone will ' + (v === 'vibrate' ? 'vibrate' : 'be muted') + ' during every ' + one + '.');
   },
+  'line-new': () => lineSheet(null),
+  'line-edit': t => lineSheet(t.dataset.id),
+  'line-del': t => { if (!arm(t, 'Tap again to delete')) return; setSetting('customLines', (S.settings.customLines || []).filter(x => x.id !== t.dataset.id)); closeSheet(); toast('Deleted.'); },
   'quiet-allow': () => { if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'dnd'}).catch(() => {}); },
   'list-kind': t => kindListSheet(t.dataset.kind),
   'list-quiet': () => quietListSheet(),
@@ -4827,7 +4870,25 @@ document.addEventListener('click', e => {
   e.preventDefault(); fn(t, e);
 });
 
+function lineSheet(id){
+  const l = (S.settings.customLines || []).find(x => x.id === id) || {say:'', reply:'', buddy:''};
+  const buds = Object.entries(TH.themes || {}).filter(([, t]) => t && t.img && t.img.mascot);
+  openSheet('<form id="lineForm" data-id="' + esc(id || '') + '" autocomplete="off">' + sheetHead(id ? 'Edit buddy line' : 'New buddy line') +
+    '<label class="fld"><span>When I say</span><input class="in" id="lnSay" maxlength="120" value="' + esc(l.say) + '" placeholder="Call my pawns"></label>' +
+    '<label class="fld"><span>He says</span><textarea class="in" id="lnReply" maxlength="500" rows="3" placeholder="Pawns, assemble! Your loyal army is on the way, {you}.">' + esc(l.reply) + '</textarea></label>' +
+    '<p class="hint" style="margin-top:6px">{you} becomes your name, {me} becomes his. Small differences in how you say it are fine.</p>' +
+    '<label class="fld"><span>Which buddy</span><select class="in" id="lnBuddy"><option value="">Any buddy</option>' +
+      buds.map(([bid, t]) => '<option value="' + esc(bid) + '"' + (l.buddy === bid ? ' selected' : '') + '>' + esc(buddyName(Object.assign({id:bid}, t)) || t.name || 'Buddy') + '</option>').join('') + '</select></label>' +
+    '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="line-del" data-id="' + esc(id) + '">Delete</button>' : '') + '<span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Cancel</button><button class="btn accent" type="submit">Save</button></div></form>', null, 'lnSay');
+}
 const FORMS = {
+  lineForm: f => {
+    const say = $('#lnSay').value.trim(), reply = $('#lnReply').value.trim();
+    if (!say || !reply) { toast('Fill in both: what you say and what he says.'); return; }
+    const id = f.dataset.id || uid(), L = (S.settings.customLines || []).filter(x => x.id !== id);
+    L.push({id, say, reply, buddy:$('#lnBuddy').value});
+    setSetting('customLines', L); closeSheet(); toast('Saved. Try saying “' + say + '”.');
+  },
   bdayForm: f => {
     const name = $('#bdName').value.trim(); if (!name) { $('#bdName').focus(); return; }
     const month = Math.min(12, Math.max(1, Number($('#bdMonth').value))), maxD = new Date(2024, month, 0).getDate();
@@ -4854,7 +4915,7 @@ const FORMS = {
     putItem('reminders', uid(), {text, date:'', time:'', repeat:'none', done:false, created:Date.now()});
     ui.remQuick = ''; render(); const el = $('#remQuickIn'); if (el) el.focus();
   },
-  aiForm: () => { aiWho = null; aiRun(ui.aiText); },   // the AI bar is the plain assistant, not a buddy
+  aiForm: () => { aiWho = null; aiAsk(ui.aiText); },   // the AI bar is the plain assistant, not a buddy
   wxForm: () => wxSearch(($('#wxSearch') || {}).value),
   alarmForm: f => {
     const id = f.dataset.id || 'a' + uid(), old = S.alarms[id] || {}, time = $('#alTime').value;
@@ -5813,7 +5874,7 @@ FORMS.buddyForm = () => {
     buddyPicClear();
   }
   if (!aiImage) budLogAdd({who:'me', text});
-  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); aiRun(text); buddyRefresh();
+  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); aiAsk(text); buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection
 const buddyPicReady = () => typeof gemKey === 'function' && !!gemKey() && navigator.onLine !== false;
@@ -6773,7 +6834,7 @@ window.__joeyAsk = async function(){
         Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
         // which buddy: the one whose wake phrase you said, or the widget buddy (the menu theme's corner buddy)
         aiWho = a.theme && TH.themes[a.theme] ? {id:a.theme, name:buddyName(Object.assign({id:a.theme}, TH.themes[a.theme]))} : buddyFor('home');
-        try { await aiRun(String(a.text || '')); } catch (e) {}
+        try { await aiAsk(String(a.text || '')); } catch (e) {}
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
         const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
@@ -7794,6 +7855,10 @@ async function crashOpen(){
   const parse = s => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
   const cleared = nat ? Number(nat.clearedAt || 0) : 0;
   const java = nat ? parse(nat.java) : [], exits = nat ? parse(nat.exits).filter(x => x.t > cleared) : [];
+  // what the app was doing just before each crash (the phone app writes a short trail of steps)
+  const trail = nat && nat.trail ? String(nat.trail).split('\n').map(l => { const i = l.indexOf(' '); return {t:Number(l.slice(0, i)), s:l.slice(i + 1)}; }).filter(x => x.t > 0) : [];
+  const hm = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+  const before = t => trail.filter(x => x.t <= t + 2000 && x.t > t - 120000).slice(-12).map(x => hm(x.t) + ' ' + x.s).join('\n');
   let pageErr = []; try { pageErr = JSON.parse(localStorage.getItem('jma:errLog') || '[]'); } catch (e) {}
   const usedJava = new Set();
   const big = [], small = [];
@@ -7802,7 +7867,9 @@ async function crashOpen(){
     const j = x.reason === 4 ? java.findIndex((c, i) => !usedJava.has(i) && Math.abs(c.t - x.t) < 15000) : -1; if (j >= 0) usedJava.add(j);
     const fg = x.importance && x.importance <= 125 ? 'while you were using it' : 'in the background';
     const mem = x.pss ? ' · using ' + Math.round(x.pss / 1024) + ' MB' : '';
-    const detail = [x.desc && x.desc !== 'null' ? x.desc : '', j >= 0 ? java[j].msg + '\n' + java[j].trace : '', x.trace || ''].filter(Boolean).join('\n\n');
+    const proc = x.proc && nat.pkg && x.proc !== nat.pkg ? 'Part: ' + x.proc : '';
+    const steps = level === 2 ? before(x.t) : '';
+    const detail = [x.desc && x.desc !== 'null' ? x.desc : '', proc, j >= 0 ? java[j].msg + '\n' + java[j].trace : '', x.trace ? 'Crash report:\n' + x.trace : '', steps ? 'Just before:\n' + steps : ''].filter(Boolean).join('\n\n');
     (level ? big : small).push({t:x.t, title, sub:fg + mem, detail, level});
   });
   java.forEach((c, i) => { if (!usedJava.has(i) && c.t > cleared) big.push({t:c.t, title:'The app crashed', sub:c.thread ? 'in “' + c.thread + '”' : '', detail:c.msg + '\n' + c.trace, level:2}); });
@@ -7822,6 +7889,7 @@ async function crashOpen(){
   crashText = 'Joey’s App crash log · ' + new Date().toLocaleString('en-US') + ' · web ' + window.JOEY_WEB_VERSION + (nat ? ' · app ' + nat.ver + ' · Android ' + nat.sdk + ' · ' + nat.model : '') + '\n\n' +
     big.map(e => crashWhen(e.t) + ' — ' + e.title + ' (' + e.sub + ')\n' + (e.detail || '')).join('\n\n') +
     (pageErr.length ? '\n\nErrors inside the app:\n' + pageErr.slice().reverse().map(e => crashWhen(e.t) + ' — ' + e.msg + (e.n > 1 ? ' ×' + e.n : '') + (e.src ? ' @ ' + e.src : '') + (e.stack ? '\n' + e.stack : '')).join('\n') : '') +
+    (trail.length ? '\n\nRecent steps:\n' + trail.slice(-40).map(x => crashWhen(x.t).replace(/^(Today|Yesterday) /, '') + ' ' + hm(x.t).slice(-2) + 's ' + x.s).join('\n') : '') +
     (small.length ? '\n\nOther closes:\n' + small.map(e => crashWhen(e.t) + ' — ' + e.title + ' (' + e.sub + ')' + (e.detail ? ': ' + e.detail.split('\n')[0] : '')).join('\n') : '');
   const el = $('#crashSheet'); if (el) el.outerHTML = h;
 }

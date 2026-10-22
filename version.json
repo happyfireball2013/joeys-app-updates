@@ -1,5 +1,5 @@
 {
- "web": 202610211941,
+ "web": 202610212025,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 155,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=155"
+  "code": 157,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=157"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy waits for you to start talking after his sound and answers back if you only say his name, stops listening on Battery saver, and his listening notification stays out of the way."
+ "notes": "Fixed a crash in the hands-free buddy, the crash log shows much more detail, the listening notification is gone, and new Buddy lines in Settings let you teach him your own answers."
 }

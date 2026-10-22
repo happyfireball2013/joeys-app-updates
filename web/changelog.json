@@ -1,5 +1,11 @@
 [
  {
+  "release": 157,
+  "date": "2026-10-21",
+  "notes": "Fixed a crash in the hands-free buddy, the crash log shows much more detail, the listening notification is gone, and new Buddy lines in Settings let you teach him your own answers.",
+  "app": true
+ },
+ {
   "release": 155,
   "date": "2026-10-21",
   "notes": "Your buddy waits for you to start talking after his sound and answers back if you only say his name, stops listening on Battery saver, and his listening notification stays out of the way.",
