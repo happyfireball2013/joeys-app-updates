@@ -1,5 +1,11 @@
 [
  {
+  "release": 163,
+  "date": "2026-10-21",
+  "notes": "Your buddy lines now match by sound, word by word: “call or ponds” or “col my pons” count as “call my pawns”.",
+  "app": false
+ },
+ {
   "release": 162,
   "date": "2026-10-21",
   "notes": "Your buddy understands your buddy lines much better: voice typing now expects them, close-sounding words still count, and Gemini catches the badly misheard ones.",

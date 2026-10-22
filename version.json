@@ -1,5 +1,5 @@
 {
- "web": 202610212139,
+ "web": 202610212242,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy understands your buddy lines much better: voice typing now expects them, close-sounding words still count, and Gemini catches the badly misheard ones."
+ "notes": "Your buddy lines now match by sound, word by word: \u201ccall or ponds\u201d or \u201ccol my pons\u201d count as \u201ccall my pawns\u201d."
 }

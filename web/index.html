@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610212139;</script>
+<script>window.JOEY_WEB_VERSION = 202610212242;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3189,6 +3189,15 @@ const wakeOnHere = () => { try { return localStorage.getItem('jma:wakeOn') === '
 const wakeVoiceHere = () => { try { return localStorage.getItem('jma:wakeVoice') === '1'; } catch (e) { return false; } };
 const wakeStrictHere = () => { try { const v = Number(localStorage.getItem('jma:wakeStrict') || 1); return v === 0 || v === 2 ? v : 1; } catch (e) { return 1; } };
 /** Teach him your voice: read this out loud for 15 seconds. */
+/** Once: offer to hide the "Listening" notification (Android only lets you switch it off yourself). */
+function wakeNoteOffer(){
+  try { if (localStorage.getItem('jma:noteAsk') === '1') return; localStorage.setItem('jma:noteAsk', '1'); } catch (e) { return; }
+  if (!$('#sheet').hidden) return;
+  openSheet('<div id="noteOffer">' + sheetHead('Hide the “Listening” notification?') +
+    '<p class="hint">Android makes every app show a notification while it uses the microphone, and it doesn’t let the app hide it by itself. You can, in one switch, and your buddy keeps listening. It stays off after that.</p>' +
+    '<ol class="hint" style="padding-left:18px;margin-top:4px"><li>Tap “Hide it” below.</li><li>Turn off the switch on the screen that opens.</li><li>Come back here.</li></ol>' +
+    '<div class="sh-actions"><button type="button" class="btn" data-action="sheet-close">Not now</button><span class="grow"></span><button type="button" class="btn accent" data-action="note-hide">Hide it</button></div></div>');
+}
 function wakeTeachSheet(){
   const names = wakeList().map(x => '“' + esc(x.label) + '”').join(' ');
   const text = (names ? names + ' ' : '') + 'Remind me to call my mom tomorrow at five. What’s the weather like this weekend? Add work on Friday from nine to five. ' +
@@ -3329,7 +3338,7 @@ function aiContext(){
     ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
     ...(function(){   // the buddy lines: catch them even when voice typing got a word wrong
       const L = (S.settings.customLines || []).filter(l => !l.buddy || (aiWho && l.buddy === aiWho.id)); if (!L.length) return [];
-      return ['', 'Custom lines with fixed answers. If the request is clearly meant as one of these, even with misheard words (voice typing turns "pawns" into "ponds" or "porns", for example), use only {"type":"say_line","id":"<id>"} and an empty reply; the app says the answer:']
+      return ['', 'IMPORTANT: custom lines with fixed answers. Requests are usually spoken, and voice typing often gets words wrong ("pawns" comes out as "ponds", "pons", "porns"; "call my" as "call or", "col my"). If the request SOUNDS like one of these lines (say it out loud in your head), it IS that line: use only {"type":"say_line","id":"<id>"}, no other actions, and an empty reply. The app then says the answer:']
         .concat(L.slice(0, 40).map(l => '- id ' + l.id + ': "' + String(l.say).replace(/"/g, "'") + '"'));
     })(),
     ...(aiWho ? ['', ...buddyWhoLines()] : []),
@@ -3496,6 +3505,28 @@ function clKey(s){
   return clNorm(s).split(' ').map(w => { w = w.replace(/ph/g, 'f').replace(/ck/g, 'k').replace(/q/g, 'k').replace(/x/g, 'ks').replace(/z/g, 's').replace(/c(?=[eiy])/g, 's').replace(/c/g, 'k')
     .replace(/(?!^)[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1').replace(/(?!^)h/g, '').replace(/(?<=.)d(?=s?$)/, ''); return w; }).join(' ');
 }
+/* Word by word, by sound: the important words of your line ("call", "pawns") must each be heard, in order, as something
+   that sounds the same; little words ("my", "or", "the") don't matter. So "call or ponds", "col my pons", "call my porns"
+   all count as "call my pawns", but "call my mom" or "call my parents" don't. */
+const CL_SMALL = new Set('a an the my me mi i im you your ya to too of or and for in on at it its is are be please can could would will just do go so our his her this that with uh um ma mah'.split(' '));
+function clWordKey(w){
+  w = clNorm(w).replace(/ph/g, 'f').replace(/ck/g, 'k').replace(/q/g, 'k').replace(/x/g, 'ks').replace(/z/g, 's').replace(/c(?=[eiy])/g, 's').replace(/c/g, 'k').replace(/gh/g, '');
+  w = w.replace(/(?<=.)e$/, '').replace(/([aeiou])[wyrh](?=[^aeiou]|$)/g, '$1');   // "aw", "or", "ay" before a consonant: just the vowel
+  return w.replace(/(?!^)[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1').replace(/(?<=.)[dt](?=s$)/, '');
+}
+function clWordSim(a, b){ const x = clWordKey(a), y = clWordKey(b); if (!x || !y) return 0; if (x === y) return 1; return Math.max(x.length, y.length) >= 4 && clLev(x, y) <= 1 ? 0.8 : 0; }
+function clWordMatch(hw, sw){
+  const tc = sw.filter(x => !CL_SMALL.has(x)), T = tc.length ? tc : sw;
+  let pos = 0, score = 0;
+  for (const t of T) {
+    let found = -1, fs = 0;
+    for (let i = pos; i < hw.length; i++) { const sc = clWordSim(hw[i], t); if (sc >= 0.8) { found = i; fs = sc; break; } }
+    if (found < 0) return 0;
+    score += fs; pos = found + 1;
+  }
+  const extra = hw.filter(x => !CL_SMALL.has(x)).length - T.length;   // other important words you said
+  return extra > Math.max(1, Math.floor(T.length / 2)) ? 0 : score / T.length;
+}
 function customLineFor(text, who){
   const lines = (S.settings.customLines || []).filter(l => !l.buddy || (who && l.buddy === who.id)); if (!lines.length) return null;
   const names = new Set(['hey', 'hi', 'yo', 'ok', 'okay', 'hello', 'oi', 'so', 'um', 'uh']);
@@ -3514,7 +3545,8 @@ function customLineFor(text, who){
     const ks = clKey(s); let dk = clLev(clKey(t), ks);
     for (let k = Math.max(1, sw - 1); k <= sw + 1; k++) if (w.length > k && w.length - k <= 3) dk = Math.min(dk, clLev(clKey(w.slice(-k).join(' ')), ks) + 1);
     d = Math.min(d, dk <= Math.max(1, Math.floor(ks.length * 0.2)) ? dk : 1e9);
-    const ok = d <= Math.max(1, Math.floor(s.length * 0.2));
+    let ok = d <= Math.max(1, Math.floor(s.length * 0.2));
+    if (!ok) { const wm = clWordMatch(w, s.split(' ')); if (wm >= 0.8) { ok = true; d = 3 + Math.round((1 - wm) * 10); } }
     if (ok && (d < bestD || (d === bestD && l.buddy))) { best = l; bestD = d; }   // a line for this buddy wins over an "any buddy" one
   }
   return best;
@@ -4703,6 +4735,7 @@ const A = {
   'wake-toggle': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeOn', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); if (typeof syncWakeNative === 'function') syncWakeNative(true); render(); },
   'wake-voice': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeVoice', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); syncWakeNative(true); render(); if (on && !(wakeSt && wakeSt.voice && wakeSt.voice.prints >= 3)) setTimeout(wakeTeachSheet, 300); },
   'wake-teach': () => wakeTeachSheet(),
+  'note-hide': () => { closeSheet(); if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'wakeNote'}).catch(() => {}); },
   'wake-teach-go': async t => {
     const out = $('#teachStatus'); if (!JA || !JA.voiceLearn) { if (out) out.textContent = 'This needs the newest phone app.'; return; }
     const v = wakeSt && wakeSt.voice;
@@ -7043,6 +7076,7 @@ async function syncWakeNative(force){
       try { localStorage.setItem('jma:wakeGifs', JSON.stringify(wakeGifs)); } catch (e) {}
     } catch (e) { wakeKey = ''; }
   } else { try { wakeSt = await JA.wakeStatus(); } catch (e) {} }
+  if (wakeSt && wakeSt.noteOff === false && wakeSt.running && on && ui.screen !== 'settings') setTimeout(() => { if (typeof wakeNoteOffer === 'function') wakeNoteOffer(); }, 2500);
   const sig = JSON.stringify(wakeSt || null);
   if (ui.screen === 'settings' && sig !== syncWakeNative.sig) scheduleRender();
   syncWakeNative.sig = sig;
