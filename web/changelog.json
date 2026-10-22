@@ -1,5 +1,11 @@
 [
  {
+  "release": 179,
+  "date": "2026-10-22",
+  "notes": "Notes save as you type and have an Undo button (Ctrl+Z works everywhere on the computer); Steve's answers pop up outside the app, he always says your custom lines out loud, and he lets your screen go to sleep.",
+  "app": true
+ },
+ {
   "release": 177,
   "date": "2026-10-22",
   "notes": "New option in Settings → Hands-free buddy: only listen while the screen is on, to save battery.",

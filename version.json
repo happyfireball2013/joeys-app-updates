@@ -1,5 +1,5 @@
 {
- "web": 202610220156,
+ "web": 202610221347,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 177,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=177"
+  "code": 179,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=179"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "New option in Settings \u2192 Hands-free buddy: only listen while the screen is on, to save battery."
+ "notes": "Notes save as you type and have an Undo button (Ctrl+Z works everywhere on the computer); Steve's answers pop up outside the app, he always says your custom lines out loud, and he lets your screen go to sleep."
 }

@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610220156;</script>
+<script>window.JOEY_WEB_VERSION = 202610221347;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1257,6 +1257,7 @@ const LS_KEY = 'daykit:v1';
 function lsLoad(){ try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
 let lsTimer = null;
 function lsSave(){ clearTimeout(lsTimer); lsTimer = setTimeout(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }, 250); }
+function lsFlush(){ if (!lsTimer) return; clearTimeout(lsTimer); lsTimer = 0; try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }   // leaving the app: write now
 function lsGet(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
 function lsSet(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
 
@@ -1302,8 +1303,28 @@ function saveSettings(){
   }, 500);
   updateSaved();
 }
+/* Undo for the whole app (Ctrl+Z on the computer, outside text boxes): changes you make are remembered, and quick
+   changes to the same thing count as one step (like typing in a note). */
+const UNDO = {steps:[], busy:false};
+function undoNote(coll, id, before, del){
+  if (UNDO.busy || coll === 'remTrash') return;
+  const now = Date.now(), last = UNDO.steps[UNDO.steps.length - 1];
+  if (last && now - last.at < 400) { if (!last.items.some(x => x.coll === coll && x.id === id)) last.items.push({coll, id, before:before === undefined ? undefined : clone(before)}); last.at = now; return; }   // a burst = one step
+  if (!del && before !== undefined && last && !last.del && last.items.length === 1 && last.items[0].coll === coll && last.items[0].id === id && now - last.at < 4000) { last.at = now; return; }   // still editing the same thing
+  UNDO.steps.push({at:now, del:!!del, items:[{coll, id, before:before === undefined ? undefined : clone(before)}]});
+  if (UNDO.steps.length > 60) UNDO.steps.shift();
+}
+function undoLast(){
+  const st = UNDO.steps.pop(); if (!st) { toast('Nothing to undo.'); return; }
+  UNDO.busy = true;
+  try { st.items.slice().reverse().forEach(x => { if (x.before === undefined) { if (S[x.coll] && S[x.coll][x.id]) delItem(x.coll, x.id); } else { putItem(x.coll, x.id, x.before); if (x.coll === 'reminders' && S.remTrash && S.remTrash[x.id]) delItem('remTrash', x.id); } }); }
+  finally { UNDO.busy = false; }
+  const k = st.items[0].coll, what = {notes:'note', reminders:'reminder', events:'event', alarms:'alarm', birthdays:'birthday', lifelog:'lifelog entry', songs:'song'}[k] || 'change';
+  toast('Undid the last ' + what + ' change.');
+}
 function putItem(coll, id, obj){
   const prev = S[coll] && S[coll][id];
+  undoNote(coll, id, prev);
   S[coll] = Object.assign({}, S[coll], {[id]: obj});
   try { sfxOnPut(coll, prev, obj); } catch (e) {}
   lsSave(); if (mode === 'cloud') queueWrite(refs[coll].doc(id), clone(obj));
@@ -1324,6 +1345,7 @@ function remRestore(id){
   delItem('remTrash', id);
 }
 function delItem(coll, id){
+  undoNote(coll, id, S[coll] && S[coll][id], true);
   try { if (S[coll] && S[coll][id]) sfxOnDel(coll, S[coll][id]); } catch (e) {}
   const o = Object.assign({}, S[coll]); delete o[id]; S[coll] = o;
   lsSave(); if (mode === 'cloud') queueWrite(refs[coll].doc(id), null);
@@ -3507,6 +3529,7 @@ function applyAiActions(out){
       }
     } catch (e) {}
   });
+  aiLineHit = !!sayLine;   // one of your buddy lines (he always says those out loud)
   const reply = sayLine || str(out && out.reply, 500) || (lines.length ? 'Done.' : 'I did not catch that. Try saying it another way.');
   return {reply, lines, undo};
 }
@@ -3568,14 +3591,24 @@ function customLineFor(text, who){
 }
 function customReplyText(l, who){ return String(l.reply).replace(/\{you\}/g, S.settings.name || 'you').replace(/\{me\}/g, (who && who.name) || 'me'); }
 /** Ask the AI, unless it's one of your buddy lines: then he answers with your line right away. */
+let aiLineHit = false;   // the last answer was one of your buddy lines
 function aiAsk(text, alts){
   // voice typing's other guesses count too (it may have heard "call my pawns" second, after "call my ponds")
   const who = aiWho; let l = text && !ai.busy ? customLineFor(text, who) : null;
   if (!l && !ai.busy && Array.isArray(alts)) for (const a of alts) { l = customLineFor(a, who); if (l) break; }
+  aiLineHit = false;
   if (!l) return aiRun(text);
   Object.assign(ai, {busy:false, req:String(text), reply:customReplyText(l, who), lines:[], undo:[], err:'', engine:'', engineWhy:'', lastAt:Date.now()});
+  aiLineHit = true;
   ui.aiText = ''; render();
   return Promise.resolve();
+}
+/** Says a buddy line out loud in the app: on the phone with his own voice (theme → Voice), on the computer with the built-in voice. */
+function buddySpeak(text, who){
+  if (!text) return;
+  const t = who && TH.themes[who.id], v = t && t.voice;
+  if (typeof JA !== 'undefined' && JA && JA.voiceTest) { JA.voiceTest({theme:(who && who.id) || '', voice:v || null, text}).catch(() => {}); return; }
+  try { const u = new SpeechSynthesisUtterance(text); if (v) { u.pitch = Math.min(2, v.pitch * v.squeak); u.rate = Math.min(2, v.rate * v.squeak); } speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
 }
 async function aiRun(text){
   text = String(text || '').trim(); if (!text || ai.busy) return;
@@ -4015,7 +4048,7 @@ function notesHTML(){
   let body = '';
   if (pinned.length) body += '<div class="sec-title"><span>Pinned</span></div><div class="' + gridCls + '"' + gridStyle + '>' + pinned.map(card).join('') + '</div>';
   if (rest.length) body += (pinned.length ? '<div class="sec-title"><span>Others</span></div>' : '<div style="height:10px"></div>') + '<div class="' + gridCls + '"' + gridStyle + '>' + rest.map(card).join('') + '</div>';
-  if (!list.length) body = q ? '<div class="empty"><b>No matches</b>Nothing in your notes contains “' + esc(ui.noteQuery) + '”.</div>' : '<div class="empty"><b>No notes yet</b>Tap + to write your first one. Notes save when you close them.</div>';
+  if (!list.length) body = q ? '<div class="empty"><b>No matches</b>Nothing in your notes contains “' + esc(ui.noteQuery) + '”.</div>' : '<div class="empty"><b>No notes yet</b>Tap + to write your first one. Notes save as you type.</div>';
   return head(all.length + (all.length === 1 ? ' note' : ' notes'), 'Notes', '<button class="ib accent" data-action="new-note" aria-label="New note">' + icon('plus') + '</button>') +
     '<div class="search">' + icon('search') + '<input class="in" id="noteSearch" type="search" value="' + esc(ui.noteQuery) + '" placeholder="Search notes" aria-label="Search notes"></div>' + body;
 }
@@ -4396,6 +4429,7 @@ function closeSheet(skipHook){
   if ($('#remTrashSheet')) { sfxPlay('remClose'); setTimeout(remArriveNow, 30); }   // closing Deleted reminders sounds like closing a reminder; restored ones then grow in
   if (previewing && !alarmRing) soundStop();
   const h = sheetHook; sheetHook = null;
+  if (nf && skipHook && !nf.dataset.gone) noteAutosave();   // closed some other way (e.g. a widget opened a page): keep what was typed
   if (h && !skipHook) h();
   if (nf && Date.now() - sfxDelAt > 400) sfxNote('noteClose', nCol);   // not right after creating or deleting it: that sound plays instead
   $('#sheet').hidden = true; $('#sheetBody').innerHTML = '';
@@ -4450,8 +4484,11 @@ function noteSheet(id){
     '<label class="fld"><span>Note</span><textarea class="in" id="nBody" rows="9" placeholder="Start writing…">' + esc(n.body) + '</textarea></label>' +
     '<div class="fld"><span>Color</span>' + colorPicker('nColor', n.color || 'none', true) + '</div>' +
     '<div class="trow"><span>Pin to the top</span><button type="button" class="toggle" id="nPin" data-action="toggle-pressed" aria-pressed="' + !!n.pinned + '" aria-label="Pin to the top"></button></div>' +
-    '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-note" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span><button class="btn accent" type="submit">Done</button></div></form>',
+    '<div class="sh-actions">' + (id ? '<button type="button" class="btn danger" data-action="del-note" data-id="' + id + '">Delete</button>' : '') + '<span class="grow"></span>' +
+      (document.documentElement.classList.contains('is-desk') ? '' : '<button type="button" class="btn note-undo" data-action="note-undo" disabled aria-label="Undo">' + icon('undo') + 'Undo</button>') +
+      '<button class="btn accent" type="submit">Done</button></div></form>',
     saveNoteFromSheet, id ? null : 'nBody');
+  noteHistStart();
   noteBgApply();
 }
 // the open note's background picture, from the Notes page theme, by the note's color
@@ -4496,13 +4533,69 @@ document.addEventListener('input', e => {
   const sw = el.closest('.th-nc'); if (sw) sw.classList.add('set');
 });
 document.addEventListener('change', e => { const el = e.target; if (el.classList && el.classList.contains('th-ncol') && TH.themes[thOpen]) { thSave(); thRefreshEditor(); } });
+/* Undo in a note, like Ctrl+Z in Google Docs: typing is remembered in steps (a word or a pause at a time), and Undo
+   steps back through them. The note also saves itself as you type, so closing it any way keeps your changes. */
+const NH = {stack:[], redo:[], at:0, restoring:false, timer:0};
+function noteSnap(){ const t = $('#nTitle'), b = $('#nBody'), a = document.activeElement; return {t:t ? t.value : '', b:b ? b.value : '', f:a && a.id === 'nTitle' ? 'nTitle' : 'nBody', s:a && a.selectionStart != null ? a.selectionStart : null}; }
+function noteHistStart(){ NH.stack = [noteSnap()]; NH.redo = []; NH.at = 0; noteUndoBtn(); }
+function noteUndoBtn(){ const b = $('#noteForm .note-undo'); if (b) b.disabled = NH.stack.length < 2; }
+function noteHistPush(e){
+  if (NH.restoring) return;
+  const cur = noteSnap(), top = NH.stack[NH.stack.length - 1], now = Date.now();
+  if (top && top.t === cur.t && top.b === cur.b) return;
+  const ch = e && e.data != null ? e.data : '', type = e && e.inputType || '';
+  const wordEnd = /\s/.test(ch) || /insertParagraph|insertLineBreak/.test(type), kindChange = top && top.kind && top.kind !== (type.startsWith('delete') ? 'del' : 'ins');
+  // a new step after a pause, at the end of a word, when switching between typing and deleting, or in the other box
+  // (a word ends with its space: the next letter starts the next step)
+  if (NH.stack.length < 2 || top.sealed || now - NH.at > 1200 || kindChange || top.f !== cur.f || /Paste|Drop|history/i.test(type)) NH.stack.push(cur);
+  else NH.stack[NH.stack.length - 1] = cur;
+  cur.kind = type.startsWith('delete') ? 'del' : 'ins';
+  if (wordEnd && cur.kind === 'ins' || /Paste|Drop/i.test(type)) cur.sealed = true;
+  if (NH.stack.length > 300) NH.stack.splice(1, 1);
+  NH.at = now; NH.redo = []; noteUndoBtn();
+}
+function noteApply(sn){
+  NH.restoring = true;
+  try {
+    const t = $('#nTitle'), b = $('#nBody'); if (t) t.value = sn.t; if (b) b.value = sn.b;
+    const el = $('#' + sn.f); if (el) { el.focus({preventScroll:true}); const p = sn.s == null ? el.value.length : Math.min(sn.s, el.value.length); try { el.setSelectionRange(p, p); } catch (e) {} }
+  } finally { NH.restoring = false; }
+  NH.at = 0; noteUndoBtn(); noteAutosaveSoon();
+}
+function noteUndo(){ if (NH.stack.length < 2) return false; NH.redo.push(NH.stack.pop()); noteApply(NH.stack[NH.stack.length - 1]); return true; }
+function noteRedo(){ const sn = NH.redo.pop(); if (!sn) return false; NH.stack.push(sn); noteApply(sn); return true; }
+function noteAutosaveSoon(){ clearTimeout(NH.timer); NH.timer = setTimeout(noteAutosave, 700); }
+function noteAutosave(){
+  clearTimeout(NH.timer);
+  const f = $('#noteForm'); if (!f || !$('#nTitle') || f.dataset.gone || $('#sheet').hidden) return;
+  const title = $('#nTitle').value.trim(), body = $('#nBody').value, color = $('#nColor').value, pinned = $('#nPin').getAttribute('aria-pressed') === 'true';
+  if (!f.dataset.id && !title && !body.trim()) return;   // nothing written yet
+  const id = f.dataset.id || uid(), old = S.notes[id];
+  if (old && old.title === title && old.body === body && old.color === color && !!old.pinned === pinned) return;
+  sfxMute++; try { putItem('notes', id, {title, body, color, pinned, created:(old && old.created) || Date.now(), updated:Date.now()}); } finally { sfxMute--; }
+  if (!f.dataset.id) { f.dataset.id = id; f.dataset.auto = '1'; }
+}
+document.addEventListener('input', e => { if (e.target && (e.target.id === 'nTitle' || e.target.id === 'nBody') && $('#noteForm')) { noteHistPush(e); noteAutosaveSoon(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { noteAutosave(); lsFlush(); } });   // leaving the app: save right away
+window.addEventListener('pagehide', () => { noteAutosave(); lsFlush(); });
+// Ctrl+Z / Ctrl+Y on the computer: in a note, its own steps; anywhere else that isn't a text box, the app's last change
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const k = e.key.toLowerCase(), undo = k === 'z' && !e.shiftKey, redo = k === 'y' || (k === 'z' && e.shiftKey); if (!undo && !redo) return;
+  const a = document.activeElement, inNote = a && (a.id === 'nTitle' || a.id === 'nBody');
+  if (inNote) { e.preventDefault(); if (undo) noteUndo(); else noteRedo(); return; }
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return;   // other text boxes: the normal undo
+  if (!document.documentElement.classList.contains('is-desk')) return;
+  if (undo) { e.preventDefault(); undoLast(); }
+});
 function saveNoteFromSheet(){
   const f = $('#noteForm'); if (!f) return;
   const id = f.dataset.id || uid(), old = S.notes[id];
   const title = $('#nTitle').value.trim(), body = $('#nBody').value, color = $('#nColor').value, pinned = $('#nPin').getAttribute('aria-pressed') === 'true';
+  clearTimeout(NH.timer);
   if (!title && !body.trim() && !old && !ui.noteDone) return;   // closed a brand-new note without writing or tapping Done
-  ui.noteDone = false;
-  if (old && old.title === title && old.body === body && old.color === color && !!old.pinned === pinned) return;
+  const auto = f.dataset.auto === '1'; ui.noteDone = false;
+  if (old && old.title === title && old.body === body && old.color === color && !!old.pinned === pinned) { if (auto) toast(title ? 'Note added' : 'Note added as Untitled'); else if (old.updated > Date.now() - 6e5 && NH.stack.length > 1) toast('Note saved'); return; }
   putItem('notes', id, {title, body, color, pinned, created:(old && old.created) || Date.now(), updated:Date.now()});
   toast(old ? 'Note saved' : (title ? 'Note added' : 'Note added as Untitled'));
 }
@@ -4706,7 +4799,8 @@ const A = {
   'cap-when': t => { ui.capWhen = t.dataset.v; render(); },
   'new-note': () => noteSheet(null),
   'edit-note': t => noteSheet(t.dataset.id),
-  'del-note': t => { if (!arm(t, 'Tap again to delete')) return; delItem('notes', t.dataset.id); closeSheet(true); toast('Note deleted'); },
+  'note-undo': () => { noteUndo(); },
+  'del-note': t => { if (!arm(t, 'Tap again to delete')) return; clearTimeout(NH.timer); { const f = $('#noteForm'); if (f) f.dataset.gone = '1'; } delItem('notes', t.dataset.id); closeSheet(true); toast('Note deleted'); },
   'new-rem': t => remSheet(null, t.dataset.date || ''),
   'edit-rem': t => remSheet(t.dataset.id),
   'del-rem': t => { if (!arm(t, 'Tap again to delete')) return; remTrash(t.dataset.id); closeSheet(true); toast('Reminder deleted. You can restore it.'); },
@@ -5986,7 +6080,9 @@ FORMS.buddyForm = () => {
     buddyPicClear();
   }
   if (!aiImage) budLogAdd({who:'me', text});
-  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); aiAsk(text); buddyRefresh();
+  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); const who = aiWho;
+  Promise.resolve(aiAsk(text)).then(() => { if (aiLineHit && !ai.err) buddySpeak(ai.reply, who); }).catch(() => {});   // your buddy lines: he says them out loud
+  buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection
 const buddyPicReady = () => typeof gemKey === 'function' && !!gemKey() && navigator.onLine !== false;
@@ -6969,7 +7065,8 @@ window.__joeyAsk = async function(){
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
         const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
-        const r = await JW.askDone({id:a.id, reply:ai.err ? '' : (ai.reply || 'Done!'), detail:ai.err ? '' : detail, err:ai.err || ''}).catch(() => null);
+        const r = await JW.askDone({id:a.id, reply:ai.err ? '' : (ai.reply || 'Done!'), detail:ai.err ? '' : detail, err:ai.err || '',
+          speak:aiLineHit && !ai.err, wake:!!a.wake, theme:(aiWho && aiWho.id) || '', name:(aiWho && aiWho.name) || ''}).catch(() => null);
         // into that buddy's chat; if the popup wasn't there to show it, it waits in the app (a dot on the buddy), not as a notification
         try {
           const th = aiWho && aiWho.id, key = 'jma:budLog:' + (th || 'none'), shown = !!(r && r.shown);
