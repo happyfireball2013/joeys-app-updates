@@ -1,5 +1,11 @@
 [
  {
+  "release": 159,
+  "date": "2026-10-21",
+  "notes": "Your buddy now always uses online Gemini (no more offline answers), asks again instead of guessing when he mishears, his GIF moves in the pop-up, and Settings has a one-tap way to hide the Listening notification.",
+  "app": true
+ },
+ {
   "release": 157,
   "date": "2026-10-21",
   "notes": "Fixed a crash in the hands-free buddy, the crash log shows much more detail, the listening notification is gone, and new Buddy lines in Settings let you teach him your own answers.",
