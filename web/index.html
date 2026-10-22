@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610212111;</script>
+<script>window.JOEY_WEB_VERSION = 202610212139;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3327,6 +3327,11 @@ function aiContext(){
     '{"type":"quiet_auto","work":"vibrate","class":"silent"} sets what the phone does during every work shift / class: off, vibrate or silent (give only what changes)',
     '',
     ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
+    ...(function(){   // the buddy lines: catch them even when voice typing got a word wrong
+      const L = (S.settings.customLines || []).filter(l => !l.buddy || (aiWho && l.buddy === aiWho.id)); if (!L.length) return [];
+      return ['', 'Custom lines with fixed answers. If the request is clearly meant as one of these, even with misheard words (voice typing turns "pawns" into "ponds" or "porns", for example), use only {"type":"say_line","id":"<id>"} and an empty reply; the app says the answer:']
+        .concat(L.slice(0, 40).map(l => '- id ' + l.id + ': "' + String(l.say).replace(/"/g, "'") + '"'));
+    })(),
     ...(aiWho ? ['', ...buddyWhoLines()] : []),
     ...aiImageLines(),
     '',
@@ -3336,7 +3341,7 @@ function aiContext(){
 }
 function applyAiActions(out){
   const acts = (out && Array.isArray(out.actions)) ? out.actions.slice(0, 40) : [];
-  const lines = [], undo = [];
+  const lines = [], undo = []; let sayLine = '';
   const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) && !isNaN(parseYmd(v).getTime());
   const isTime = v => /^\d{2}:\d{2}$/.test(String(v || '')) && +String(v).slice(0, 2) < 24 && +String(v).slice(3) < 60;
   const rep = v => ['none','daily','weekdays','weekly','monthly','yearly'].includes(v) ? v : 'none';
@@ -3441,6 +3446,8 @@ function applyAiActions(out){
         }
         remember(coll, id0); if (coll === 'reminders') { remember('remTrash', id0); remTrash(id0); } else delItem(coll, id0);
         lines.push({icon:'trash', text:'Deleted: ' + (coll === 'birthdays' ? bdayTitle(item) : item.text || item.title || item.label || (item.time ? 'Alarm ' + fmtHM(item.time) : 'Untitled')), sub:''});
+      } else if (type === 'say_line') {   // one of your buddy lines (the AI recognized it even though it was misheard)
+        const l = (S.settings.customLines || []).find(x => x.id === String(a.id)); if (l) sayLine = customReplyText(l, aiWho);
       } else if (type === 'name_buddy') {
         const t = aiWho && TH.themes[aiWho.id], name = str(a.name, 30).replace(/^["“']|["”']$/g, ''); if (!t || !name) return;
         undo.push({buddy:aiWho.id, before:t.buddyName || ''});
@@ -3476,7 +3483,7 @@ function applyAiActions(out){
       }
     } catch (e) {}
   });
-  const reply = str(out && out.reply, 500) || (lines.length ? 'Done.' : 'I did not catch that. Try saying it another way.');
+  const reply = sayLine || str(out && out.reply, 500) || (lines.length ? 'Done.' : 'I did not catch that. Try saying it another way.');
   return {reply, lines, undo};
 }
 /* Buddy lines (Settings → Buddy lines): "when I say X, he says Y". Checked before the AI, so it's instant, works
@@ -3484,6 +3491,11 @@ function applyAiActions(out){
    front, a "please" at the end, or a word or two of difference are all fine. {you} = your name, {me} = his. */
 const clNorm = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 function clLev(a, b){ const p = Array(b.length + 1).fill(0).map((_, j) => j); for (let i = 1; i <= a.length; i++) { let prev = p[0]; p[0] = i; for (let j = 1; j <= b.length; j++) { const t = p[j]; p[j] = Math.min(p[j] + 1, p[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } } return p[b.length]; }
+/** A rough "how it sounds" spelling (same idea as the phone's wake matcher): pawns ≈ ponds ≈ pons, call ≈ col. */
+function clKey(s){
+  return clNorm(s).split(' ').map(w => { w = w.replace(/ph/g, 'f').replace(/ck/g, 'k').replace(/q/g, 'k').replace(/x/g, 'ks').replace(/z/g, 's').replace(/c(?=[eiy])/g, 's').replace(/c/g, 'k')
+    .replace(/(?!^)[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1').replace(/(?!^)h/g, '').replace(/(?<=.)d(?=s?$)/, ''); return w; }).join(' ');
+}
 function customLineFor(text, who){
   const lines = (S.settings.customLines || []).filter(l => !l.buddy || (who && l.buddy === who.id)); if (!lines.length) return null;
   const names = new Set(['hey', 'hi', 'yo', 'ok', 'okay', 'hello', 'oi', 'so', 'um', 'uh']);
@@ -3498,6 +3510,10 @@ function customLineFor(text, who){
     // the whole thing, or its last words (up to 3 extra words in front, like "yo steve can you…")
     const sw = s.split(' ').length; let d = clLev(t, s);
     for (let k = Math.max(1, sw - 1); k <= sw + 1; k++) if (w.length > k && w.length - k <= 3) d = Math.min(d, clLev(w.slice(-k).join(' '), s) + 1);
+    // …or it SOUNDS the same ("call my ponds", "call my pons" for "call my pawns")
+    const ks = clKey(s); let dk = clLev(clKey(t), ks);
+    for (let k = Math.max(1, sw - 1); k <= sw + 1; k++) if (w.length > k && w.length - k <= 3) dk = Math.min(dk, clLev(clKey(w.slice(-k).join(' ')), ks) + 1);
+    d = Math.min(d, dk <= Math.max(1, Math.floor(ks.length * 0.2)) ? dk : 1e9);
     const ok = d <= Math.max(1, Math.floor(s.length * 0.2));
     if (ok && (d < bestD || (d === bestD && l.buddy))) { best = l; bestD = d; }   // a line for this buddy wins over an "any buddy" one
   }
@@ -3505,8 +3521,10 @@ function customLineFor(text, who){
 }
 function customReplyText(l, who){ return String(l.reply).replace(/\{you\}/g, S.settings.name || 'you').replace(/\{me\}/g, (who && who.name) || 'me'); }
 /** Ask the AI, unless it's one of your buddy lines: then he answers with your line right away. */
-function aiAsk(text){
-  const who = aiWho, l = text && !ai.busy ? customLineFor(text, who) : null;
+function aiAsk(text, alts){
+  // voice typing's other guesses count too (it may have heard "call my pawns" second, after "call my ponds")
+  const who = aiWho; let l = text && !ai.busy ? customLineFor(text, who) : null;
+  if (!l && !ai.busy && Array.isArray(alts)) for (const a of alts) { l = customLineFor(a, who); if (l) break; }
   if (!l) return aiRun(text);
   Object.assign(ai, {busy:false, req:String(text), reply:customReplyText(l, who), lines:[], undo:[], err:'', engine:'', engineWhy:'', lastAt:Date.now()});
   ui.aiText = ''; render();
@@ -6835,7 +6853,8 @@ window.__joeyAsk = async function(){
         Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
         // which buddy: the one whose wake phrase you said, or the widget buddy (the menu theme's corner buddy)
         aiWho = a.theme && TH.themes[a.theme] ? {id:a.theme, name:buddyName(Object.assign({id:a.theme}, TH.themes[a.theme]))} : buddyFor('home');
-        try { await aiAsk(String(a.text || '')); } catch (e) {}
+        let alts = []; try { alts = JSON.parse(a.alts || '[]'); } catch (e) {}
+        try { await aiAsk(String(a.text || ''), alts); } catch (e) {}
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
         const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
@@ -6988,7 +7007,7 @@ async function wakePic(id){
 }
 async function syncWakeNative(force){
   if (!JA || !JA.setWake) return;
-  const on = wakeOnHere(), list = wakeList(), pause = typeof wakePauseHere === 'function' ? wakePauseHere() : 3, voiceOnly = typeof wakeVoiceHere === 'function' && wakeVoiceHere(), voiceStrict = typeof wakeStrictHere === 'function' ? wakeStrictHere() : 1, k = JSON.stringify([on, list, pause, voiceOnly, voiceStrict]);
+  const on = wakeOnHere(), list = wakeList(), linesSig = (S.settings.customLines || []).map(l => l.say).join('|'), pause = typeof wakePauseHere === 'function' ? wakePauseHere() : 3, voiceOnly = typeof wakeVoiceHere === 'function' && wakeVoiceHere(), voiceStrict = typeof wakeStrictHere === 'function' ? wakeStrictHere() : 1, k = JSON.stringify([on, list, pause, voiceOnly, voiceStrict, linesSig]);
   if (k !== wakeKey || force) {
     try {
       const out = [], picDone = new Set();
@@ -7013,7 +7032,8 @@ async function syncWakeNative(force){
         }
         out.push(o);
       }
-      wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; return c; })});
+      const bias = (S.settings.customLines || []).map(l => l.say).concat(list.map(x => x.name), list.map(x => x.label)).filter(Boolean).slice(0, 60);
+      wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, bias, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; return c; })});
       wakeKey = k;
       out.forEach(o => { if (o._sk) wakeSnds[o.theme] = o._sk; });
       try { localStorage.setItem('jma:wakeSnds', JSON.stringify(wakeSnds)); } catch (e) {}
