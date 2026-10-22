@@ -1,5 +1,11 @@
 [
  {
+  "release": 170,
+  "date": "2026-10-21",
+  "notes": "Your buddy now sends Gemini the actual recording of what you say, so it listens to you itself instead of trusting voice typing.",
+  "app": true
+ },
+ {
   "release": 167,
   "date": "2026-10-21",
   "notes": "Your buddy now uses every one of his sounds when you call him hands-free (it was stuck on 3), and sounds play like a shuffled deck so each one comes up before any repeat.",

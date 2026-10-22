@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610212320;</script>
+<script>window.JOEY_WEB_VERSION = 202610212333;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3247,6 +3247,14 @@ function wakeBatteryHTML(){
 }
 // a picture sent to the buddy (only Gemini can read it): {mime, data (base64), url (preview)}
 let aiImage = null, buddyPic = null;
+/** A spoken request's recording (from the phone's hands-free buddy): Gemini listens to it itself. */
+let aiAudio = null;
+function aiAudioLines(text){
+  if (!aiAudio) return [];
+  return ['', 'This request was SPOKEN out loud, and the recording is attached as audio. It may start with the wake phrase (like "Yo Steve"): ignore that part.',
+    'The phone\'s voice typing wrote it as: "' + String(text || '').replace(/"/g, "'") + '". Voice typing is often wrong, so LISTEN to the recording and do what was actually said.',
+    'Also put exactly what you heard (without the wake phrase) in a "heard" field: {"actions":[...],"reply":"...","heard":"..."}.'];
+}
 function aiImageLines(){
   if (!aiImage) return [];
   const who = S.settings.name || 'the user';
@@ -3343,6 +3351,7 @@ function aiContext(){
     })(),
     ...(aiWho ? ['', ...buddyWhoLines()] : []),
     ...aiImageLines(),
+    ...aiAudioLines(ai.req),
     '',
     'Reply with only one JSON object: {"actions":[...],"reply":"..."}',
     'Example for "remind me tuesday at 3 to take out the dishes": {"actions":[{"type":"add_reminder","text":"Take out the dishes","date":"<the coming Tuesday>","time":"15:00","repeat":"none"}],"reply":"Got it. I’ll remind you Tuesday at 3:00 PM to take out the dishes."}'
@@ -6901,7 +6910,11 @@ window.__joeyAsk = async function(){
         // which buddy: the one whose wake phrase you said, or the widget buddy (the menu theme's corner buddy)
         aiWho = a.theme && TH.themes[a.theme] ? {id:a.theme, name:buddyName(Object.assign({id:a.theme}, TH.themes[a.theme]))} : buddyFor('home');
         let alts = []; try { alts = JSON.parse(a.alts || '[]'); } catch (e) {}
-        try { await aiAsk(String(a.text || ''), alts); } catch (e) {}
+        // the recording of what you said: Gemini listens to it itself (voice typing alone gets too much wrong)
+        const spoken = String(a.text || '') === '(said out loud)' ? '' : String(a.text || '');
+        aiAudio = a.audio ? {mime:'audio/wav', data:a.audio} : null; ai.heard = '';
+        try { await aiAsk(spoken || '(said out loud)', alts); } catch (e) {}
+        aiAudio = null;
         for (let i = 0; i < 180 && ai.busy; i++) await askSleep(500);
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
         const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
@@ -6909,7 +6922,7 @@ window.__joeyAsk = async function(){
         // into that buddy's chat; if the popup wasn't there to show it, it waits in the app (a dot on the buddy), not as a notification
         try {
           const th = aiWho && aiWho.id, key = 'jma:budLog:' + (th || 'none'), shown = !!(r && r.shown);
-          budLogAdd({who:'me', text:String(a.text || ''), via:'voice', theme:th}, key);
+          budLogAdd({who:'me', text:ai.heard || String(a.text || ''), via:'voice', theme:th}, key);
           budLogAdd(ai.err ? {who:'bud', text:ai.err, err:true, theme:th, unread:!shown} : {who:'bud', text:ai.reply || 'Done!', lines:(ai.lines || []).map(l => ({text:l.text, sub:l.sub || ''})), theme:th, unread:!shown}, key);
           budDotSync();
         } catch (e) {}
@@ -7661,8 +7674,9 @@ async function gemRun(text, fallback){
     aiCtl = {abort(){ gemReq++; ai.busy = false; aiCtl = null; ui.aiText = text; render(); }};
     const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. ' + (aiWho ? 'You are the buddy described above (Gemini runs you behind the scenes), inside Joey’s Multipurpose App on his ' : 'You are Gemini, the assistant inside Joey’s Multipurpose App on his ') + (NATIVE ? 'phone' : 'computer') + '.';
     const img = aiImage; aiImage = null;   // a picture sent with this request (read once)
+    const aud = aiAudio; aiAudio = null;   // the recording of a spoken request (read once): Gemini listens to it
     const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]}))
-      .concat([{role:'user', parts:[{text:'Request: ' + text}].concat(img ? [{inline_data:{mime_type:img.mime, data:img.data}}] : [])}]);
+      .concat([{role:'user', parts:[{text:(aud ? 'Spoken request (voice typing heard: "' + text + '"; listen to the attached recording): ' : 'Request: ') + text}].concat(img ? [{inline_data:{mime_type:img.mime, data:img.data}}] : []).concat(aud ? [{inline_data:{mime_type:aud.mime, data:aud.data}}] : [])}]);
     const maxTok = img ? 6000 : 1200;
     let raw;
     try {
@@ -7691,7 +7705,8 @@ async function gemRun(text, fallback){
     if (out && !Array.isArray(out.actions)) out.actions = [];
     if (!out || (!out.actions.length && !String(out.reply || '').trim())) { Object.assign(ai, {err:'Gemini didn’t answer. Try saying it another way.'}); ui.aiText = text; render(); return; }
     const res = applyAiActions(out);
-    Object.assign(ai, {req:text, reply:res.reply, lines:res.lines, undo:res.undo, err:'', lastAt:Date.now()});
+    const heard = aud && out && typeof out.heard === 'string' && out.heard.trim() ? out.heard.trim().slice(0, 300) : '';   // what Gemini heard in the recording
+    Object.assign(ai, {req:heard || text, heard, reply:res.reply, lines:res.lines, undo:res.undo, err:'', lastAt:Date.now()});
     ai.turns = turns.concat({role:'user', content:'Request: ' + text + (img ? ' [sent a picture]' : '')}, {role:'assistant', content:JSON.stringify({actions:out.actions, reply:res.reply})}).slice(-6);
     render();
 }
