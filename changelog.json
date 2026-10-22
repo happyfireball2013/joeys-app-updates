@@ -1,5 +1,11 @@
 [
  {
+  "release": 164,
+  "date": "2026-10-21",
+  "notes": "Tapping the “Listening” notification now takes you straight to the switch that hides it for good, and swiping it away keeps it away.",
+  "app": true
+ },
+ {
   "release": 163,
   "date": "2026-10-21",
   "notes": "Your buddy lines now match by sound, word by word: “call or ponds” or “col my pons” count as “call my pawns”.",

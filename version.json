@@ -1,5 +1,5 @@
 {
- "web": 202610212242,
+ "web": 202610212258,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 162,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=162"
+  "code": 164,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=164"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy lines now match by sound, word by word: \u201ccall or ponds\u201d or \u201ccol my pons\u201d count as \u201ccall my pawns\u201d."
+ "notes": "Tapping the \u201cListening\u201d notification now takes you straight to the switch that hides it for good, and swiping it away keeps it away."
 }
