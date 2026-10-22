@@ -1,5 +1,5 @@
 {
- "web": 202610220056,
+ "web": 202610220144,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 173,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=173"
+  "code": 175,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=175"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Buddies can have their own voice (load a voice file under Corner buddy \u2192 Voice), and the popup no longer says it didn't catch you right before doing what you asked."
+ "notes": "Your buddy no longer mistakes his own sound for you talking, so he waits for you; he listens again when he asks you something, and Ask something else listens right away."
 }
