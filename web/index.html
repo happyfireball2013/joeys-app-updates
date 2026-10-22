@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610220144;</script>
+<script>window.JOEY_WEB_VERSION = 202610220156;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3190,6 +3190,8 @@ function wakeList(){
 }
 const wakeOnHere = () => { try { return localStorage.getItem('jma:wakeOn') === '1'; } catch (e) { return false; } };
 /** "Only listen to my voice" (this phone only), and how strict: 0 relaxed, 1 normal, 2 strict. */
+/** "Only while the screen is on" (this phone): saves battery; he's ready again the moment you turn the screen on. */
+const wakeScreenHere = () => { try { return localStorage.getItem('jma:wakeScreen') === '1'; } catch (e) { return false; } };
 const wakeVoiceHere = () => { try { return localStorage.getItem('jma:wakeVoice') === '1'; } catch (e) { return false; } };
 const wakeStrictHere = () => { try { const v = Number(localStorage.getItem('jma:wakeStrict') || 1); return v === 0 || v === 2 ? v : 1; } catch (e) { return 1; } };
 /** Teach him your voice: read this out loud for 15 seconds. */
@@ -4216,6 +4218,7 @@ function settingsHTML(){
         if (!phone) h += '<div class="srow"><span class="lbl">Works on your phone<small>Your phone listens for your buddies’ wake phrases, like “Hey Siri”, even when the app is closed. Set the phrases here (they sync) and turn it on in the phone app.</small></span></div>';
         else h += '<div class="srow"><span class="lbl">Listen for wake phrases<small>Say a buddy’s phrase any time, even with the app closed or the phone locked, and he pops up to help. Listening happens on your phone, offline. It uses more battery and shows a “Listening” notification.</small></span><button type="button" class="toggle" data-action="wake-toggle" aria-pressed="' + on + '" aria-label="Listen for wake phrases"></button></div>' +
           (on || (wakeSt && wakeBattery(wakeSt.battery).listen) ? wakeBatteryHTML() : '') +
+          (on ? '<div class="srow"><span class="lbl">Only while the screen is on<small>Saves battery: he stops listening when your screen goes off, and is ready again as soon as you turn it on (the lock screen counts as on).</small></span><button type="button" class="toggle" data-action="wake-screen" aria-pressed="' + wakeScreenHere() + '" aria-label="Only listen while the screen is on"></button></div>' : '') +
           (on ? '<div class="srow"><label class="lbl" for="wakePause">Wait after you stop talking' + sub('How long he waits for you to go on before he answers. Longer gives you time to think mid-sentence.') + '</label><span class="vol" id="wakePauseOut">' + wakePauseHere() + ' s</span></div>' +
             '<div style="padding:0 0 12px"><input class="range" type="range" min="1" max="6" step="0.5" id="wakePause" value="' + wakePauseHere() + '" aria-label="Wait after you stop talking"></div>' : '');
         h += list.length ? list.map(x => '<div class="srow"><span class="lbl">“' + esc(x.label) + '”<small>Calls ' + esc(x.name) + '</small></span></div>').join('')
@@ -4223,7 +4226,7 @@ function settingsHTML(){
         if (phone && on) {
           const st = String(w.status || '');
           const msg = !list.length ? '' : w.mic === false ? '' : st.startsWith('downloading') ? 'Getting ready: downloading the voice model (' + (w.progress || 0) + '%). This happens once, about 40 MB.'
-            : st === 'loading' ? 'Getting ready…' : st === 'listening' ? 'Listening now.' : st === 'battery-saver' ? 'Paused while Battery saver is on. He listens again when you turn it off.' : st.startsWith('error') ? 'Couldn’t start: ' + st.slice(7) : st === 'off' && w.running === false ? 'Starting…' : '';
+            : st === 'loading' ? 'Getting ready…' : st === 'listening' ? 'Listening now.' : st === 'battery-saver' ? 'Paused while Battery saver is on. He listens again when you turn it off.' : st === 'screen-off' ? 'Resting while the screen is off.' : st.startsWith('error') ? 'Couldn’t start: ' + st.slice(7) : st === 'off' && w.running === false ? 'Starting…' : '';
           if (w.mic === false) h += '<div class="srow"><span class="lbl">Allow the microphone<small>So he can hear his wake phrase</small></span><button class="btn sm accent" data-action="wake-mic">Allow</button></div>';
           if (msg) h += '<div class="srow"><span class="lbl muted" style="font-weight:500">' + esc(msg) + '</span></div>';
           // only my voice
@@ -4748,6 +4751,7 @@ const A = {
   'wake-toggle': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeOn', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); if (typeof syncWakeNative === 'function') syncWakeNative(true); render(); },
   'wake-voice': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeVoice', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); syncWakeNative(true); render(); if (on && !(wakeSt && wakeSt.voice && wakeSt.voice.prints >= 3)) setTimeout(wakeTeachSheet, 300); },
   'wake-teach': () => wakeTeachSheet(),
+  'wake-screen': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeScreen', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); if (typeof syncWakeNative === 'function') syncWakeNative(true); toast(on ? 'He’ll only listen while your screen is on.' : 'He’ll listen all the time.'); },
   'note-hide': () => { closeSheet(); if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'wakeNote'}).catch(() => {}); },
   'wake-teach-go': async t => {
     const out = $('#teachStatus'); if (!JA || !JA.voiceLearn) { if (out) out.textContent = 'This needs the newest phone app.'; return; }
@@ -7124,7 +7128,7 @@ async function wakePic(id){
 }
 async function syncWakeNative(force){
   if (!JA || !JA.setWake) return;
-  const on = wakeOnHere(), list = wakeList(), linesSig = (S.settings.customLines || []).map(l => l.say).join('|'), pause = typeof wakePauseHere === 'function' ? wakePauseHere() : 3, voiceOnly = typeof wakeVoiceHere === 'function' && wakeVoiceHere(), voiceStrict = typeof wakeStrictHere === 'function' ? wakeStrictHere() : 1, k = JSON.stringify([on, list, pause, voiceOnly, voiceStrict, linesSig]);
+  const on = wakeOnHere(), list = wakeList(), linesSig = (S.settings.customLines || []).map(l => l.say).join('|'), pause = typeof wakePauseHere === 'function' ? wakePauseHere() : 3, voiceOnly = typeof wakeVoiceHere === 'function' && wakeVoiceHere(), voiceStrict = typeof wakeStrictHere === 'function' ? wakeStrictHere() : 1, screenOnly = typeof wakeScreenHere === 'function' && wakeScreenHere(), k = JSON.stringify([on, list, pause, voiceOnly, voiceStrict, linesSig, screenOnly]);
   if (k !== wakeKey || force) {
     try {
       const out = [], picDone = new Set();
@@ -7151,7 +7155,7 @@ async function syncWakeNative(force){
         out.push(o);
       }
       const bias = (S.settings.customLines || []).map(l => l.say).concat(list.map(x => x.name), list.map(x => x.label)).filter(Boolean).slice(0, 60);
-      wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, bias, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; delete c._send; return c; })});
+      wakeSt = await JA.setWake({on, pause, voiceOnly, voiceStrict, screenOnly, bias, phrases:out.map(o => { const c = Object.assign({}, o); delete c._sk; delete c._send; return c; })});
       for (const o of out) { if (wakeVoiceSent[o.theme] !== voiceChirpKey(o.theme)) { try { await voiceChirpsSend(o.theme); } catch (e) {} } }
       for (const o of out) {
         if (!o._send) continue;

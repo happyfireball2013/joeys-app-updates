@@ -1,5 +1,11 @@
 [
  {
+  "release": 177,
+  "date": "2026-10-22",
+  "notes": "New option in Settings → Hands-free buddy: only listen while the screen is on, to save battery.",
+  "app": true
+ },
+ {
   "release": 175,
   "date": "2026-10-22",
   "notes": "Your buddy no longer mistakes his own sound for you talking, so he waits for you; he listens again when he asks you something, and Ask something else listens right away.",
