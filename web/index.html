@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610240153;</script>
+<script>window.JOEY_WEB_VERSION = 202610241746;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -136,6 +136,13 @@ a{color:inherit}
 .btn .ic{width:18px;height:18px}
 .btn.accent{background:var(--accent);color:var(--on-accent);border-color:transparent}
 .btn.danger{color:var(--danger)}
+#confirmPop{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px}
+#confirmPop .cp-scrim{position:absolute;inset:0;background:var(--scrim)}
+#confirmPop .cp-box{position:relative;width:min(100%,360px);background:var(--surface);color:var(--ink);border-radius:20px;padding:20px 20px 16px;box-shadow:0 12px 40px rgba(0,0,0,.3);animation:rise .16s ease-out}
+#confirmPop .cp-t{display:block;font-size:1.125rem;font-weight:800;margin-bottom:6px}
+#confirmPop .cp-b{margin:0 0 4px;color:var(--ink-2);line-height:1.4}
+#confirmPop .cp-btns{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+#confirmPop .cp-yes{background:var(--danger);color:#fff;border-color:transparent}
 .btn.danger.armed{background:var(--danger);color:var(--surface);border-color:transparent}
 .link{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,var(--accent) 35%,transparent)}
 .link.armed{color:var(--danger)}
@@ -1807,6 +1814,24 @@ function arm(btn, text){
   setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.classList.remove('armed'); btn.innerHTML = orig; } }, 3200);
   return false;
 }
+/** A small "Are you sure?" pop-up on top of everything (even an open sheet). Resolves true for the red button. */
+function confirmAsk({title, body = '', yes = 'Delete', no = 'Keep it'}){
+  return new Promise(res => {
+    const old = $('#confirmPop'); if (old) old.remove();
+    const el = document.createElement('div'); el.id = 'confirmPop'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true');
+    el.innerHTML = '<div class="cp-scrim"></div><div class="cp-box"><b class="cp-t">' + esc(title) + '</b>' + (body ? '<p class="cp-b">' + esc(body) + '</p>' : '') +
+      '<div class="cp-btns"><button type="button" class="btn cp-no">' + esc(no) + '</button><button type="button" class="btn cp-yes">' + esc(yes) + '</button></div></div>';
+    const done = v => { document.removeEventListener('keydown', key, true); el.remove(); res(v); };
+    const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); } };
+    el.querySelector('.cp-scrim').onclick = () => done(false);
+    el.querySelector('.cp-no').onclick = e => { e.stopPropagation(); done(false); };
+    el.querySelector('.cp-yes').onclick = e => { e.stopPropagation(); done(true); };
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(el); el.querySelector('.cp-no').focus();
+  });
+}
+/** What a theme row is called ("Corner buddy", "Reminder done"…), from the row the button is in. */
+const thRowName = btn => { const b = btn && btn.closest('.th-slot') && btn.closest('.th-slot').querySelector('.th-slot-t b'); return b ? b.textContent.trim() : ''; };
 function armAlways(btn, text){ // for actions that wipe lots of data: always ask twice
   if (btn.dataset.armed) return true;
   const orig = btn.innerHTML; btn.dataset.armed = '1'; btn.classList.add('armed'); btn.textContent = text;
@@ -5457,7 +5482,7 @@ function thVoiceHTML(id, t){
     '<span class="th-voice-btns"><button type="button" class="btn sm" data-action="th-voice-load">' + (v ? 'Change' : 'Load voice file') + '</button>' +
     (v ? '<button type="button" class="btn sm" data-action="th-voice-test">' + icon('play') + 'Test</button><button type="button" class="btn sm" data-action="th-voice-rm" aria-label="Remove voice">' + icon('x') + '</button>' : '') + '</span></div>' +
     (v ? '<div class="th-sub th-size-row th-voice-rows">' + rng('pitch', 'Pitch', 0.5, 2, 0.05) + rng('rate', 'Speed', 0.5, 1.6, 0.05) + rng('squeak', 'Squeak', 1, 2, 0.05) + '</div>' : '') +
-    '<div style="display:none"><input type="file" id="thVoiceFile" accept=".buddyvoice,.json,application/json"></div>';
+    '<div style="display:none"><input type="file" id="thVoiceFile" accept=".buddyvoice,.json,application/json" hidden></div>';
 }
 const b64ToBuf = s => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
 async function thVoiceLoad(id, file){
@@ -6404,10 +6429,14 @@ Object.assign(A, {
   'th-opt': t => { const th = TH.themes[thOpen]; if (!th) return; let v = t.dataset.v; if (v === 'true' || v === 'false') v = v === 'true'; else if (/^\d+$/.test(v)) v = Number(v); th[t.dataset.k] = v; thSave(); thApplied = ''; thRefreshEditor(); render(); },
   'th-pick': t => { thSlot = t.dataset.slot; const f = $('#thFile'); if (f) f.click(); },
   'th-font-pick': () => { const f = $('#thFontFile'); if (f) f.click(); },
-  'th-font-rm': () => { const th = TH.themes[thOpen]; if (!th || !th.img) return; delete th.img.font; delete th.fontName; if (th.noteFont === 'custom') th.noteFont = 'default'; IDB.del('th:' + thOpen + ':font').catch(() => {}); thSave(); thApplied = ''; thRefreshEditor(); render(); },
-  'th-rm': t => thRemoveImage(thOpen, t.dataset.slot),
+  'th-font-rm': async () => { const th = TH.themes[thOpen]; if (!th || !th.img) return; if (!await confirmAsk({title:'Delete your font' + (th.fontName ? ' “' + th.fontName + '”' : '') + '?', body:'This theme goes back to a built-in font. You’d have to add the font file again.'})) return; delete th.img.font; delete th.fontName; if (th.noteFont === 'custom') th.noteFont = 'default'; IDB.del('th:' + thOpen + ':font').catch(() => {}); thSave(); thApplied = ''; thRefreshEditor(); render(); },
+  'th-rm': async t => {
+    const id = thOpen, slot = t.dataset.slot, what = thRowName(t) || 'this picture';
+    if (!await confirmAsk({title:'Delete ' + what + '?', body:'The picture will be removed from this theme on all your devices. You’d have to add it again.'})) return;
+    thRemoveImage(id, slot);
+  },
   'th-voice-load': () => { const f = $('#thVoiceFile'); if (f) f.click(); },
-  'th-voice-rm': t => { const th = TH.themes[thOpen]; if (!th) return; if (!arm(t, 'Tap again')) return; delete th.voice; sfxSlots(Object.assign({id:thOpen}, th), 'voice').forEach(k => { delete th.img[k]; IDB.del('th:' + thOpen + ':' + k).catch(() => {}); }); thSave(); thRefreshEditor(); if (typeof syncWakeNative === 'function') syncWakeNative(true); },
+  'th-voice-rm': async t => { const th = TH.themes[thOpen]; if (!th) return; if (!await confirmAsk({title:'Delete the ' + ((th.voice && th.voice.name) || 'buddy') + ' voice?', body:'Your buddy goes back to the normal voice, and his voice sounds are removed. You’d have to load the voice file again.'})) return; delete th.voice; sfxSlots(Object.assign({id:thOpen}, th), 'voice').forEach(k => { delete th.img[k]; IDB.del('th:' + thOpen + ':' + k).catch(() => {}); }); thSave(); thRefreshEditor(); if (typeof syncWakeNative === 'function') syncWakeNative(true); },
   'th-voice-test': async () => {
     const id = thOpen, th = TH.themes[id]; if (!th || !th.voice) return;
     const t = Object.assign({id}, th), name = buddyName(t), text = 'Hi ' + (S.settings.name || 'there') + '! ' + (name ? 'It’s me, ' + name + '. ' : '') + 'I set your reminder for five minutes from now.';
@@ -6422,9 +6451,19 @@ Object.assign(A, {
   },
   'th-sfx-pick': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxFile'); if (f) f.click(); },
   'th-sfx-dir': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxDir'); if (f) f.click(); },
-  'th-sfx-rm': t => thRemoveSfx(thOpen, t.dataset.ev),
+  'th-sfx-rm': async t => {
+    const id = thOpen, ev = t.dataset.ev, th = TH.themes[id]; if (!th) return;
+    const n = sfxSlots(Object.assign({id}, th), ev).length, what = thRowName(t) || 'this sound';
+    if (!await confirmAsk({title:(n > 1 ? 'Delete all ' + n + ' sounds' : 'Delete the sound') + ' for “' + what + '”?', body:(n > 1 ? 'All ' + n + ' sounds in this set will be removed' : 'The sound will be removed') + ' from this theme on all your devices. You’d have to add ' + (n > 1 ? 'them' : 'it') + ' again.'})) return;
+    thRemoveSfx(id, ev);
+  },
   'th-sfx-play': t => { const th = TH.themes[thOpen]; if (th) sfxPlay(t.dataset.ev, Object.assign({id:thOpen}, th), true); },
-  'th-del': t => { if (!armAlways(t, 'Tap again to delete')) return; thDelete(t.dataset.id); thOpen = null; closeSheet(true); render(); toast('Theme deleted'); }
+  'th-del': async t => {
+    const id = t.dataset.id, th = TH.themes[id]; if (!th) return;
+    const n = Object.keys(th.img || {}).length;
+    if (!await confirmAsk({title:'Delete the theme “' + (th.name || 'Untitled') + '”?', body:'The whole theme' + (n ? ', with its ' + n + ' picture' + (n === 1 ? '' : 's') + ', sounds and settings,' : '') + ' will be deleted on all your devices. This can’t be undone.', yes:'Delete theme'})) return;
+    thDelete(id); thOpen = null; closeSheet(true); render(); toast('Theme deleted');
+  }
 });
 document.addEventListener('change', e => {
   const t = e.target;

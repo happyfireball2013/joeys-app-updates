@@ -1,5 +1,5 @@
 {
- "web": 202610240153,
+ "web": 202610241746,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy now only answers out loud when you talk to him by voice; when you type to him, he answers in writing (tap Install for the new phone app)."
+ "notes": "Deleting anything in a theme (a picture, a sound, your font, a buddy voice or the whole theme) now asks if you're sure first."
 }
