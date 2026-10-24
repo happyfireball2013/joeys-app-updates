@@ -1,5 +1,11 @@
 [
  {
+  "release": 186,
+  "date": "2026-10-23",
+  "notes": "Steve now always tells you out loud what he did after a task, and his popup goes away on its own a few seconds after he answers so your phone can fall asleep like normal (tap Install for the new phone app).",
+  "app": true
+ },
+ {
   "release": 182,
   "date": "2026-10-22",
   "notes": "When you call Steve by voice, he now listens with Google's voice typing (like the mic button), so he sends what you said by himself.",

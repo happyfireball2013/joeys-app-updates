@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610221438;</script>
+<script>window.JOEY_WEB_VERSION = 202610232201;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3343,7 +3343,7 @@ function aiContext(){
     '- To change, finish or delete something, use its [id] from the lists below, and only touch items the request clearly means.',
     '- For questions about the schedule or notes, answer in reply using the lists and add no actions.',
     '- If the request is unclear, add no actions and ask one short question in reply.',
-    '- reply is one or two short, friendly sentences to ' + who + '. Write times like ' + (s.hour24 ? '15:00' : '3:00 PM') + ' and days like Tuesday or Oct 20.',
+    '- reply is one or two short, friendly sentences to ' + who + '. When you take actions, reply says what you did (what and when), so ' + who + ' knows it worked. Write times like ' + (s.hour24 ? '15:00' : '3:00 PM') + ' and days like Tuesday or Oct 20.',
     '',
     'Open reminders:', rems.join('\n') || '(none)',
     'Events from ' + from + ' to ' + to + ':', evs.join('\n') || '(none)',
@@ -3530,8 +3530,38 @@ function applyAiActions(out){
     } catch (e) {}
   });
   aiLineHit = !!sayLine;   // one of your buddy lines (he always says those out loud)
-  const reply = sayLine || str(out && out.reply, 500) || (lines.length ? 'Done.' : 'I did not catch that. Try saying it another way.');
+  const tried = acts.filter(a => a && a.type && a.type !== 'say_line').length;
+  let reply = sayLine || str(out && out.reply, 500) || (lines.length ? '' : 'I did not catch that. Try saying it another way.');
+  // he always says what he actually did, so you know it worked (and never says "done" when nothing happened)
+  if (!sayLine && tried && !lines.length) reply = 'Sorry, I couldn’t do that one. Try saying it another way.';
+  else if (!sayLine && lines.length) reply = aiConfirm(reply, lines);
   return {reply, lines, undo};
+}
+/** His answer after a task: the AI's words if they already say what got done, otherwise a plain "I added…" built from
+ *  what really happened (the lines), so he always tells you what he did. */
+const AI_CONFIRM = [[/^Reminder$/, 'I added a reminder: '], [/^(Event|Work|Class)$/, 'I put it on your calendar: '], [/^Already there$/, 'That’s already on your calendar: '],
+  [/^Note$/, 'I saved a note: '], [/^Timer$/, 'I started a timer for '], [/^Done$/, 'I checked off '], [/^Changed$/, 'I changed '], [/^Alarm$/, 'I set an alarm for '],
+  [/^Lifelog$/, 'I added to your lifelog: '], [/^Turned on$/, 'I turned on the alarm for '], [/^Turned off$/, 'I turned off the alarm for '], [/^Deleted$/, 'I deleted '],
+  [/^New name$/, 'My new name is '], [/^Birthday$/, 'I saved the birthday for ']];
+function aiConfirmLine(l){
+  const m = String(l.text || '').match(/^([^:]+):\s*(.*)$/);
+  let sub = String(l.sub || '').replace(/\s*·\s*/g, ', ');
+  if (/^(Started|Marked complete|Your buddy will remember it)$/.test(sub)) sub = '';
+  if (!m) return String(l.text || '') + (sub ? ', ' + sub : '') + '.';
+  const hit = AI_CONFIRM.find(([re]) => re.test(m[1].trim())), what = m[2].replace(/\s*·\s*/g, ', ');
+  return (hit ? hit[1] : m[1].trim() + ': ') + what + (sub ? ', ' + sub : '') + '.';
+}
+function aiConfirm(reply, lines){
+  const words = s => clNorm(s).split(' ').filter(w => w.length > 2);
+  const said = new Set(words(reply)), generic = !reply || /^(ok(ay)?|done|got it|sure|all set|you got it|on it|alright)[\s.!,]*(\w+[.!]*)?$/i.test(reply.trim());
+  const missing = lines.filter(l => {
+    if (generic) return true;
+    const w = words(String(l.text || '').replace(/^[^:]+:\s*/, ''));
+    return w.length ? w.filter(x => said.has(x)).length < Math.ceil(w.length / 2) : false;
+  });
+  if (!missing.length) return reply;
+  const told = missing.length > 3 ? 'I made ' + lines.length + ' changes. They’re listed below.' : missing.map(aiConfirmLine).join(' ');
+  return (generic ? 'Done! ' : reply.replace(/\s*$/, ' ')) + told;
 }
 /* Buddy lines (Settings → Buddy lines): "when I say X, he says Y". Checked before the AI, so it's instant, works
    offline, and the answer is exactly what you wrote. Matching is forgiving: case, punctuation, a "hey Steve" in
@@ -6081,7 +6111,8 @@ FORMS.buddyForm = () => {
   }
   if (!aiImage) budLogAdd({who:'me', text});
   i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); const who = aiWho;
-  Promise.resolve(aiAsk(text)).then(() => { if (aiLineHit && !ai.err) buddySpeak(ai.reply, who); }).catch(() => {});   // your buddy lines: he says them out loud
+  // he says it out loud: your buddy lines, what he did after a task, or that it didn't work
+  Promise.resolve(aiAsk(text)).then(() => { if (ai.err) buddySpeak(ai.err, who); else if (aiLineHit || (ai.lines || []).length) buddySpeak(ai.reply, who); }).catch(() => {});
   buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection

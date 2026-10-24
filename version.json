@@ -1,5 +1,5 @@
 {
- "web": 202610221438,
+ "web": 202610232201,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 182,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=182"
+  "code": 186,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=186"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "When you call Steve by voice, he now listens with Google's voice typing (like the mic button), so he sends what you said by himself."
+ "notes": "Steve now always tells you out loud what he did after a task, and his popup goes away on its own a few seconds after he answers so your phone can fall asleep like normal (tap Install for the new phone app)."
 }
