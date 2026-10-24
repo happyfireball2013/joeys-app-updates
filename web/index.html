@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610240109;</script>
+<script>window.JOEY_WEB_VERSION = 202610240146;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -235,6 +235,9 @@ textarea.in{resize:vertical;line-height:1.5}
 .chip-s.ok{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
 /* ringing */
 .ring{position:fixed;inset:0;z-index:90;background:var(--accent);color:var(--on-accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 24px) 24px calc(env(safe-area-inset-bottom,0px) + 32px);text-align:center}
+.ring.has-pic{background:#000;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.55)}
+.ring-pic,.ring-dim{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.ring.has-pic>:not(.ring-pic):not(.ring-dim){position:relative;z-index:1}
 .ring-ic{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--on-accent) 16%,transparent);animation:ringshake 1.2s ease-in-out infinite;margin-bottom:6px}
 .ring-ic .ic{width:44px;height:44px}
 @keyframes ringshake{0%,100%{transform:rotate(0)}20%{transform:rotate(-12deg) scale(1.05)}40%{transform:rotate(10deg) scale(1.05)}60%{transform:rotate(-6deg)}80%{transform:rotate(4deg)}}
@@ -2410,7 +2413,10 @@ function snoozeAlarm(){
 function renderRing(){
   const r = alarmRing, el = $('#ring'); if (!r) return;
   const isSong = r.sound.startsWith('song:') && !r.fallback;
-  el.innerHTML = '<div class="ring-ic">' + icon('alarm') + '</div>' +
+  // the Alarm theme's alarm screen picture (a GIF plays), behind everything
+  const at = thFor('alarm'), pic = thImg(at, 'ringPic'), dim = at && at.ringDim != null ? Number(at.ringDim) : 35;
+  el.classList.toggle('has-pic', !!pic);
+  el.innerHTML = (pic ? '<img class="ring-pic" src="' + pic + '" alt="" style="object-fit:' + (at.ringFit === 'contain' ? 'contain' : 'cover') + '"><div class="ring-dim" style="background:rgba(0,0,0,' + (dim / 100) + ')"></div>' : '<div class="ring-ic">' + icon('alarm') + '</div>') +
     '<div class="ring-time" data-live="hm">' + hmHTML(new Date()) + '</div>' +
     '<div class="ring-label">' + esc(r.label || 'Alarm') + '</div>' +
     '<div class="ring-sound">' + icon(isSong ? 'music' : 'bell') + '<span>' + esc(r.fallback ? 'Song not on this device, playing Chime' : soundLabel(r.sound)) + '</span></div>' +
@@ -5303,6 +5309,7 @@ const thFits = (t, page) => { const s = thSecOf(t); return !s || s === page; };
 const TH_SEC_GROUPS = {home:['Clock on the menu','Menu icons','Calendar icons'], calendar:['Lifelog faces','Calendar icons'], notes:['Note cards','Open note background']};
 const TH_SEC_SFX = {home:['remAdd','remCheck','remUncheck','remOpen','remClose'], calendar:['evAdd','bdayAdd','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'],
   reminders:['remDue','remAdd','remCheck','remUncheck','remDel','remOpen','remClose'], notes:['noteAdd','noteDel'], alarm:['alarmAdd']};
+TH_SEC_GROUPS.alarm = ['Alarm screen'];
 const TH_NO_TYPING = ['clock','stopwatch','timer'];
 const TH_NOTE_COLORS = [['none','plain']].concat(Object.keys(HUES).map(k => [k, HUE_NAMES[k].toLowerCase()]));
 /* sound effects in each theme: your own sounds for tapping the buddy, adding and checking off things, and more.
@@ -5541,6 +5548,7 @@ function thSlotGroups(){
     {name:'Bottom buttons', slots:['home'].concat(TAB_OPTIONS).map(k => ['dock_' + k, (TABS[k] ? TABS[k].label : k) + ' button', ''])},
     {name:'Note cards', slots:[['card_all','Picture on every note card','Shows behind the note. PNGs with see-through backgrounds look great with “Small in the corner”.']].concat(TH_NOTE_COLORS.map(([c, n]) => ['card_' + c, 'Picture on ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
     {name:'Open note background', slots:[['nbg_all','Behind every open note','Fills the page when you open a note to read or edit it']].concat(TH_NOTE_COLORS.map(([c, n]) => ['nbg_' + c, 'Behind open ' + n + ' notes', 'Used instead of the one above for ' + n + ' notes']))},
+    {name:'Alarm screen', slots:[['ringPic','Alarm screen picture','Fills the screen while an alarm rings, on top of the lock screen too. GIFs move!']]},
     {name:'Lifelog faces', slots:[['mood_happy','Good day',''],['mood_okay','Okay day',''],['mood_sad','Rough day','']]},
     {name:'Calendar icons', slots:[['calic_work','Work icon','Shows on days you work and next to work shifts. A small picture with a see-through background looks best.'],['calic_class','Class icon','Shows on days you have class and next to classes'],['calic_bday','Birthday icon','Shows on birthdays']]}
   ];
@@ -5591,7 +5599,7 @@ async function thStoreImage(id, slot, file){
     if (/gif/i.test(type) && file.size > 6 * 1024 * 1024) throw new Error('big');
     if (!keep) {
       const src = await loadBitmap(file), w0 = src.width || src.naturalWidth, h0 = src.height || src.naturalHeight;
-      const max = slot === 'bg' || slot === 'hero' ? 1600 : 700, k = Math.min(1, max / Math.max(w0, h0));
+      const max = slot === 'bg' || slot === 'hero' || slot === 'ringPic' ? 1600 : 700, k = Math.min(1, max / Math.max(w0, h0));
       const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
       c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
       blob = await new Promise(res => c.toBlob(b => res(b), 'image/webp', 0.9));
@@ -6234,6 +6242,7 @@ function thEditorHTML(id){
   const t = TH.themes[id]; if (!t) return '';
   const st = TH_STYLES[t.style] || TH_STYLES.classic;
   const seg = (k, opts) => '<div class="seg sm">' + opts.map(([v, l]) => '<button type="button" data-action="th-opt" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + (String(t[k]) === String(v)) + '">' + l + '</button>').join('') + '</div>';
+  const segD = (k, d, opts) => '<div class="seg sm">' + opts.map(([v, l]) => '<button type="button" data-action="th-opt" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + (String(t[k] == null ? d : t[k]) === String(v)) + '">' + l + '</button>').join('') + '</div>';   // like seg, with a default
   const slotRow = ([slot, label, help]) => {
     const u = thImg(Object.assign({id}, t), slot), busy = thBusy === slot;
     return '<div class="th-slot"><span class="th-prev' + (u ? '' : ' empty') + '">' + (u ? '<img src="' + u + '" alt="">' : icon('plus')) + '</span>' +
@@ -6244,6 +6253,7 @@ function thEditorHTML(id){
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thWake">Wake phrase</label><input class="in" id="thWake" maxlength="120" value="' + esc(t.wakePhrase || '') + '" placeholder="' + esc('Hey ' + (t.buddyName || 'buddy') + ', Yo ' + (t.buddyName || 'buddy')) + '"><small class="muted">More than one? Split them with commas.</small></div>' +
         '<p class="hint th-wake-hint">Say it to call him hands-free on your phone, like “Hey Siri”. Turn it on in Settings → Hands-free buddy.</p>' + thVoiceHTML(id, t) : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
+      (slot === 'ringPic' && u ? '<div class="th-sub"><span>Fit</span>' + segD('ringFit', 'cover', [['cover','Fill the screen'],['contain','Show all of it']]) + '<span>Darken</span>' + segD('ringDim', 35, [['0','None'],['35','Some'],['60','Lots']]) + '</div>' : '') +
       (slot === 'bg' && u ? '<div class="th-sub"><span>Fade</span>' + seg('bgFade', [['0','None'],['35','Some'],['65','Lots']]) + '</div>' : '') +
       (u && TH_SIZE_RE.test(slot) ? (function(){ const bud = slot === 'mascot', ci = slot.startsWith('calic_'), mx = ci ? 250 : slot.startsWith('card_') || bud ? 200 : 100, mn = bud || ci ? 50 : 20, v = Math.max(mn, Math.min(mx, thSize(t, slot)));
         return '<div class="th-sub th-size-row"><span>Size</span><input type="range" class="th-size" data-slot="' + slot + '" min="' + mn + '" max="' + mx + '" step="5" value="' + v + '" aria-label="' + (bud ? 'Buddy size' : 'Picture size') + '"><output>' + thSizeLabel(slot, v) + '</output></div>'; })() : '');
@@ -7104,7 +7114,7 @@ async function syncWidgetHero(){
 }
 if (NATIVE && JW) {
   const _renderHero = render;
-  render = function(){ _renderHero(); if (!syncWidgetHero.t) syncWidgetHero.t = setTimeout(() => { syncWidgetHero.t = 0; syncWidgetHero(); syncWidgetBuddy(); syncWidgetFont(); }, 1500); };
+  render = function(){ _renderHero(); if (!syncWidgetHero.t) syncWidgetHero.t = setTimeout(() => { syncWidgetHero.t = 0; syncWidgetHero(); syncWidgetBuddy(); syncWidgetFont(); syncAlarmPic(); }, 1500); };
   const _settingsW = settingsHTML;
   settingsHTML = function(){ const h = _settingsW(), at = h.indexOf('<div class="sec-title" id="set-ai">'); return at < 0 ? h + hswSettingsHTML() : h.slice(0, at) + hswSettingsHTML() + h.slice(at); };
   if (!SET_SECTIONS.some(x => x[0] === 'set-hsw')) { const i = SET_SECTIONS.findIndex(x => x[0] === 'set-ai'); SET_SECTIONS.splice(i < 0 ? SET_SECTIONS.length : i, 0, ['set-hsw', 'Home screen']); }
@@ -7195,6 +7205,26 @@ async function syncWidgetBuddy(){
     jwBudKey = key; try { localStorage.setItem('jma:jwBud', key); } catch (e) {}
   } catch (e) { syncWidgetBuddy.failAt = Date.now(); }
   finally { jwBudBusy = false; }
+}
+
+// the Alarm theme's alarm screen picture goes to the phone too, for the alarm that rings with the app closed
+let alarmPicKey = null; try { alarmPicKey = localStorage.getItem('jma:alarmPic'); } catch (e) {}
+let alarmPicBusy = false;
+async function syncAlarmPic(){
+  if (!JA || !JA.setAlarmPic || alarmPicBusy || Date.now() - (syncAlarmPic.failAt || 0) < 60000) return;
+  const t = thFor('alarm'), url = thImg(t, 'ringPic');
+  if (t && t.img && t.img.ringPic && !url) return;   // still loading
+  const fit = t && t.ringFit === 'contain' ? 'contain' : 'cover', dim = t && t.ringDim != null ? Number(t.ringDim) : 35;
+  const key = url ? t.id + ':' + t.img.ringPic + ':' + fit + ':' + dim : '';
+  if (key === alarmPicKey) return;
+  alarmPicBusy = true;
+  try {
+    let data = '', type = '';
+    if (url) { const blob = await (await fetch(url)).blob(); type = blob.type || 'image/png'; data = b64(await blob.arrayBuffer()); }
+    await JA.setAlarmPic({data, type, fit, dim});
+    alarmPicKey = key; try { localStorage.setItem('jma:alarmPic', key); } catch (e) {}
+  } catch (e) { syncAlarmPic.failAt = Date.now(); }
+  finally { alarmPicBusy = false; }
 }
 
 // the weather widget uses the font from the menu's theme ("App text", or "Your text" if App text is left on Default)
