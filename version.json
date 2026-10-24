@@ -1,5 +1,5 @@
 {
- "web": 202610232201,
+ "web": 202610232310,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 186,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=186"
+  "code": 188,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=188"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Steve now always tells you out loud what he did after a task, and his popup goes away on its own a few seconds after he answers so your phone can fall asleep like normal (tap Install for the new phone app)."
+ "notes": "Steve can now control Spotify on your phone: ask him to play a song, pause, keep playing, skip, or go back a song (tap Install for the new phone app)."
 }

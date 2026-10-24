@@ -1,5 +1,11 @@
 [
  {
+  "release": 188,
+  "date": "2026-10-23",
+  "notes": "Steve can now control Spotify on your phone: ask him to play a song, pause, keep playing, skip, or go back a song (tap Install for the new phone app).",
+  "app": true
+ },
+ {
   "release": 186,
   "date": "2026-10-23",
   "notes": "Steve now always tells you out loud what he did after a task, and his popup goes away on its own a few seconds after he answers so your phone can fall asleep like normal (tap Install for the new phone app).",
