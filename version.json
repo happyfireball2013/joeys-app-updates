@@ -1,5 +1,5 @@
 {
- "web": 202610232310,
+ "web": 202610232335,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 188,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=188"
+  "code": 190,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=190"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Steve can now control Spotify on your phone: ask him to play a song, pause, keep playing, skip, or go back a song (tap Install for the new phone app)."
+ "notes": "Steve now actually starts the song you ask for in Spotify (switch on Music control for Joey's App the first time; tap Install for the new phone app)."
 }

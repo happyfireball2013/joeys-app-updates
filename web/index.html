@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610232310;</script>
+<script>window.JOEY_WEB_VERSION = 202610232335;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3507,6 +3507,13 @@ function applyAiActions(out){
         const label = song ? song + (artist ? ' by ' + artist : '') : query;
         if (!(typeof JA !== 'undefined' && JA && JA.music)) { lines.push({icon:'music', text:'Spotify: only on your phone', sub:'', say:'I can only control Spotify from your phone.'}); return; }
         if (spotifyOk === false) { lines.push({icon:'music', text:'Spotify isn’t on this phone', sub:'Install Spotify first', say:'I couldn’t find Spotify on your phone. Install it first.'}); return; }
+        if (play === 'play' && musicAccess === false) {
+          // Android only lets an app start another app's songs with "notification access": open that switch
+          JA.music({do:'access'}).catch(() => {});
+          lines.push({icon:'music', text:'Music control: please switch it on', sub:'Turn on Joey’s App on the screen that opened, then ask again. If the switch is grayed out: Settings → Apps → Joey’s App → ⋮ (top right) → Allow restricted settings.',
+            say:'To start songs for you, I need music control. Switch on Joey’s App on the screen I just opened, then ask me again.'});
+          return;
+        }
         JA.music({do:play, query, song, artist}).then(r => { if (r && r.how === 'no-spotify') { spotifyOk = false; toast('Spotify isn’t installed on this phone.'); } }).catch(() => {});
         const SAY = {play:'Playing ' + label + ' on Spotify.', resume:'Music’s on.', pause:'I paused the music.', next:'Skipped to the next song.', previous:'Went back a song.'};
         lines.push({icon:'music', text:{play:'Playing: ' + label, resume:'Music: playing', pause:'Music: paused', next:'Music: next song', previous:'Music: previous song'}[play], sub:'Spotify', say:SAY[play]});
@@ -3563,8 +3570,10 @@ function aiConfirmLine(l){
   const hit = AI_CONFIRM.find(([re]) => re.test(m[1].trim())), what = m[2].replace(/\s*·\s*/g, ', ');
   return (hit ? hit[1] : m[1].trim() + ': ') + what + (sub ? ', ' + sub : '') + '.';
 }
-let spotifyOk = null;   // is the Spotify app on this phone (checked once when the app starts)
-setTimeout(() => { try { if (typeof JA !== 'undefined' && JA && JA.music) JA.music({do:'check'}).then(r => { spotifyOk = !!(r && r.how === 'ok'); }).catch(() => {}); } catch (e) {} }, 2000);
+let spotifyOk = null, musicAccess = null;   // is the Spotify app on this phone; is "music control" switched on (so he can start songs)
+function spotifyCheck(){ try { if (typeof JA !== 'undefined' && JA && JA.music) return JA.music({do:'check'}).then(r => { spotifyOk = !!(r && r.how === 'ok'); musicAccess = !!(r && r.access); }).catch(() => {}); } catch (e) {} return Promise.resolve(); }
+setTimeout(spotifyCheck, 2000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) spotifyCheck(); });   // coming back from switching it on
 function aiConfirm(reply, lines){
   const words = s => clNorm(s).split(' ').filter(w => w.length > 2);
   const said = new Set(words(reply)), generic = !reply || /^(ok(ay)?|done|got it|sure|all set|you got it|on it|alright)[\s.!,]*(\w+[.!]*)?$/i.test(reply.trim());
@@ -8261,7 +8270,8 @@ function permList(){
     ['overlay', 'Appear on top', permHasAlarm() ? 'A backup so the alarm screen always opens' : 'So your buddy pops up right away when you call him', permHasAlarm() || (wakeOnHere() && wakeList().length > 0)],
     ['dnd', 'Do Not Disturb access', 'So the app can mute your phone during work and class', quietMute],
     ['location', 'Location', 'For the weather where you are', !!s.wxGps],
-    ['mic', 'Microphone', 'So your buddy can hear his wake phrase', wakeOnHere() && wakeList().length > 0]
+    ['mic', 'Microphone', 'So your buddy can hear his wake phrase', wakeOnHere() && wakeList().length > 0],
+    ['music', 'Music control', 'So your buddy can play songs you ask for in Spotify', typeof spotifyOk !== 'undefined' && spotifyOk === true]
   ].filter(p => p[3]);
 }
 async function permCheck(){
@@ -8270,6 +8280,7 @@ async function permCheck(){
   try { const r = await JA.checkSetup(); Object.assign(st, r); } catch (e) {}
   try { if (JA.quietStatus) { const q = await JA.quietStatus(); st.dnd = !!(q && q.canMute); } } catch (e) {}
   try { if (JA.wakeStatus) { const w = await JA.wakeStatus(); st.mic = !!(w && w.mic); } } catch (e) {}
+  try { if (typeof spotifyCheck === 'function') { await spotifyCheck(); st.music = musicAccess === true; } } catch (e) {}
   try { if (S.settings.wxGps) { const G = capPlugin('Geolocation'), p = await G.checkPermissions(); st.location = !!p && (p.location === 'granted' || p.coarseLocation === 'granted'); } } catch (e) {}
   if (st.overlay === undefined) st.overlay = true;
   PERM.st = st;
@@ -8299,7 +8310,8 @@ async function permFix(k){
     try { const r = await JA.requestMic(); if (!r || !r.granted) JA.openSetting({which:'app'}); } catch (e) { JA.openSetting({which:'app'}).catch(() => {}); }
   } else if (k === 'location') {
     try { await capPlugin('Geolocation').requestPermissions(); } catch (e) { JA.openSetting({which:'app'}).catch(() => {}); }
-  } else JA.openSetting({which:k}).catch(() => {});
+  } else if (k === 'music') JA.music({do:'access'}).catch(() => {});
+  else JA.openSetting({which:k}).catch(() => {});
 }
 // the next one that's still off (each is tried once per round, so saying no doesn't loop)
 async function permNext(){

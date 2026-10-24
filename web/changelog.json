@@ -1,5 +1,11 @@
 [
  {
+  "release": 190,
+  "date": "2026-10-23",
+  "notes": "Steve now actually starts the song you ask for in Spotify (switch on Music control for Joey's App the first time; tap Install for the new phone app).",
+  "app": true
+ },
+ {
   "release": 188,
   "date": "2026-10-23",
   "notes": "Steve can now control Spotify on your phone: ask him to play a song, pause, keep playing, skip, or go back a song (tap Install for the new phone app).",
