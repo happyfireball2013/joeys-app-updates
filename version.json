@@ -1,5 +1,5 @@
 {
- "web": 202610240146,
+ "web": 202610240153,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 198,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=198"
+  "code": 200,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=200"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Alarm themes now have an Alarm screen picture: put in a GIF and it plays full screen while your alarm rings (tap Install for the new phone app)."
+ "notes": "Your buddy now only answers out loud when you talk to him by voice; when you type to him, he answers in writing (tap Install for the new phone app)."
 }

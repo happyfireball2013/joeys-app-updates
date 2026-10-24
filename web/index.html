@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610240146;</script>
+<script>window.JOEY_WEB_VERSION = 202610240153;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -6172,8 +6172,7 @@ FORMS.buddyForm = () => {
   }
   if (!aiImage) budLogAdd({who:'me', text});
   i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); const who = aiWho;
-  // he says it out loud: your buddy lines, what he did after a task, or that it didn't work
-  Promise.resolve(aiAsk(text)).then(() => { if (ai.err) buddySpeak(ai.err, who); else if (aiLineHit || (ai.lines || []).length) buddySpeak(ai.reply, who); }).catch(() => {});
+  aiAsk(text);   // typed to him, so he answers in writing only (he talks when you talk to him by voice on the phone)
   buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection
@@ -7160,7 +7159,7 @@ window.__joeyAsk = async function(){
         const who = ai.engine === 'Gemini Nano' ? 'Answered by Gemini Nano (offline)' + (ai.engineWhy ? ' because ' + ai.engineWhy : '') : ai.engine ? 'Answered by ' + ai.engine : '';
         const detail = (ai.lines || []).map(l => l.text + (l.sub ? ' · ' + l.sub : '')).concat(who ? [who] : []).join('\n');
         const r = await JW.askDone({id:a.id, reply:ai.err ? '' : (ai.reply || 'Done!'), detail:ai.err ? '' : detail, err:ai.err || '',
-          speak:aiLineHit && !ai.err, wake:!!a.wake, theme:(aiWho && aiWho.id) || '', name:(aiWho && aiWho.name) || ''}).catch(() => null);
+          speak:!!(a.voice || a.wake), wake:!!a.wake, theme:(aiWho && aiWho.id) || '', name:(aiWho && aiWho.name) || ''}).catch(() => null);
         // into that buddy's chat; if the popup wasn't there to show it, it waits in the app (a dot on the buddy), not as a notification
         try {
           const th = aiWho && aiWho.id, key = 'jma:budLog:' + (th || 'none'), shown = !!(r && r.shown);

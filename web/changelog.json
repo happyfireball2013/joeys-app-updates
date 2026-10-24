@@ -1,5 +1,11 @@
 [
  {
+  "release": 200,
+  "date": "2026-10-24",
+  "notes": "Your buddy now only answers out loud when you talk to him by voice; when you type to him, he answers in writing (tap Install for the new phone app).",
+  "app": true
+ },
+ {
   "release": 198,
   "date": "2026-10-24",
   "notes": "Alarm themes now have an Alarm screen picture: put in a GIF and it plays full screen while your alarm rings (tap Install for the new phone app).",
