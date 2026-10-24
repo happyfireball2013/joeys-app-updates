@@ -1,5 +1,5 @@
 {
- "web": 202610240006,
+ "web": 202610240109,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 194,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=194"
+  "code": 196,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=196"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Steve now finds the exact song and opens it so Spotify plays it, and he only says it's playing when it really is (tap Install for the new phone app)."
+ "notes": "Buddy voice files can now use a British accent and a light 'computer assistant' sound (tap Install for the new phone app)."
 }

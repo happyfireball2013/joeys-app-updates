@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610240006;</script>
+<script>window.JOEY_WEB_VERSION = 202610240109;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3668,11 +3668,25 @@ function aiAsk(text, alts){
   return Promise.resolve();
 }
 /** Says a buddy line out loud in the app: on the phone with his own voice (theme → Voice), on the computer with the built-in voice. */
+/** The computer's own voices: one that fits a buddy voice's accent ("en-GB") and name hints ("George", "male"). */
+function voicePick(v){
+  if (!v || !v.accent || typeof speechSynthesis === 'undefined') return null;
+  const all = speechSynthesis.getVoices().filter(x => String(x.lang).replace('_', '-').toLowerCase() === v.accent.toLowerCase());
+  const hints = (v.voiceHint || []).map(h => String(h).toLowerCase());
+  let best = null, bs = -1;
+  all.forEach(x => { const n = x.name.toLowerCase(); let sc = 0; hints.forEach((h, i) => { if (h && n.includes(h)) sc = Math.max(sc, hints.length - i); }); if (sc > bs) { bs = sc; best = x; } });
+  return best;
+}
+function voiceUtter(text, v){
+  const u = new SpeechSynthesisUtterance(text);
+  if (v) { u.pitch = Math.min(2, v.pitch * v.squeak); u.rate = Math.min(2, v.rate * v.squeak); if (v.accent) { u.lang = v.accent; const p = voicePick(v); if (p) u.voice = p; } }
+  return u;
+}
 function buddySpeak(text, who){
   if (!text) return;
   const t = who && TH.themes[who.id], v = t && t.voice;
   if (typeof JA !== 'undefined' && JA && JA.voiceTest) { JA.voiceTest({theme:(who && who.id) || '', voice:v || null, text}).catch(() => {}); return; }
-  try { const u = new SpeechSynthesisUtterance(text); if (v) { u.pitch = Math.min(2, v.pitch * v.squeak); u.rate = Math.min(2, v.rate * v.squeak); } speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+  try { const u = voiceUtter(text, v); speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
 }
 async function aiRun(text){
   text = String(text || '').trim(); if (!text || ai.busy) return;
@@ -5445,6 +5459,10 @@ async function thVoiceLoad(id, file){
   if (!j || j.type !== 'joeys-app-buddy-voice') { toast('That isn’t a voice file.'); return; }
   const num = (x, d, mn, mx) => { x = Number(x); return isNaN(x) ? d : Math.max(mn, Math.min(mx, x)); };
   t.voice = {name:String(j.name || 'Custom').slice(0, 30), pitch:num(j.pitch, 1, 0.5, 2), rate:num(j.rate, 1, 0.5, 1.6), squeak:num(j.squeak, 1, 1, 2), chirp:['before', 'after', 'both', 'off'].includes(j.chirp) ? j.chirp : 'before'};
+  // optional: an accent ("en-GB" = British), words to look for in the voice's name ("male", "rjs"), and a sound effect ("ai")
+  if (/^[a-z]{2}-[A-Z]{2}$/.test(String(j.accent || ''))) t.voice.accent = j.accent;
+  if (Array.isArray(j.voiceHint)) t.voice.voiceHint = j.voiceHint.slice(0, 8).map(x => String(x).slice(0, 30));
+  if (j.fx === 'ai') t.voice.fx = 'ai';
   sfxSlots(Object.assign({id}, t), 'voice').forEach(k => { delete t.img[k]; IDB.del('th:' + id + ':' + k).catch(() => {}); });
   const ch = Array.isArray(j.chirps) ? j.chirps.slice(0, 40) : [], v0 = Date.now(), img = Object.assign({}, t.img);
   for (let i = 0; i < ch.length; i++) {
@@ -6391,7 +6409,7 @@ Object.assign(A, {
     }
     // on the computer: a rough preview (the phone's voice is the real one)
     sfxPlay('voice', t, true);
-    try { const u = new SpeechSynthesisUtterance(text); u.pitch = Math.min(2, th.voice.pitch * th.voice.squeak); u.rate = Math.min(2, th.voice.rate * th.voice.squeak); setTimeout(() => speechSynthesis.speak(u), 450); } catch (e) {}
+    try { const u = voiceUtter(text, th.voice); setTimeout(() => speechSynthesis.speak(u), 450); } catch (e) {}
   },
   'th-sfx-pick': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxFile'); if (f) f.click(); },
   'th-sfx-dir': t => { thSfxEv = t.dataset.ev; const f = $('#thSfxDir'); if (f) f.click(); },
