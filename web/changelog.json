@@ -1,5 +1,11 @@
 [
  {
+  "release": 194,
+  "date": "2026-10-24",
+  "notes": "Steve now finds the exact song and opens it so Spotify plays it, and he only says it's playing when it really is (tap Install for the new phone app).",
+  "app": true
+ },
+ {
   "release": 191,
   "date": "2026-10-23",
   "notes": "When you open the app and a permission is off (like Music control, or ones Android turns off after an update), the Phone permissions list now pops up so you can switch them back on.",

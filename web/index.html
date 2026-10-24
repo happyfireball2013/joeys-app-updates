@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610232341;</script>
+<script>window.JOEY_WEB_VERSION = 202610240006;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3507,16 +3507,21 @@ function applyAiActions(out){
         const label = song ? song + (artist ? ' by ' + artist : '') : query;
         if (!(typeof JA !== 'undefined' && JA && JA.music)) { lines.push({icon:'music', text:'Spotify: only on your phone', sub:'', say:'I can only control Spotify from your phone.'}); return; }
         if (spotifyOk === false) { lines.push({icon:'music', text:'Spotify isn’t on this phone', sub:'Install Spotify first', say:'I couldn’t find Spotify on your phone. Install it first.'}); return; }
-        if (play === 'play' && musicAccess === false) {
-          // Android only lets an app start another app's songs with "notification access": open that switch
-          JA.music({do:'access'}).catch(() => {});
-          lines.push({icon:'music', text:'Music control: please switch it on', sub:'Turn on Joey’s App on the screen that opened, then ask again. If the switch is grayed out: Settings → Apps → Joey’s App → ⋮ (top right) → Allow restricted settings.',
-            say:'To start songs for you, I need music control. Switch on Joey’s App on the screen I just opened, then ask me again.'});
-          return;
-        }
-        JA.music({do:play, query, song, artist}).then(r => { if (r && r.how === 'no-spotify') { spotifyOk = false; toast('Spotify isn’t installed on this phone.'); } }).catch(() => {});
-        const SAY = {play:'Playing ' + label + ' on Spotify.', resume:'Music’s on.', pause:'I paused the music.', next:'Skipped to the next song.', previous:'Went back a song.'};
-        lines.push({icon:'music', text:{play:'Playing: ' + label, resume:'Music: playing', pause:'Music: paused', next:'Music: next song', previous:'Music: previous song'}[play], sub:'Spotify', say:SAY[play]});
+        const SAY = {resume:'Music’s on.', pause:'I paused the music.', next:'Skipped to the next song.', previous:'Went back a song.'};
+        const ml = {icon:'music', text:{play:'Looking up: ' + label, resume:'Music: playing', pause:'Music: paused', next:'Music: next song', previous:'Music: previous song'}[play], sub:'Spotify', say:SAY[play] || 'Looking for ' + label + '.'};
+        lines.push(ml);
+        const p = JA.music({do:play, query, song, artist}).then(r => {
+          const how = r && r.how;
+          if (how === 'no-spotify') { spotifyOk = false; Object.assign(ml, {text:'Spotify isn’t on this phone', sub:'Install Spotify first', say:'I couldn’t find Spotify on your phone. Install it first.'}); return; }
+          if (play !== 'play') return;
+          // he only says "playing" when he saw it start (or couldn't look: no Music control)
+          const t = r.title ? r.title + (artist ? ' by ' + artist : '') : label;
+          if (how === 'playing') Object.assign(ml, {text:'Playing: ' + t, say:'Playing ' + t + ' on Spotify.'});
+          else if (how === 'started') Object.assign(ml, {text:'Opened in Spotify: ' + t, sub:'Switch on Music control so I can check it’s playing', say:'I opened ' + t + ' in Spotify. It should start playing.'});
+          else if (how === 'opened') Object.assign(ml, {text:'Opened in Spotify: ' + t, sub:'It didn’t start by itself: tap play', say:'I opened ' + t + ' in Spotify, but it didn’t start. Tap play.'});
+          else Object.assign(ml, {text:'Couldn’t find: ' + label, sub:'Searched for it in Spotify', say:'I couldn’t find that exact song, so I searched for it in Spotify.'});
+        }).catch(() => Object.assign(ml, {text:'Spotify didn’t answer', sub:'', say:'Something went wrong with Spotify. Try again.'}));
+        if (play === 'play') aiWaits.push(p);
       } else if (type === 'phone_quiet') {
         const mode = ['silent', 'vibrate', 'normal'].includes(a.mode) ? a.mode : (a.mode === 'mute' ? 'silent' : a.mode === 'unmute' ? 'normal' : ''); if (!mode) return;
         const when = v => { v = String(v || '').trim(); if (!v) return 0; const m = /^(\d{4}-\d{2}-\d{2})?[ T]?(\d{2}):(\d{2})$/.exec(v); if (!m) return 0;
@@ -3549,12 +3554,17 @@ function applyAiActions(out){
   });
   aiLineHit = !!sayLine;   // one of your buddy lines (he always says those out loud)
   const tried = acts.filter(a => a && a.type && a.type !== 'say_line').length;
-  let reply = sayLine || str(out && out.reply, 500) || (lines.length ? '' : 'I did not catch that. Try saying it another way.');
+  const raw = str(out && out.reply, 500);
+  let reply = sayLine || raw || (lines.length ? '' : 'I did not catch that. Try saying it another way.');
   // he always says what he actually did, so you know it worked (and never says "done" when nothing happened)
   if (!sayLine && tried && !lines.length) reply = 'Sorry, I couldn’t do that one. Try saying it another way.';
   else if (!sayLine && lines.length) reply = aiConfirm(reply, lines);
-  return {reply, lines, undo};
+  // something that takes a few seconds (finding a song): the answer waits for it, then says what really happened
+  const waits = aiWaits.splice(0);
+  const wait = waits.length ? Promise.all(waits).then(() => sayLine ? reply : aiConfirm(raw, lines)) : null;
+  return {reply, lines, undo, wait};
 }
+const aiWaits = [];
 /** His answer after a task: the AI's words if they already say what got done, otherwise a plain "I added…" built from
  *  what really happened (the lines), so he always tells you what he did. */
 const AI_CONFIRM = [[/^Reminder$/, 'I added a reminder: '], [/^(Event|Work|Class)$/, 'I put it on your calendar: '], [/^Already there$/, 'That’s already on your calendar: '],
@@ -3676,6 +3686,7 @@ async function aiRun(text){
   try {
     const out = await aiFn.json(input, {modelTier:S.settings.aiTier, cache:false, signal:aiCtl.signal});
     const res = applyAiActions(out);
+    if (res.wait) { ai.reply = res.reply; ai.lines = res.lines; render(); try { res.reply = await res.wait; } catch (e) {} }
     Object.assign(ai, {reply:res.reply, lines:res.lines, undo:res.undo, lastAt:Date.now()});
     ai.turns = turns.concat({role:'user', content:'Request: ' + text}, {role:'assistant', content:JSON.stringify({actions:(out && out.actions) || [], reply:res.reply})}).slice(-6);
   } catch (e) {
@@ -7919,6 +7930,7 @@ async function gemRun(text, fallback){
     if (out && !Array.isArray(out.actions)) out.actions = [];
     if (!out || (!out.actions.length && !String(out.reply || '').trim())) { Object.assign(ai, {err:'Gemini didn’t answer. Try saying it another way.'}); ui.aiText = text; render(); return; }
     const res = applyAiActions(out);
+    if (res.wait) { ai.busy = true; render(); try { res.reply = await res.wait; } catch (e) {} if (my !== gemReq) return; ai.busy = false; }   // e.g. finding a song in Spotify
     const heard = aud && out && typeof out.heard === 'string' && out.heard.trim() ? out.heard.trim().slice(0, 300) : '';   // what Gemini heard in the recording
     Object.assign(ai, {req:heard || text, heard, reply:res.reply, lines:res.lines, undo:res.undo, err:'', lastAt:Date.now()});
     ai.turns = turns.concat({role:'user', content:'Request: ' + text + (img ? ' [sent a picture]' : '')}, {role:'assistant', content:JSON.stringify({actions:out.actions, reply:res.reply})}).slice(-6);

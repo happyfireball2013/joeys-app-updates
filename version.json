@@ -1,5 +1,5 @@
 {
- "web": 202610232341,
+ "web": 202610240006,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 190,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=190"
+  "code": 194,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=194"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "When you open the app and a permission is off (like Music control, or ones Android turns off after an update), the Phone permissions list now pops up so you can switch them back on."
+ "notes": "Steve now finds the exact song and opens it so Spotify plays it, and he only says it's playing when it really is (tap Install for the new phone app)."
 }
