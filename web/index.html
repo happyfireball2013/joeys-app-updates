@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610232335;</script>
+<script>window.JOEY_WEB_VERSION = 202610232341;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -8298,12 +8298,13 @@ function permSheetHTML(){
     '<p class="hint">' + (miss.length ? 'Android sometimes switches these off when the app updates. Tap the button and switch on Joey’s App on each screen that opens, then come back. The next one opens by itself.' : 'Everything is on. You’re all set.') + '</p>' +
     (miss.length ? '<button type="button" class="btn accent perm-all" data-action="perm-all">' + (PERM.run ? 'Keep going (' + miss.length + ' left)' : 'Turn them all on (' + miss.length + ')') + '</button>' : '') +
     '<div class="card perm-list">' + rows + '</div>' +
+    (miss.includes('music') ? '<p class="hint">Music control’s switch grayed out? Open Settings → Apps → Joey’s App → ⋮ (top right) → Allow restricted settings, then try again.</p>' : '') +
     '<div class="sh-actions"><span class="grow"></span><button type="button" class="btn" data-action="sheet-close">Done</button></div></div>';
 }
 function permSheetRefresh(){ const el = $('#permSheet'); if (el) el.outerHTML = permSheetHTML(); }
 async function permOpen(){ await permCheck(); openSheet(permSheetHTML(), () => { PERM.run = false; }); }
 async function permFix(k){
-  PERM.tried[k] = true;
+  PERM.tried[k] = true; PERM.fixAt = Date.now();
   if (k === 'notifications') {
     try { const r = await JA.requestNotifications(); if (!r || !r.granted) JA.openSetting({which:'notifications'}); } catch (e) { JA.openSetting({which:'notifications'}).catch(() => {}); }
   } else if (k === 'mic') {
@@ -8340,15 +8341,19 @@ if (NATIVE && JA) {
       else if ($('#permSheet')) { await permCheck(); permSheetRefresh(); }
     }, 400);
   });
-  // after an update: if something got switched off, show the list by itself
-  setTimeout(async () => {
-    let ver = 0; try { ver = JUP ? (await JUP.info()).versionCode : 0; } catch (e) {}
+  // every time you open the app: if any permission is off (Android switches some off after an update), show the list
+  let permAwayAt = 0;
+  async function permAsk(){
+    if (document.hidden || PERM.run || alarmRing || !$('#sheet').hidden) return;
+    if (Date.now() - (PERM.fixAt || 0) < 120000) return;   // just back from switching one on yourself
     await permCheck(); if (ui.screen === 'settings') scheduleRender();
-    let last = 0; try { last = Number(localStorage.getItem('jma:permVer') || 0); } catch (e) {}
-    try { if (ver) localStorage.setItem('jma:permVer', String(ver)); } catch (e) {}
-    // only when you have an alarm on: otherwise turn things on yourself (Alarms page, or Settings → App updates → Phone permissions)
-    if (ver && ver !== last && permHasAlarm() && (permMissing() || []).length && $('#sheet').hidden) permOpen();   // also the first time (last = 0)
-  }, 3000);
+    if ((permMissing() || []).length && $('#sheet').hidden && !document.hidden) permOpen();
+  }
+  setTimeout(permAsk, 3000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { permAwayAt = Date.now(); return; }
+    if (permAwayAt && Date.now() - permAwayAt > 30000) setTimeout(permAsk, 1200);   // came back to the app after a while
+  });
 }
 /* ---------- pull down at the top of a page to refresh (like Snapchat) ---------- */
 // The page stretches with more and more resistance the farther you pull. Let go past the line and it

@@ -1,5 +1,5 @@
 {
- "web": 202610232335,
+ "web": 202610232341,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Steve now actually starts the song you ask for in Spotify (switch on Music control for Joey's App the first time; tap Install for the new phone app)."
+ "notes": "When you open the app and a permission is off (like Music control, or ones Android turns off after an update), the Phone permissions list now pops up so you can switch them back on."
 }
