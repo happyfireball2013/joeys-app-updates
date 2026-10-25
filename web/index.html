@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610241746;</script>
+<script>window.JOEY_WEB_VERSION = 202610242004;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3244,6 +3244,14 @@ function wakeList(){
 const wakeOnHere = () => { try { return localStorage.getItem('jma:wakeOn') === '1'; } catch (e) { return false; } };
 /** "Only listen to my voice" (this phone only), and how strict: 0 relaxed, 1 normal, 2 strict. */
 /** "Only while the screen is on" (this phone): saves battery; he's ready again the moment you turn the screen on. */
+/** "Always listen" (asked of the buddy): until this time he also listens while the phone is asleep. Per phone. */
+const wakeAwakeUntil = () => { try { const v = Number(localStorage.getItem('jma:wakeAwakeUntil') || 0); return v > Date.now() ? v : 0; } catch (e) { return 0; } };
+const hmOfTs = ts => { const d = new Date(ts); return fmtHM(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')); };
+async function wakeAwakeSet(until){
+  try { localStorage.setItem('jma:wakeAwakeUntil', String(until || 0)); } catch (e) {}
+  try { if (typeof JA !== 'undefined' && JA && JA.setAwake) await JA.setAwake({until:until || 0}); } catch (e) {}
+  if (ui.screen === 'settings') scheduleRender();
+}
 const wakeScreenHere = () => { try { return localStorage.getItem('jma:wakeScreen') === '1'; } catch (e) { return false; } };
 const wakeVoiceHere = () => { try { return localStorage.getItem('jma:wakeVoice') === '1'; } catch (e) { return false; } };
 const wakeStrictHere = () => { try { const v = Number(localStorage.getItem('jma:wakeStrict') || 1); return v === 0 || v === 2 ? v : 1; } catch (e) { return 1; } };
@@ -3400,8 +3408,10 @@ function aiContext(){
     '{"type":"add_birthday","name":"Blake","month":10,"day":11,"year":""}',
     '{"type":"delete","kind":"reminder","id":""} where kind is reminder, event, note, alarm or birthday; add "all":true to delete every upcoming one of a repeating event',
     '{"type":"phone_quiet","mode":"silent","from":"","until":"YYYY-MM-DD HH:MM"} mutes (silent), vibrates (vibrate) or unmutes (normal) the phone; from "" means now, until "" means until unmuted',
+    '{"type":"volume","to":40} sets the phone\u2019s media (music) volume in percent, or {"type":"volume","change":15} / {"type":"volume","change":-15} for louder / quieter.',
+    '{"type":"listen_asleep","on":true} for "always listen", "keep listening", "listen while my phone is asleep": the buddy also listens for his wake phrase while the phone sleeps, for one hour. "on":false for "stop listening" (he then only listens while the phone is in use; he never stops completely).',
     '{"type":"quiet_auto","work":"vibrate","class":"silent"} sets what the phone does during every work shift / class: off, vibrate or silent (give only what changes)',
-    '{"type":"music","do":"play","song":"","artist":"","query":""} controls Spotify on the phone. do is play (a song, artist, album or playlist you name: query is what to search, like "Blinding Lights The Weeknd"; song and artist when you know them), resume ("play some music", "unpause", "keep playing"), pause ("stop the music"), next ("skip") or previous ("go back a song"). Use it whenever music, a song, Spotify, skip or pause is asked for.',
+    '{"type":"music","do":"play","song":"","artist":"","query":""} controls Spotify on the phone. do is play (a song, artist, album or playlist you name: query is what to search, like "Blinding Lights The Weeknd"; song and artist when you know them), resume ("play some music", "unpause", "keep playing"), pause ("stop the music"), next ("skip"), previous ("go back a song") or restart ("start this song over"). Use it whenever music, a song, Spotify, skip or pause is asked for.',
     '',
     ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
     ...(function(){   // the buddy lines: catch them even when voice typing got a word wrong
@@ -3532,14 +3542,14 @@ function applyAiActions(out){
         t.buddyName = name; thSave(); thApplied = ''; thRefreshEditorIfOpen();
         lines.push({icon:'smile', text:'New name: ' + name, sub:'Your buddy will remember it'});
       } else if (type === 'music') {
-        const what = ['play', 'resume', 'pause', 'next', 'previous'].includes(a.do) ? a.do : (a.do === 'skip' ? 'next' : a.do === 'stop' ? 'pause' : a.do === 'back' ? 'previous' : 'play');
+        const what = ['play', 'resume', 'pause', 'next', 'previous', 'restart'].includes(a.do) ? a.do : (a.do === 'skip' ? 'next' : a.do === 'stop' ? 'pause' : a.do === 'back' ? 'previous' : 'play');
         const song = str(a.song, 120), artist = str(a.artist, 120), query = str(a.query, 200) || [song, artist].filter(Boolean).join(' ');
         const play = what === 'play' && query ? 'play' : what === 'play' ? 'resume' : what;
         const label = song ? song + (artist ? ' by ' + artist : '') : query;
         if (!(typeof JA !== 'undefined' && JA && JA.music)) { lines.push({icon:'music', text:'Spotify: only on your phone', sub:'', say:'I can only control Spotify from your phone.'}); return; }
         if (spotifyOk === false) { lines.push({icon:'music', text:'Spotify isn’t on this phone', sub:'Install Spotify first', say:'I couldn’t find Spotify on your phone. Install it first.'}); return; }
-        const SAY = {resume:'Music’s on.', pause:'I paused the music.', next:'Skipped to the next song.', previous:'Went back a song.'};
-        const ml = {icon:'music', text:{play:'Looking up: ' + label, resume:'Music: playing', pause:'Music: paused', next:'Music: next song', previous:'Music: previous song'}[play], sub:'Spotify', say:SAY[play] || 'Looking for ' + label + '.'};
+        const SAY = {restart:'Starting this song over.', resume:'Music’s on.', pause:'I paused the music.', next:'Skipped to the next song.', previous:'Went back a song.'};
+        const ml = {icon:'music', text:{play:'Looking up: ' + label, restart:'Music: from the start', resume:'Music: playing', pause:'Music: paused', next:'Music: next song', previous:'Music: previous song'}[play], sub:'Spotify', say:SAY[play] || 'Looking for ' + label + '.'};
         lines.push(ml);
         const p = JA.music({do:play, query, song, artist}).then(r => {
           const how = r && r.how;
@@ -3553,6 +3563,30 @@ function applyAiActions(out){
           else Object.assign(ml, {text:'Couldn’t find: ' + label, sub:'Searched for it in Spotify', say:'I couldn’t find that exact song, so I searched for it in Spotify.'});
         }).catch(() => Object.assign(ml, {text:'Spotify didn’t answer', sub:'', say:'Something went wrong with Spotify. Try again.'}));
         if (play === 'play') aiWaits.push(p);
+      } else if (type === 'volume') {
+        if (!(typeof JA !== 'undefined' && JA && JA.music)) { lines.push({icon:'music', text:'Volume: only on your phone', sub:'', say:'I can only change the volume on your phone.'}); return; }
+        const to = a.to != null && a.to !== '' ? Math.max(0, Math.min(100, Math.round(Number(a.to)))) : -1, change = Math.max(-100, Math.min(100, Math.round(Number(a.change) || 0)));
+        if (to < 0 && !change) return;
+        const ml = {icon:'music', text:'Volume', sub:'Your phone’s media volume', say:'Changing the volume.'};
+        lines.push(ml);
+        aiWaits.push(JA.music({do:'volume', to, change}).then(r => { const p = r && r.volume; if (p >= 0) Object.assign(ml, {text:'Volume: ' + p + '%', say:to === 0 ? 'Muted the music.' : 'Volume ' + (to >= 0 ? 'at ' : change > 0 ? 'up to ' : 'down to ') + p + '%.'}); }).catch(() => Object.assign(ml, {say:'I couldn’t change the volume.'})));
+      } else if (type === 'listen_asleep') {
+        const on = a.on !== false && a.on !== 'false';
+        const ml = {icon:'mic', text:'', sub:'Hands-free buddy'};
+        if (!(typeof JA !== 'undefined' && JA && JA.setAwake)) Object.assign(ml, {text:'Listening: only on your phone', say:'I can only do that on your phone.'});
+        else if (!wakeOnHere()) Object.assign(ml, {text:'Hands-free is off', sub:'Turn it on in Settings → Hands-free buddy', say:'Hands-free listening is off on this phone. Turn it on in Settings, under Hands-free buddy.'});
+        else if (on) {
+          if (!wakeScreenHere()) Object.assign(ml, {text:'Already listening all the time', sub:'“Only while the screen is on” is off', say:'I’m already listening, even while your phone sleeps.'});
+          else { const until = Date.now() + 60 * 6e4; wakeAwakeSet(until); Object.assign(ml, {text:'Listening while your phone sleeps', sub:'Until ' + hmOfTs(until), say:'Okay, I’ll keep listening while your phone sleeps until ' + hmOfTs(until) + '.'}); }
+        } else {
+          const was = wakeAwakeUntil();
+          if (was) wakeAwakeSet(0);
+          else if (!wakeScreenHere()) {   // he was always listening: switch on "Only while the screen is on"
+            try { localStorage.setItem('jma:wakeScreen', '1'); } catch (e) {} if (typeof syncWakeNative === 'function') syncWakeNative(true);
+          }
+          Object.assign(ml, {text:'Not listening while your phone sleeps', sub:'Still listening while you use it', say:'Okay, I’ll stop listening while your phone sleeps. I’m still here when you’re using it.'});
+        }
+        lines.push(ml);
       } else if (type === 'phone_quiet') {
         const mode = ['silent', 'vibrate', 'normal'].includes(a.mode) ? a.mode : (a.mode === 'mute' ? 'silent' : a.mode === 'unmute' ? 'normal' : ''); if (!mode) return;
         const when = v => { v = String(v || '').trim(); if (!v) return 0; const m = /^(\d{4}-\d{2}-\d{2})?[ T]?(\d{2}):(\d{2})$/.exec(v); if (!m) return 0;
@@ -3687,7 +3721,61 @@ function customLineFor(text, who){
 function customReplyText(l, who){ return String(l.reply).replace(/\{you\}/g, S.settings.name || 'you').replace(/\{me\}/g, (who && who.name) || 'me'); }
 /** Ask the AI, unless it's one of your buddy lines: then he answers with your line right away. */
 let aiLineHit = false;   // the last answer was one of your buddy lines
+/* Instant music and volume commands ("skip this song", "go back", "restart this song", "pause", "volume up", "volume to 40%"):
+   done right away on the phone, no AI and no wait. KEEP IN SYNC with QuickCommands.java (the phone popup's copy). */
+const QW = '(?: (?:this|the|that|it|my|a|one))?', QS = '(?: (?:song|track|one|music|tune))?';
+const QUICK = [
+  ['restart', new RegExp('^(?:(?:restart|replay|rewind|start over)' + QW + QS + '(?: (?:over|again|from the (?:start|beginning)))?|(?:start|play)' + QW + QS + ' (?:over|again|from the (?:start|beginning))|go back to the (?:start|beginning)(?: of' + QW + QS + ')?)$')],
+  ['next', new RegExp('^(?:(?:skip|next)' + QW + QS + '|(?:play|go to|go)(?: to)?(?: the)? next' + QS + ')$')],
+  ['previous', new RegExp('^(?:(?:go )?back' + QW + QS + '|(?:play |go to |go back to |back to )?(?:the )?(?:previous|last|prior)' + QS + ')$')],
+  ['pause', new RegExp('^(?:pause|stop)' + QW + '(?: (?:music|song|track|spotify|it))?$')],
+  ['resume', new RegExp('^(?:resume|unpause|continue|keep playing|play)' + QW + '(?: (?:music|song|track|spotify|it))?$')],
+  ['mute', /^mute(?: the| my)? (?:music|sound|volume|spotify|media)$/],
+  ['max', /^(?:(?:max|full|maximum)(?: the)? volume|(?:set |turn )?(?:the )?volume (?:all the way up|to (?:max|full|maximum)|max))$/],
+  ['up', /^(?:(?:turn|crank|bump|pump)(?: it| (?:the |my )?(?:volume|music|sound))? up(?: (?:the |my )?(?:volume|music|sound))?|volume up|(?:make it )?louder|raise the volume)$/],
+  ['down', /^(?:turn(?: it| (?:the |my )?(?:volume|music|sound))? down(?: (?:the |my )?(?:volume|music|sound))?|volume down|(?:make it )?(?:quieter|softer)|lower the volume)$/],
+  ['set', /^(?:(?:set|turn|put|change) )?(?:the |my )?(?:volume|music|sound)(?: (?:to|at))? (\d{1,3})(?: ?%| percent)?$|^(?:volume )?(\d{1,3})(?: ?%| percent)(?: volume)?$/]
+];
+function quickNorm(s, name){
+  let t = String(s || '').toLowerCase().replace(/[’']/g, '').replace(/%/g, ' percent ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/ percent/g, '%').replace(/(\d) %/g, '$1%');
+  // his name, and every buddy's name ("hey Steve, …" in the AI bar, where no buddy is picked)
+  const names = [name].concat(Object.entries(TH.themes || {}).map(([id, th]) => buddyName(Object.assign({id}, th)))).map(x => String(x || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').trim()).filter(Boolean);
+  for (let k = 0; k < 3; k++) {
+    const b = t;
+    t = t.replace(/^(?:hey|hi|yo|ok|okay|hello|um|uh)\s+/, '');
+    const n = names.find(x => t.startsWith(x + ' ')); if (n) t = t.slice(n.length + 1);
+    t = t.replace(/^(?:can you|could you|would you|will you|please)\s+/, '');
+    if (t === b) break;
+  }
+  return t.replace(/\s+(?:please|now|for me|thanks|thank you)$/, '').trim();
+}
+const QUICK_SAY = {restart:'Starting this song over.', next:'Skipped to the next song.', previous:'Went back to the previous song.', pause:'Paused.', resume:'Music’s on.'};
+async function quickCmd(text, who){
+  if (!(typeof JA !== 'undefined' && JA && JA.music)) return null;   // phone only
+  const t = quickNorm(text, who && who.name); if (!t || t.length > 60) return null;
+  const hit = QUICK.find(([, re]) => re.test(t)); if (!hit) return null;
+  const k = hit[0];
+  if (QUICK_SAY[k]) { JA.music({do:k}).catch(() => {}); return {reply:QUICK_SAY[k], line:{icon:'music', text:'Music: ' + {restart:'from the start', next:'next song', previous:'previous song', pause:'paused', resume:'playing'}[k], sub:'Spotify'}}; }
+  let arg = {};
+  if (k === 'mute') arg = {to:0}; else if (k === 'max') arg = {to:100}; else if (k === 'up') arg = {change:15}; else if (k === 'down') arg = {change:-15};
+  else { const m = t.match(hit[1]), v = Number(m[1] || m[2]); if (!(v >= 0 && v <= 100)) return null; arg = {to:v}; }
+  let pct = null; try { const r = await JA.music(Object.assign({do:'volume'}, arg)); pct = r && r.volume; } catch (e) {}
+  const reply = k === 'mute' ? 'Muted the music.' : pct == null || pct < 0 ? 'I couldn’t change the volume.' : 'Volume ' + (k === 'up' ? 'up to ' : k === 'down' ? 'down to ' : 'at ') + pct + '%.';
+  return {reply, line:{icon:'music', text:'Volume: ' + (pct == null || pct < 0 ? '?' : pct + '%'), sub:'Your phone’s media volume'}};
+}
 function aiAsk(text, alts){
+  if (text && !ai.busy && typeof JA !== 'undefined' && JA && JA.music) {
+    const who0 = aiWho, t0 = quickNorm(text, who0 && who0.name);
+    if (QUICK.some(([, re]) => re.test(t0))) {
+      return quickCmd(text, who0).then(q => {
+        if (!q) return aiRun(text);
+        aiLineHit = false;
+        Object.assign(ai, {busy:false, req:String(text), reply:q.reply, lines:[q.line], undo:[], err:'', engine:'', engineWhy:'', lastAt:Date.now()});
+        ui.aiText = ''; render();
+      });
+    }
+  }
   // voice typing's other guesses count too (it may have heard "call my pawns" second, after "call my ponds")
   const who = aiWho; let l = text && !ai.busy ? customLineFor(text, who) : null;
   if (!l && !ai.busy && Array.isArray(alts)) for (const a of alts) { l = customLineFor(a, who); if (l) break; }
@@ -4361,7 +4449,8 @@ function settingsHTML(){
         if (!phone) h += '<div class="srow"><span class="lbl">Works on your phone<small>Your phone listens for your buddies’ wake phrases, like “Hey Siri”, even when the app is closed. Set the phrases here (they sync) and turn it on in the phone app.</small></span></div>';
         else h += '<div class="srow"><span class="lbl">Listen for wake phrases<small>Say a buddy’s phrase any time, even with the app closed or the phone locked, and he pops up to help. Listening happens on your phone, offline. It uses more battery and shows a “Listening” notification.</small></span><button type="button" class="toggle" data-action="wake-toggle" aria-pressed="' + on + '" aria-label="Listen for wake phrases"></button></div>' +
           (on || (wakeSt && wakeBattery(wakeSt.battery).listen) ? wakeBatteryHTML() : '') +
-          (on ? '<div class="srow"><span class="lbl">Only while the screen is on<small>Saves battery: he stops listening when your screen goes off, and is ready again as soon as you turn it on (the lock screen counts as on).</small></span><button type="button" class="toggle" data-action="wake-screen" aria-pressed="' + wakeScreenHere() + '" aria-label="Only listen while the screen is on"></button></div>' : '') +
+          (on && wakeScreenHere() && wakeAwakeUntil() ? '<div class="srow"><span class="lbl">Also listening while the phone sleeps<small>Until ' + hmOfTs(wakeAwakeUntil()) + ', because you asked him to. Say “stop listening” to end it early.</small></span><button type="button" class="btn sm" data-action="wake-awake-stop">Stop</button></div>' : '') +
+          (on ? '<div class="srow"><span class="lbl">Only while the screen is on<small>Saves battery: he stops listening when your screen goes off, and is ready again as soon as you turn it on (the lock screen counts as on). Tell him “always listen” and he’ll listen while the phone sleeps too, for an hour.</small></span><button type="button" class="toggle" data-action="wake-screen" aria-pressed="' + wakeScreenHere() + '" aria-label="Only listen while the screen is on"></button></div>' : '') +
           (on ? '<div class="srow"><label class="lbl" for="wakePause">Wait after you stop talking' + sub('How long he waits for you to go on before he answers. Longer gives you time to think mid-sentence.') + '</label><span class="vol" id="wakePauseOut">' + wakePauseHere() + ' s</span></div>' +
             '<div style="padding:0 0 12px"><input class="range" type="range" min="1" max="6" step="0.5" id="wakePause" value="' + wakePauseHere() + '" aria-label="Wait after you stop talking"></div>' : '');
         h += list.length ? list.map(x => '<div class="srow"><span class="lbl">“' + esc(x.label) + '”<small>Calls ' + esc(x.name) + '</small></span></div>').join('')
@@ -4955,6 +5044,7 @@ const A = {
   'wake-toggle': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeOn', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); if (typeof syncWakeNative === 'function') syncWakeNative(true); render(); },
   'wake-voice': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeVoice', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); syncWakeNative(true); render(); if (on && !(wakeSt && wakeSt.voice && wakeSt.voice.prints >= 3)) setTimeout(wakeTeachSheet, 300); },
   'wake-teach': () => wakeTeachSheet(),
+  'wake-awake-stop': () => { wakeAwakeSet(0); toast('He’ll only listen while you’re using your phone.'); },
   'wake-screen': t => { const on = t.getAttribute('aria-pressed') !== 'true'; try { localStorage.setItem('jma:wakeScreen', on ? '1' : '0'); } catch (e) {} t.setAttribute('aria-pressed', String(on)); if (typeof syncWakeNative === 'function') syncWakeNative(true); toast(on ? 'He’ll only listen while your screen is on.' : 'He’ll listen all the time.'); },
   'note-hide': () => { closeSheet(); if (typeof JA !== 'undefined' && JA) JA.openSetting({which:'wakeNote'}).catch(() => {}); },
   'wake-teach-go': async t => {

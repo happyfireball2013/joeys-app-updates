@@ -1,5 +1,5 @@
 {
- "web": 202610241746,
+ "web": 202610242004,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 200,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=200"
+  "code": 205,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=205"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Deleting anything in a theme (a picture, a sound, your font, a buddy voice or the whole theme) now asks if you're sure first."
+ "notes": "Tell your buddy \u201calways listen\u201d and he listens while your phone sleeps for an hour (\u201cstop listening\u201d ends it); skip, go back, restart, pause and volume commands now happen instantly (tap Install for the new phone app)."
 }

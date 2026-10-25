@@ -1,5 +1,11 @@
 [
  {
+  "release": 205,
+  "date": "2026-10-24",
+  "notes": "Tell your buddy “always listen” and he listens while your phone sleeps for an hour (“stop listening” ends it); skip, go back, restart, pause and volume commands now happen instantly (tap Install for the new phone app).",
+  "app": true
+ },
+ {
   "release": 201,
   "date": "2026-10-24",
   "notes": "Deleting anything in a theme (a picture, a sound, your font, a buddy voice or the whole theme) now asks if you're sure first.",
