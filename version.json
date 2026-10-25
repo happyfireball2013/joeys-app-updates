@@ -1,5 +1,5 @@
 {
- "web": 202610242004,
+ "web": 202610250918,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -43,5 +43,5 @@
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Tell your buddy \u201calways listen\u201d and he listens while your phone sleeps for an hour (\u201cstop listening\u201d ends it); skip, go back, restart, pause and volume commands now happen instantly (tap Install for the new phone app)."
+ "notes": "Themes now load much faster when you open the app: the page you're on shows its theme first, and the app no longer reads every sound file at startup."
 }

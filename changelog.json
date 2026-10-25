@@ -1,5 +1,11 @@
 [
  {
+  "release": 206,
+  "date": "2026-10-25",
+  "notes": "Themes now load much faster when you open the app: the page you're on shows its theme first, and the app no longer reads every sound file at startup.",
+  "app": false
+ },
+ {
   "release": 205,
   "date": "2026-10-24",
   "notes": "Tell your buddy “always listen” and he listens while your phone sleeps for an hour (“stop listening” ends it); skip, go back, restart, pause and volume commands now happen instantly (tap Install for the new phone app).",
