@@ -1,5 +1,11 @@
 [
  {
+  "release": 209,
+  "date": "2026-10-26",
+  "notes": "Your buddy's chat bubble has a mic button now: tap it and talk, and he answers out loud (typing still gets a quiet, written answer). Tap Install for the new phone app.",
+  "app": true
+ },
+ {
   "release": 206,
   "date": "2026-10-25",
   "notes": "Themes now load much faster when you open the app: the page you're on shows its theme first, and the app no longer reads every sound file at startup.",

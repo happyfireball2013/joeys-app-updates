@@ -1,5 +1,5 @@
 {
- "web": 202610250918,
+ "web": 202610260035,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 205,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=205"
+  "code": 209,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=209"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Themes now load much faster when you open the app: the page you're on shows its theme first, and the app no longer reads every sound file at startup."
+ "notes": "Your buddy's chat bubble has a mic button now: tap it and talk, and he answers out loud (typing still gets a quiet, written answer). Tap Install for the new phone app."
 }

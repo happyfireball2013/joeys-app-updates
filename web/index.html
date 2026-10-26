@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610250918;</script>
+<script>window.JOEY_WEB_VERSION = 202610260035;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -6307,7 +6307,9 @@ function buddyToggle(keep){
     b.innerHTML = '<button class="bb-x" data-action="buddy-close" aria-label="Close">' + icon('x') + '</button><div class="bb-body"></div>' +
       '<div class="bb-pic" id="buddyPic" hidden><img alt="Picture to send"><button type="button" class="bb-pic-x" data-action="buddy-pic-x" aria-label="Remove picture">' + icon('x') + '</button></div>' +
       '<form id="buddyForm" class="bb-form" autocomplete="off"><button type="button" class="bb-attach" data-action="buddy-pic" aria-label="Send a picture" title="Send a picture (like your work schedule)">' + icon('image') + '</button>' +
-      '<input class="in" id="buddyInput" placeholder="Say something…" enterkeyhint="send"><button class="ai-go" type="submit" aria-label="Send">' + icon('send') + '</button></form>' +
+      '<input class="in" id="buddyInput" placeholder="Say something…" enterkeyhint="send">' +
+      (typeof JA !== 'undefined' && JA && JA.listen ? '<button type="button" class="bb-attach bb-mic" data-action="buddy-mic" aria-label="Talk to him" title="Talk to him (he answers out loud)">' + icon('mic') + '</button>' : '') +
+      '<button class="ai-go" type="submit" aria-label="Send">' + icon('send') + '</button></form>' +
       '<input type="file" id="buddyPicFile" accept="image/*" hidden>';
     document.body.appendChild(b);
     // tapping anywhere else puts the bubble away, and the app's buttons wait until it's closed
@@ -6335,7 +6337,23 @@ FORMS.buddyForm = () => {
   }
   if (!aiImage) budLogAdd({who:'me', text});
   i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); const who = aiWho;
-  aiAsk(text);   // typed to him, so he answers in writing only (he talks when you talk to him by voice on the phone)
+  aiAsk(text);   // typed to him, so he answers in writing only (the mic button = he answers out loud)
+  buddyRefresh();
+};
+// the mic button: you say it, he answers out loud (like the home-screen popup)
+A['buddy-mic'] = async () => {
+  if (ai.busy || !(typeof JA !== 'undefined' && JA && JA.listen)) return;
+  const who = buddyFor(ui.screen), name = who && who.name;
+  let r = null;
+  try { r = await JA.listen({prompt:(name || 'Your buddy') + ' is listening…'}); } catch (e) { toast((e && e.message) || 'Voice typing didn’t work.'); return; }
+  const text = String((r && r.text) || '').trim(); if (!text) return;   // you cancelled or said nothing
+  if (!buddyOpen) buddyToggle(true);
+  budLogAdd({who:'me', text, via:'voice'});
+  buddyPending = true; aiWho = who;
+  buddyRefresh();
+  try { await aiAsk(text, (r && r.alts) || []); } catch (e) {}
+  for (let k = 0; k < 120 && ai.busy; k++) await new Promise(res => setTimeout(res, 250));   // (wait for the AI if it's still working)
+  const say = ai.err || ai.reply; if (say) buddySpeak(say, who);
   buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection
