@@ -1,5 +1,11 @@
 [
  {
+  "release": 211,
+  "date": "2026-10-26",
+  "notes": "Talking to your buddy with your keyboard's mic now counts as talking: he answers out loud. Typing still gets a quiet answer. Tap Install for the new phone app.",
+  "app": true
+ },
+ {
   "release": 209,
   "date": "2026-10-26",
   "notes": "Your buddy's chat bubble has a mic button now: tap it and talk, and he answers out loud (typing still gets a quiet, written answer). Tap Install for the new phone app.",

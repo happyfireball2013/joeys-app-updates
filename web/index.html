@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610260035;</script>
+<script>window.JOEY_WEB_VERSION = 202610260044;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -6336,10 +6336,27 @@ FORMS.buddyForm = () => {
     buddyPicClear();
   }
   if (!aiImage) budLogAdd({who:'me', text});
-  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen); const who = aiWho;
-  aiAsk(text);   // typed to him, so he answers in writing only (the mic button = he answers out loud)
+  const spoken = budDictated; budDictated = false;   // the keyboard's mic was used (see the input listener)
+  i.value = ''; buddyPending = true; aiWho = buddyFor(ui.screen);
+  buddyAskOut(text, [], spoken);   // typed = he answers in writing; said out loud = he answers out loud too
   buddyRefresh();
 };
+/** Asks him; if you said it out loud (mic button or the keyboard's mic), he says his answer out loud when it's ready. */
+async function buddyAskOut(text, alts, spoken){
+  const who = aiWho;
+  try { await aiAsk(text, alts || []); } catch (e) {}
+  if (!spoken) return;
+  for (let k = 0; k < 120 && ai.busy; k++) await new Promise(res => setTimeout(res, 250));   // (wait for the AI if it's still working)
+  const say = ai.err || ai.reply; if (say) buddySpeak(say, who);
+}
+/* The keyboard's own mic puts in whole phrases at once ("call my pawns"); typing adds a letter or a word at a time.
+   An input that adds 2+ words in one go = you talked (pasting doesn't count). */
+let budDictated = false;
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'buddyInput') return;
+  if (!e.target.value) { budDictated = false; return; }
+  if (/^insert(Text|CompositionText|ReplacementText)$/.test(e.inputType || '') && e.data && e.data.trim().split(/\s+/).length >= 2) budDictated = true;
+}, true);
 // the mic button: you say it, he answers out loud (like the home-screen popup)
 A['buddy-mic'] = async () => {
   if (ai.busy || !(typeof JA !== 'undefined' && JA && JA.listen)) return;
@@ -6351,9 +6368,7 @@ A['buddy-mic'] = async () => {
   budLogAdd({who:'me', text, via:'voice'});
   buddyPending = true; aiWho = who;
   buddyRefresh();
-  try { await aiAsk(text, (r && r.alts) || []); } catch (e) {}
-  for (let k = 0; k < 120 && ai.busy; k++) await new Promise(res => setTimeout(res, 250));   // (wait for the AI if it's still working)
-  const say = ai.err || ai.reply; if (say) buddySpeak(say, who);
+  await buddyAskOut(text, (r && r.alts) || [], true);
   buddyRefresh();
 };
 // pictures go to Gemini, so they need the key and a connection

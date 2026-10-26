@@ -1,5 +1,5 @@
 {
- "web": 202610260035,
+ "web": 202610260044,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 209,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=209"
+  "code": 211,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=211"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Your buddy's chat bubble has a mic button now: tap it and talk, and he answers out loud (typing still gets a quiet, written answer). Tap Install for the new phone app."
+ "notes": "Talking to your buddy with your keyboard's mic now counts as talking: he answers out loud. Typing still gets a quiet answer. Tap Install for the new phone app."
 }
