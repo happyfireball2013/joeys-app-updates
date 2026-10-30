@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610300314;</script>
+<script>window.JOEY_WEB_VERSION = 202610301652;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -3346,6 +3346,8 @@ function aiImageLines(){
   ];
 }
 const buddyName = t => t && t.buddyName ? String(t.buddyName).trim().slice(0, 30) : '';
+/** What the buddy is ("a Pikmin"): theme.buddyKind, else guessed from his voice file's name (the Pikmin voice → a Pikmin). */
+const buddyKind = t => t && t.buddyKind ? String(t.buddyKind).trim().slice(0, 60) : t && t.voice && /pikmin/i.test(t.voice.name || '') ? 'a Pikmin' : '';
 function buddyFor(screen){ const t = thFor(screen); return t && t.img && t.img.mascot ? {id:t.id, name:buddyName(t)} : null; }
 function buddyWhoLines(){
   if (!aiWho) return [];
@@ -3353,11 +3355,25 @@ function buddyWhoLines(){
   return [
     n ? 'You are ' + n + ', ' + who + '’s buddy: the little character who lives in the corner of the app. Your name is ' + n + '. Talk as ' + n + ' in the first person, and if asked your name, say ' + n + '.'
       : 'You are ' + who + '’s buddy: the little character who lives in the corner of the app. You don’t have a name yet.',
+    (buddyKind(t) ? 'You are ' + buddyKind(t) + ' (a real little creature), and you talk like one.' : 'You are a little living creature.') + ' You are NOT a robot, a machine, a computer or an AI assistant: never say beep, boop, bzzt, “processing”, “at your service”, “reporting for duty” or anything robot-like, and never call yourself an AI.',
     'Only if ' + who + ' clearly asks to change your name (like “your name is X now”, “change your name to X”, “I’m going to call you X”), use {"type":"name_buddy","name":""} with just the name, and say you love it. Being called a name, a greeting like “hey X” or “yo X”, or a single word is NOT a request to rename you: never use name_buddy for those.',
     'Requests said out loud are written down by voice typing, so words can be wrong. If it is just a greeting, your name, or doesn’t make sense, don’t do anything: answer in a few words, like asking what they need.'
   ];
 }
-function aiContext(){
+/** The part of the AI's instructions about the buddy who's talking (aiWho): his name, his lines, who he is. */
+function aiBuddyBlock(){
+  return [
+    ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
+    ...(function(){   // the buddy lines: catch them even when voice typing got a word wrong
+      const L = (S.settings.customLines || []).filter(l => !l.buddy || (aiWho && l.buddy === aiWho.id)); if (!L.length) return [];
+      return ['', 'IMPORTANT: custom lines with fixed answers. Requests are usually spoken, and voice typing often gets words wrong ("pawns" comes out as "ponds", "pons", "porns"; "call my" as "call or", "col my"). If the request SOUNDS like one of these lines (say it out loud in your head), it IS that line: use only {"type":"say_line","id":"<id>"}, no other actions, and an empty reply. The app then says the answer:']
+        .concat(L.slice(0, 40).map(l => '- id ' + l.id + ': "' + String(l.say).replace(/"/g, "'") + '"'));
+    })(),
+    ...(aiWho ? ['', ...buddyWhoLines()] : [])
+  ];
+}
+function aiContext(opts){
+  opts = opts || {};
   const now = new Date(), t = todayStr(), s = S.settings, who = s.name || 'the user';
   const clip = (x, n) => String(x || '').replace(/\s+/g, ' ').trim().slice(0, n);
   const days = [];
@@ -3377,8 +3393,9 @@ function aiContext(){
   let tz = 'local time'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
   return [
     'You are the assistant inside ' + (s.name ? s.name + '’s' : 'a') + ' personal organizer app. Turn the request into actions the app will run, and write one short reply.',
-    'Right now it is ' + now.toLocaleDateString('en-US', {weekday:'long'}) + ' ' + t + ', ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ' (' + tz + ').',
-    'Dates for the next two weeks: ' + days.join(', ') + '.',
+    // (the phone's own small brain fills in the time and dates itself when it answers: Brain.java)
+    opts.brain ? '{{NOW}}' : 'Right now it is ' + now.toLocaleDateString('en-US', {weekday:'long'}) + ' ' + t + ', ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ' (' + tz + ').',
+    opts.brain ? '{{DAYS}}' : 'Dates for the next two weeks: ' + days.join(', ') + '.',
     '',
     'Rules:',
     '- In the JSON, dates are YYYY-MM-DD and times are 24-hour HH:MM. A weekday name means the soonest such day that has not already passed; use the dates above.',
@@ -3424,15 +3441,7 @@ function aiContext(){
     '{"type":"quiet_auto","work":"vibrate","class":"silent"} sets what the phone does during every work shift / class: off, vibrate or silent (give only what changes)',
     '{"type":"music","do":"play","song":"","artist":"","query":""} controls Spotify on the phone. do is play (a song, artist, album or playlist you name: query is what to search, like "Blinding Lights The Weeknd"; song and artist when you know them), resume ("play some music", "unpause", "keep playing"), pause ("stop the music"), next ("skip"), previous ("go back a song") or restart ("start this song over"). Use it whenever music, a song, Spotify, skip or pause is asked for.',
     '',
-    ...(aiWho ? ['{"type":"name_buddy","name":""} sets your own name (you are the buddy)'] : []),
-    ...(function(){   // the buddy lines: catch them even when voice typing got a word wrong
-      const L = (S.settings.customLines || []).filter(l => !l.buddy || (aiWho && l.buddy === aiWho.id)); if (!L.length) return [];
-      return ['', 'IMPORTANT: custom lines with fixed answers. Requests are usually spoken, and voice typing often gets words wrong ("pawns" comes out as "ponds", "pons", "porns"; "call my" as "call or", "col my"). If the request SOUNDS like one of these lines (say it out loud in your head), it IS that line: use only {"type":"say_line","id":"<id>"}, no other actions, and an empty reply. The app then says the answer:']
-        .concat(L.slice(0, 40).map(l => '- id ' + l.id + ': "' + String(l.say).replace(/"/g, "'") + '"'));
-    })(),
-    ...(aiWho ? ['', ...buddyWhoLines()] : []),
-    ...aiImageLines(),
-    ...aiAudioLines(ai.req),
+    ...(opts.brain ? ['{{BUDDY}}'] : aiBuddyBlock().concat(aiImageLines(), aiAudioLines(ai.req))),
     '',
     'Reply with only one JSON object: {"actions":[...],"reply":"..."}',
     'Example for "remind me tuesday at 3 to take out the dishes": {"actions":[{"type":"add_reminder","text":"Take out the dishes","date":"<the coming Tuesday>","time":"15:00","repeat":"none"}],"reply":"Got it. I’ll remind you Tuesday at 3:00 PM to take out the dishes."}'
@@ -6124,24 +6133,24 @@ const BUDDY_HELLOS = [
   'Hi! What can I do for you?',
   'Hey {you}! What’s up?',
   'Oh, hi! Need something?',
-  'You rang? 🔔',
-  'Reporting for duty! What’s the plan?',
+  '*hops over* What’s up, {you}?',
+  'Oh! You’re here! What do we do first?',
   'Hey hey! How can I help?',
   'I was just thinking about you! What do you need?',
   'Yes? I’m all ears.',
-  'Boop! What are we doing today?',
+  '*waves a tiny hand* Hi hi!',
   'Ready when you are, {you}.',
   'Tell me what to remember and I’ll remember it.',
   'Need a reminder, a note, or just someone to talk to?',
   'Oh! You found me. What’s going on?',
-  'At your service! ✨',
+  '*peeks out* Oh, hi! ✨',
   'Hi again! Miss me?',
   'Let’s get stuff done. What first?',
   'What’s on your mind?',
   'I’m here! Ask me anything.',
   '{me} here! What can I do for you?',
   'It’s me, {me}! What do you need?',
-  '{me} at your service!',
+  '{me} here, ready to help!',
   'Hi, it’s {me}! Got something for me?',
   '*{me} waves* Hi {you}!'
 ];
@@ -6446,6 +6455,7 @@ function thEditorHTML(id){
       (busy ? '<span class="muted">Adding…</span>' : '<button type="button" class="btn sm" data-action="th-pick" data-slot="' + slot + '">' + (u ? 'Change' : 'Add') + '</button>' + (u ? '<button type="button" class="btn sm" data-action="th-rm" data-slot="' + slot + '" aria-label="Remove">' + icon('x') + '</button>' : '')) + '</div>' +
       (slot === 'buddy' && u ? '<div class="th-sub"><span>Where</span>' + seg('buddyAt', [['hold','Under the time'],['corner','Corner']]) + '<span>Size</span>' + seg('buddySize', [['s','Small'],['m','Medium'],['l','Large']]) + '<span>Motion</span>' + seg('buddyMove', [['squish','Squish'],['bounce','Bounce'],['none','Still']]) + '</div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thBuddyName">Name</label><input class="in" id="thBuddyName" maxlength="30" value="' + esc(t.buddyName || '') + '" placeholder="Give your buddy a name"></div>' : '') +
+      (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thBuddyKind">What is he?</label><input class="in" id="thBuddyKind" maxlength="60" value="' + esc(t.buddyKind || '') + '" placeholder="' + esc(buddyKind(t) || 'Like: a Pikmin') + '"><small class="muted">So he talks like one (never like a robot).</small></div>' : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-bname"><label for="thWake">Wake phrase</label><input class="in" id="thWake" maxlength="120" value="' + esc(t.wakePhrase || '') + '" placeholder="' + esc('Hey ' + (t.buddyName || 'buddy') + ', Yo ' + (t.buddyName || 'buddy')) + '"><small class="muted">More than one? Split them with commas.</small></div>' +
         '<p class="hint th-wake-hint">Say it to call him hands-free on your phone, like “Hey Siri”. Turn it on in Settings → Hands-free buddy.</p>' + thVoiceHTML(id, t) : '') +
       (slot === 'mascot' && u ? '<div class="th-sub th-pause"><span>Pause instead of restarting<small>For a GIF: when you close his bubble he freezes where he is, and picks up from there next time</small></span><button type="button" class="toggle" data-action="th-opt" data-k="mascotPause" data-v="' + (t.mascotPause ? 'false' : 'true') + '" aria-pressed="' + !!t.mascotPause + '" aria-label="Pause instead of restarting"></button></div>' : '') +
@@ -6648,6 +6658,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'thName' && TH.themes[thOpen]) { TH.themes[thOpen].name = t.value.trim().slice(0, 40) || 'My theme'; thSave(); }
   else if (t.id === 'thWake' && TH.themes[thOpen]) { const v = t.value.replace(/\s+/g, ' ').trim().slice(0, 120); if (v) TH.themes[thOpen].wakePhrase = v; else delete TH.themes[thOpen].wakePhrase; thSave(); }
   else if (t.id === 'thBuddyName' && TH.themes[thOpen]) { const v = t.value.trim().slice(0, 30); if (v) TH.themes[thOpen].buddyName = v; else delete TH.themes[thOpen].buddyName; thSave(); }
+  else if (t.id === 'thBuddyKind' && TH.themes[thOpen]) { const v = t.value.replace(/\s+/g, ' ').trim().slice(0, 60); if (v) TH.themes[thOpen].buddyKind = v; else delete TH.themes[thOpen].buddyKind; thSave(); }
 });
 document.addEventListener('input', e => {
   const t = e.target;
@@ -7356,6 +7367,7 @@ window.__joeyAsk = async function(){
       let r = null; try { r = await JW.takeAsks(); } catch (e) { break; }
       const asks = (r && r.asks) || []; if (!asks.length) break;
       for (const a of asks) {
+        if (a.done) { try { brainApply(a); } catch (e) {} continue; }   // the phone's small brain already answered: just do the rest
         for (let i = 0; i < 120 && ai.busy; i++) await askSleep(500);
         Object.assign(ai, {reply:'', lines:[], undo:[], err:'', engine:'', engineWhy:''});
         // which buddy: the one whose wake phrase you said, or the widget buddy (the menu theme's corner buddy)
@@ -7383,6 +7395,75 @@ window.__joeyAsk = async function(){
     }
   } finally { askBusy = false; }
 };
+/* ---- Steve's small brain ----
+   The popup answers by itself (Brain.java calls Gemini straight from the phone), so he can think while the app is closed.
+   The app hands it what he needs to know: the Gemini key and the same instructions the app's AI gets (reminders, events,
+   notes… with the time left for the phone to fill in), plus each buddy's own part (name, what he is, his lines).
+   Things only the app can do (add a note, an event…) come back here as `done` asks and are done the next time the app runs. */
+let brainSig = '';
+function brainPack(){
+  const who0 = aiWho;
+  try {
+    aiWho = null;
+    const base = aiContext({brain:true});
+    const buddies = {};
+    Object.entries(TH.themes || {}).forEach(([id, t]) => {
+      if (!t || !t.img || !t.img.mascot) return;
+      aiWho = {id, name:buddyName(Object.assign({id}, t))};
+      const lines = (S.settings.customLines || []).filter(l => !l.buddy || l.buddy === id).slice(0, 40).map(l => ({id:l.id, say:String(l.say || ''), reply:customReplyText(l, aiWho), mine:!!l.buddy}));
+      buddies[id] = {name:aiWho.name, block:aiBuddyBlock().join('\n'), lines};
+    });
+    aiWho = null;
+    const hb = buddyFor('home');
+    const names = Object.values(buddies).map(b => b.name).filter(Boolean);
+    return {key:gemKey(), base, buddies, home:(hb && hb.id) || '', names, models:GEM.models, model:GEM.model || '', you:S.settings.name || '', h24:!!S.settings.hour24,
+      remTime:S.settings.remTime || '09:00', alarmSound:S.settings.alarmSound || 'tone:chime', alarmSnooze:Number(S.settings.alarmSnooze) || 10, alarmFade:!!S.settings.alarmFade,
+      tail:'\nAnswer any other question or chat briefly in reply, with no actions. You are the buddy described above (stay in character), inside Joey’s Multipurpose App on his phone.',
+      none:'\nAnswer any other question or chat briefly in reply, with no actions. You are Gemini, the assistant inside Joey’s Multipurpose App on his phone.'};
+  } finally { aiWho = who0; }
+}
+function syncBrain(now){
+  if (!JW || !JW.setBrain || typeof aiContext !== 'function' || typeof gemKey !== 'function') return;
+  if (!now && Date.now() - (syncBrain.at || 0) < 15000) { clearTimeout(syncBrain.t); syncBrain.t = setTimeout(() => syncBrain(true), 15000); return; }
+  syncBrain.at = Date.now();
+  let p; try { p = brainPack(); } catch (e) { return; }
+  const sig = JSON.stringify(p);
+  if (sig === brainSig) return;
+  JW.setBrain(p).then(() => { brainSig = sig; }).catch(() => {});
+}
+/** A one-time alarm the phone already rang by itself (the app was closed the whole time): don't add it again. */
+function brainRang(x, at){
+  if (!at || (Array.isArray(x.days) && x.days.length) || !/^\d{2}:\d{2}$/.test(String(x.time || ''))) return false;
+  const d = new Date(at), [h, m] = x.time.split(':').map(Number);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(x.date || ''))) { const p = x.date.split('-').map(Number); d.setFullYear(p[0], p[1] - 1, p[2]); d.setHours(h, m, 0, 0); }
+  else { d.setHours(h, m, 0, 0); if (d.getTime() <= at) d.setDate(d.getDate() + 1); }
+  return d.getTime() < Date.now();
+}
+/** An answer the phone's small brain gave by itself: do the actions only the app can do, and put it in his chat. */
+function brainApply(a){
+  aiWho = a.theme && TH.themes[a.theme] ? {id:a.theme, name:buddyName(Object.assign({id:a.theme}, TH.themes[a.theme]))} : buddyFor('home');
+  let acts = []; try { acts = JSON.parse(a.out || '[]'); } catch (e) {}
+  if (!Array.isArray(acts)) acts = [];
+  acts = acts.map(x => {   // a timer started a while ago only has what's left of it
+    if (x && x.type === 'start_timer' && a.at) return Object.assign({}, x, {minutes:Number(x.minutes) - (Date.now() - a.at) / 6e4});
+    return x;
+  }).filter(x => x && !(x.type === 'start_timer' && !(x.minutes > 0.05)) && !(x.type === 'add_alarm' && brainRang(x, a.at)));
+  let lines = [];
+  if (acts.length) { const res = applyAiActions({actions:acts, reply:a.reply || ''}); lines = res.lines || []; }
+  let nat = []; try { nat = JSON.parse(a.lines || '[]'); } catch (e) {}
+  if (a.until != null && typeof wakeAwakeSet === 'function') { try { localStorage.setItem('jma:wakeAwakeUntil', String(a.until || 0)); } catch (e) {} }
+  const th = aiWho && aiWho.id, key = 'jma:budLog:' + (th || 'none'), shown = !!a.shown;
+  budLogAdd({who:'me', text:String(a.text || ''), via:a.voice ? 'voice' : '', theme:th}, key);
+  budLogAdd(a.err ? {who:'bud', text:a.err, err:true, theme:th, unread:!shown} : {who:'bud', text:a.reply || 'Done!', lines:nat.concat(lines.map(l => ({text:l.text, sub:l.sub || ''}))), theme:th, unread:!shown}, key);
+  try { budDotSync(); } catch (e) {}
+  render(); syncWidgets(true);
+}
+if (NATIVE && JW) {
+  setTimeout(() => syncBrain(true), 4000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) syncBrain(true); });   // fresh when you leave the app
+  const _renderBrain = render;
+  render = function(){ _renderBrain(); syncBrain(); };
+}
 A['buddy'] = () => { const m = $('#thMascot'); if (m && !m.hidden && typeof buddyOpen !== 'undefined' && !buddyOpen) buddyToggle(true); };
 if (NATIVE && JW) {
   setTimeout(() => window.__joeyAsk(), 1500);
@@ -8159,7 +8240,7 @@ async function gemRun(text, fallback){
     Object.assign(ai, {busy:true, req:text, reply:'', lines:[], undo:[], err:''});
     ui.aiText = ''; render();
     aiCtl = {abort(){ gemReq++; ai.busy = false; aiCtl = null; ui.aiText = text; render(); }};
-    const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. ' + (aiWho ? 'You are the buddy described above (Gemini runs you behind the scenes), inside Joey’s Multipurpose App on his ' : 'You are Gemini, the assistant inside Joey’s Multipurpose App on his ') + (NATIVE ? 'phone' : 'computer') + '.';
+    const system = aiContext() + '\nAnswer any other question or chat briefly in reply, with no actions. ' + (aiWho ? 'You are the buddy described above (stay in character), inside Joey’s Multipurpose App on his ' : 'You are Gemini, the assistant inside Joey’s Multipurpose App on his ') + (NATIVE ? 'phone' : 'computer') + '.';
     const img = aiImage; aiImage = null;   // a picture sent with this request (read once)
     const aud = aiAudio; aiAudio = null;   // the recording of a spoken request (read once): Gemini listens to it
     const contents = turns.map(t => ({role:t.role === 'assistant' ? 'model' : 'user', parts:[{text:t.content}]}))

@@ -1,5 +1,5 @@
 {
- "web": 202610300314,
+ "web": 202610301652,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 215,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=215"
+  "code": 216,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=216"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "The reminder count on the Ditto widget now sits on Ditto's shoulder, fully visible. Tap Install for the new phone app."
+ "notes": "Steve now thinks on his own on your phone, so he answers right away even when the app is closed, and he talks like a little Pikmin instead of a robot."
 }

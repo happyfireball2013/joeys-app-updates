@@ -1,5 +1,11 @@
 [
  {
+  "release": 216,
+  "date": "2026-10-30",
+  "notes": "Steve now thinks on his own on your phone, so he answers right away even when the app is closed, and he talks like a little Pikmin instead of a robot.",
+  "app": true
+ },
+ {
   "release": 215,
   "date": "2026-10-30",
   "notes": "The reminder count on the Ditto widget now sits on Ditto's shoulder, fully visible. Tap Install for the new phone app.",
