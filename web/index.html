@@ -51,7 +51,7 @@ html.desk-bar #updNotice{top:48px}
 #updNotice .un-x:hover{background:var(--surface-2)}
 .na-row small{display:block;font-weight:400;color:var(--ink-2);font-size:.78rem}
 </style>
-<script>window.JOEY_WEB_VERSION = 202610260044;</script>
+<script>window.JOEY_WEB_VERSION = 202610300141;</script>
 <script src="capacitor.js"></script>
 <script src="firebase-config.js"></script>
 <title>Joey's Multipurpose App</title>
@@ -1657,10 +1657,11 @@ function remUpcoming(limit){
     const rep = r.repeat && r.repeat !== 'none';
     if (r.done && !rep) return;
     let d = r.done ? nextDate(r) : r.date;
+    // (rep + hm go to the phone so it can line up the next one by itself after one goes off: Reminders.rollOn)
     for (let i = 0; i < 30 && d; i++) {
       const ts = remDue(Object.assign({}, r, {date:d}));
       if (ts > end) break;
-      if (ts > now) out.push({id, ts, title:r.text || 'Reminder', sub:r.time ? 'Due at ' + fmtHM(r.time) : 'Today'});
+      if (ts > now) out.push({id, ts, title:r.text || 'Reminder', sub:r.time ? 'Due at ' + fmtHM(r.time) : 'Today', rep:rep ? r.repeat : '', hm:r.time || S.settings.remTime || '09:00'});
       if (!rep) break;
       d = nextDate(Object.assign({}, r, {date:d}));
     }
@@ -7606,7 +7607,7 @@ if (NATIVE && JA) {
 let remNatKey = null, remToneSent = null; try { remToneSent = localStorage.getItem('jma:remTone'); } catch (e) {}
 async function syncRemindersNative(){
   if (!JA || syncRemindersNative.busy || Date.now() - (syncRemindersNative.failAt || 0) < 60000) return;
-  const s = S.settings, items = remUpcoming(60), th = thFor('reminders'), slot = th && sfxSlots(th, 'remDue')[0];
+  const s = S.settings, items = remUpcoming(160), th = thFor('reminders'), slot = th && sfxSlots(th, 'remDue')[0];
   // the sound: your Reminders theme's "due" sound, or Chime when it doesn't have one
   let soundKey = slot ? 'theme:' + th.id + ':' + slot + ':' + th.img[slot] + ':' + (th.sfxVol == null ? 70 : th.sfxVol) + ':' + ((th.sfxV && th.sfxV.remDue) ?? 100) : 'chime';
   const sound = !s.sound || s.volume <= 0 || devVol <= 0 ? 'none' : 'tone:' + (slot ? 'theme' : 'chime');

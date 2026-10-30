@@ -1,5 +1,5 @@
 {
- "web": 202610260044,
+ "web": 202610300141,
  "files": [
   "capacitor.js",
   "changelog.json",
@@ -36,12 +36,12 @@
  "needApk": 29,
  "needExe": 29,
  "apk": {
-  "code": 211,
-  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=211"
+  "code": 214,
+  "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp.apk?v=214"
  },
  "exe": {
   "code": 36,
   "url": "https://raw.githubusercontent.com/happyfireball2013/joeys-app-updates/main/JoeysApp-Setup.exe"
  },
- "notes": "Talking to your buddy with your keyboard's mic now counts as talking: he answers out loud. Typing still gets a quiet answer. Tap Install for the new phone app."
+ "notes": "Daily reminders keep notifying even if you don't open the app, and pop up on screen again; your buddy now answers right away even if you close his popup or the screen goes off. Tap Install for the new phone app."
 }

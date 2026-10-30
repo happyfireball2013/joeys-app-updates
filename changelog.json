@@ -1,5 +1,11 @@
 [
  {
+  "release": 214,
+  "date": "2026-10-30",
+  "notes": "Daily reminders keep notifying even if you don't open the app, and pop up on screen again; your buddy now answers right away even if you close his popup or the screen goes off. Tap Install for the new phone app.",
+  "app": true
+ },
+ {
   "release": 211,
   "date": "2026-10-26",
   "notes": "Talking to your buddy with your keyboard's mic now counts as talking: he answers out loud. Typing still gets a quiet answer. Tap Install for the new phone app.",
